@@ -8,9 +8,11 @@ import NavigationItem from "discourse/components/navigation-item";
 import PluginOutlet from "discourse/components/plugin-outlet";
 import DMenu from "discourse/float-kit/components/d-menu";
 import icon from "discourse/helpers/d-icon";
+import i18n from "discourse/helpers/i18n";
 import lazyHash from "discourse/helpers/lazy-hash";
 import { filterTypeForMode } from "discourse/lib/filter-mode";
 import { applyValueTransformer } from "discourse/lib/transformer";
+import toolbarNavigation from "discourse/modifiers/toolbar-navigation";
 
 export default class NavigationBarComponent extends Component {
   @service site;
@@ -48,8 +50,8 @@ export default class NavigationBarComponent extends Component {
   }
 
   <template>
-    <ul id="navigation-bar" class="nav nav-pills">
-      {{#if this.showDropdown}}
+    {{#if this.showDropdown}}
+      <ul id="navigation-bar" class="nav nav-pills">
         <li>
           <DMenu
             @modalForMobile={{true}}
@@ -97,7 +99,16 @@ export default class NavigationBarComponent extends Component {
             @outletArgs={{lazyHash category=@category filterMode=@filterMode}}
           />
         </li>
-      {{else}}
+      </ul>
+    {{else}}
+      <ul
+        id="navigation-bar"
+        class="nav nav-pills"
+        role="toolbar"
+        aria-label={{i18n "navigation.toolbar_label"}}
+        aria-orientation="horizontal"
+        {{toolbarNavigation itemSelector="a"}}
+      >
         {{#each @navItems as |navItem|}}
           <NavigationItem
             @content={{navItem}}
@@ -115,8 +126,7 @@ export default class NavigationBarComponent extends Component {
             filterMode=@filterMode
           }}
         />
-
-      {{/if}}
-    </ul>
+      </ul>
+    {{/if}}
   </template>
 }
