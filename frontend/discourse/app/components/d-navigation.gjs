@@ -15,7 +15,9 @@ import NavigationBar from "discourse/components/navigation-bar";
 import PluginOutlet from "discourse/components/plugin-outlet";
 import TagNotificationsTracking from "discourse/components/tag-notifications-tracking";
 import TopicDismissButtons from "discourse/components/topic-dismiss-buttons";
+import i18n from "discourse/helpers/i18n";
 import lazyHash from "discourse/helpers/lazy-hash";
+import toolbarNavigation from "discourse/modifiers/toolbar-navigation";
 import { setting } from "discourse/lib/computed";
 import discourseComputed from "discourse/lib/decorators";
 import { filterTypeForMode } from "discourse/lib/filter-mode";
@@ -199,33 +201,41 @@ export default class DNavigation extends Component {
   }
 
   <template>
-    <BreadCrumbs
-      @categories={{this.categories}}
-      @category={{this.category}}
-      @noSubcategories={{this.noSubcategories}}
-      @tag={{this.tag}}
-      @additionalTags={{this.additionalTags}}
-    />
-
-    <PluginOutlet
-      @name="after-breadcrumbs"
-      @outletArgs={{lazyHash
-        categories=this.categories
-        category=this.category
-        tag=this.tag
-        additionalTags=this.additionalTags
-      }}
-    />
-
-    {{#unless this.additionalTags}}
-      {{! nav bar doesn't work with tag intersections }}
-      <NavigationBar
-        @navItems={{this.navItems}}
-        @filterMode={{this.filterMode}}
+    <div
+      class="topic-filter-toolbar"
+      role="toolbar"
+      aria-label={{i18n "navigation.toolbar_label"}}
+      aria-orientation="horizontal"
+      {{toolbarNavigation itemSelector=".category-breadcrumb summary, .category-breadcrumb button, #navigation-bar a"}}
+    >
+      <BreadCrumbs
+        @categories={{this.categories}}
         @category={{this.category}}
+        @noSubcategories={{this.noSubcategories}}
         @tag={{this.tag}}
+        @additionalTags={{this.additionalTags}}
       />
-    {{/unless}}
+
+      <PluginOutlet
+        @name="after-breadcrumbs"
+        @outletArgs={{lazyHash
+          categories=this.categories
+          category=this.category
+          tag=this.tag
+          additionalTags=this.additionalTags
+        }}
+      />
+
+      {{#unless this.additionalTags}}
+        {{! nav bar doesn't work with tag intersections }}
+        <NavigationBar
+          @navItems={{this.navItems}}
+          @filterMode={{this.filterMode}}
+          @category={{this.category}}
+          @tag={{this.tag}}
+        />
+      {{/unless}}
+    </div>
 
     <div class="navigation-controls">
       {{#if this.showBulkSelectInNavControls}}

@@ -4855,7 +4855,7 @@ en:
     categories_list: "Categories List"
 
     navigation:
-      toolbar_label: "Topic navigation"
+      toolbar_label: "Topic filters"
 
     filters:
       with_topics: "%{filter} topics"
