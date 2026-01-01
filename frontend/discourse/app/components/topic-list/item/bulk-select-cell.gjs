@@ -1,7 +1,7 @@
 import { on } from "@ember/modifier";
 
 const BulkSelectCell = <template>
-  <td class="bulk-select topic-list-data">
+  <td class="bulk-select topic-list-data" role="gridcell">
     <label for="bulk-select-{{@topic.id}}">
       <input
         {{on "click" @onBulkSelectToggle}}

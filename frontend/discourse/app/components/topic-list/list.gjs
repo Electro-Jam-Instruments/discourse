@@ -11,6 +11,7 @@ import {
   applyMutableValueTransformer,
   applyValueTransformer,
 } from "discourse/lib/transformer";
+import gridNavigation from "discourse/modifiers/grid-navigation";
 import { eq, or } from "discourse/truth-helpers";
 import { i18n } from "discourse-i18n";
 import HeaderActivityCell from "./header/activity-cell";
@@ -189,11 +190,14 @@ export default class TopicList extends Component {
         (if this.bulkSelectEnabled "sticky-header bulk-select-enabled")
         this.additionalClasses
       }}
+      role="grid"
       aria-labelledby={{@ariaLabelledby}}
+      aria-rowcount={{@topics.length}}
+      {{gridNavigation}}
       ...attributes
     >
       <caption class="sr-only">{{i18n "sr_topic_list_caption"}}</caption>
-      <thead class="topic-list-header">
+      <thead class="topic-list-header" role="rowgroup">
         <Header
           @columns={{this.columns}}
           @canBulkSelect={{@canBulkSelect}}
@@ -223,7 +227,7 @@ export default class TopicList extends Component {
         }}
       />
 
-      <tbody class="topic-list-body">
+      <tbody class="topic-list-body" role="rowgroup">
         {{#each @topics as |topic index|}}
           <Item
             @columns={{this.columns}}

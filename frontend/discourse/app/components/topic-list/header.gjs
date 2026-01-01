@@ -2,7 +2,7 @@ import { hash } from "@ember/helper";
 import { applyValueTransformer } from "discourse/lib/transformer";
 
 const Header = <template>
-  <tr>
+  <tr role="row">
     {{#each @columns as |entry|}}
       <entry.value.header
         @sortable={{applyValueTransformer

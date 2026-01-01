@@ -2,7 +2,7 @@ import UserLink from "discourse/components/user-link";
 import avatar from "discourse/helpers/avatar";
 
 const PostersCell = <template>
-  <td class="posters topic-list-data">
+  <td class="posters topic-list-data" role="gridcell">
     {{#each @topic.featuredUsers as |poster|}}
       {{#if poster.moreCount}}
         <a class="posters-more-count">{{poster.moreCount}}</a>

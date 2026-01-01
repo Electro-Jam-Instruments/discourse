@@ -88,6 +88,21 @@ export default class Item extends Component {
     return this.site.desktopView && this.args.focusLastVisitedTopic;
   }
 
+  /**
+   * ARIA role for the row - always "row" for grid pattern
+   */
+  get role() {
+    return "row";
+  }
+
+  /**
+   * Tabindex for roving tabindex pattern
+   * First row (index 0) gets tabindex="0", others get "-1"
+   */
+  get tabindex() {
+    return this.args.index === 0 ? "0" : "-1";
+  }
+
   @action
   navigateToTopic(topic, href) {
     this.historyStore.set("lastTopicIdViewed", topic.id);
@@ -274,7 +289,7 @@ export default class Item extends Component {
       {{on "auxclick" this.click}}
       data-topic-id={{@topic.id}}
       role={{this.role}}
-      aria-level={{this.ariaLevel}}
+      tabindex={{this.tabindex}}
       class={{concatClass
         "topic-list-item"
         (if @topic.category (concat "category-" @topic.category.fullSlug))

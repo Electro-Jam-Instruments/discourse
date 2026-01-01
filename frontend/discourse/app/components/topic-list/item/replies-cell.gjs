@@ -55,6 +55,7 @@ export default class RepliesCell extends Component {
   <template>
     <this.wrapperElement
       class="num posts-map posts {{this.likesHeat}} topic-list-data"
+      role="gridcell"
     >
       <a
         href={{@topic.firstPostUrl}}

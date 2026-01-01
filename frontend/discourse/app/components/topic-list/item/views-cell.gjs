@@ -4,7 +4,7 @@ import lazyHash from "discourse/helpers/lazy-hash";
 import number from "discourse/helpers/number";
 
 const ViewsCell = <template>
-  <td class={{concatClass "num views topic-list-data" @topic.viewsHeat}}>
+  <td class={{concatClass "num views topic-list-data" @topic.viewsHeat}} role="gridcell">
     <PluginOutlet
       @name="topic-list-before-view-count"
       @outletArgs={{lazyHash topic=@topic}}

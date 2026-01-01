@@ -48,7 +48,7 @@ export default class TopicCell extends Component {
   }
 
   <template>
-    <td class="main-link topic-list-data" colspan="1">
+    <td class="main-link topic-list-data" colspan="1" role="gridcell">
       <PluginOutlet
         @name="topic-list-before-link"
         @outletArgs={{lazyHash topic=@topic}}

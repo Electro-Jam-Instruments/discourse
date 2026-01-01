@@ -3,7 +3,7 @@ import number from "discourse/helpers/number";
 import { gt } from "discourse/truth-helpers";
 
 const LikesCell = <template>
-  <td class="num likes topic-list-data">
+  <td class="num likes topic-list-data" role="gridcell">
     {{#if (gt @topic.like_count 0)}}
       <a href={{@topic.summaryUrl}}>
         {{number @topic.like_count}}
