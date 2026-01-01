@@ -98,6 +98,30 @@
       margin-block: 0;
     }
   }
+
+  // Focus styles for grid navigation - full rectangle highlight
+  &:focus {
+    outline: 2px solid var(--tertiary);
+    outline-offset: -2px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tertiary);
+    outline-offset: -2px;
+  }
+}
+
+// Header row focus styles for grid navigation
+.topic-list-header tr[role="row"] {
+  &:focus {
+    outline: 2px solid var(--tertiary);
+    outline-offset: -2px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tertiary);
+    outline-offset: -2px;
+  }
 }
 
 .topic-list-main-link {

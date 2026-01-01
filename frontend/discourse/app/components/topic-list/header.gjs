@@ -1,8 +1,14 @@
 import { hash } from "@ember/helper";
 import { applyValueTransformer } from "discourse/lib/transformer";
+import { i18n } from "discourse-i18n";
 
 const Header = <template>
-  <tr role="row">
+  <tr
+    role="row"
+    tabindex="-1"
+    aria-rowindex="1"
+    aria-label={{i18n "sr_topic_list_header"}}
+  >
     {{#each @columns as |entry|}}
       <entry.value.header
         @sortable={{applyValueTransformer

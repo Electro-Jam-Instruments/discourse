@@ -72,11 +72,23 @@ export default class ToolbarNavigationModifier extends Modifier {
    * @param {object} named - Named arguments for configuration options
    */
   modify(element, positional, named) {
-    this.element = element;
+    // Only set up listeners once
+    if (this.element !== element) {
+      this.cleanup();
+      this.element = element;
+      this.element.addEventListener("keydown", this.handleKeydown);
+      this.element.addEventListener("focusin", this.handleFocusIn);
+    }
+
     this.options = { ...this.options, ...named };
 
-    this.element.addEventListener("keydown", this.handleKeydown);
-    this.element.addEventListener("focusin", this.handleFocusIn);
+    // Try to preserve focus on the currently focused item if it's in the toolbar
+    const focusedElement = document.activeElement;
+    const items = this.items;
+    const focusedIndex = items.indexOf(focusedElement);
+    if (focusedIndex !== -1) {
+      this.activeIndex = focusedIndex;
+    }
 
     this.updateTabindices();
   }
@@ -202,9 +214,20 @@ export default class ToolbarNavigationModifier extends Modifier {
   /**
    * Updates tabindex attributes on all items to implement roving tabindex.
    * Only the active item has tabindex="0", all others have tabindex="-1".
+   * Also ensures activeIndex is within valid bounds if items have changed.
    */
   updateTabindices() {
-    this.items.forEach((item, index) => {
+    const items = this.items;
+    if (items.length === 0) {
+      return;
+    }
+
+    // Ensure activeIndex is valid (items might have changed)
+    if (this.activeIndex < 0 || this.activeIndex >= items.length) {
+      this.activeIndex = 0;
+    }
+
+    items.forEach((item, index) => {
       item.setAttribute("tabindex", index === this.activeIndex ? "0" : "-1");
     });
   }

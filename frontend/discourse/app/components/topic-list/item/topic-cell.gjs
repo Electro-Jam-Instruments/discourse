@@ -54,7 +54,7 @@ export default class TopicCell extends Component {
         @outletArgs={{lazyHash topic=@topic}}
       />
 
-      <span class="link-top-line" role="heading" aria-level="2">
+      <span class="link-top-line">
         {{~! no whitespace ~}}
         <PluginOutlet
           @name="topic-list-before-status"
