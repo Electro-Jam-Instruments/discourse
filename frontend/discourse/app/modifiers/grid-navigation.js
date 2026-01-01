@@ -14,18 +14,22 @@ import {
  *
  * Keyboard Support:
  * - Arrow Up/Down: Move between rows
- * - Enter: Activate current row (navigate to topic)
- * - Home: First row
- * - End: Last row
+ * - Arrow Left/Right: Move between focusable elements within current row
+ * - Enter: Activate current focused element
+ * - Home: First row (Ctrl+Home: first focusable in row)
+ * - End: Last row (Ctrl+End: last focusable in row)
  * - Page Up/Down: Jump multiple rows
  */
 export default class GridNavigationModifier extends Modifier {
   element = null;
   activeRowIndex = 0;
+  activeFocusableIndex = 0;
   options = {
     rowSelector: 'tbody tr[role="row"]',
+    focusableSelector: 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
     pageSize: 10,
     wrap: false,
+    loadMoreThreshold: 3,
   };
 
   constructor(owner, args) {
@@ -54,6 +58,24 @@ export default class GridNavigationModifier extends Modifier {
     return Array.from(this.element.querySelectorAll(this.options.rowSelector));
   }
 
+  /**
+   * Get all focusable elements within a specific row
+   */
+  getFocusablesInRow(row) {
+    if (!row) {
+      return [];
+    }
+    return Array.from(row.querySelectorAll(this.options.focusableSelector));
+  }
+
+  /**
+   * Get focusable elements in the current active row
+   */
+  get currentRowFocusables() {
+    const row = this.rows[this.activeRowIndex];
+    return this.getFocusablesInRow(row);
+  }
+
   handleKeydown(event) {
     const { key, ctrlKey, metaKey } = event;
     const modifier = ctrlKey || metaKey;
@@ -79,13 +101,39 @@ export default class GridNavigationModifier extends Modifier {
         handled = true;
         break;
 
+      case "ArrowRight":
+        if (modifier) {
+          this.focusLastFocusableInRow();
+        } else {
+          this.focusNextFocusableInRow();
+        }
+        handled = true;
+        break;
+
+      case "ArrowLeft":
+        if (modifier) {
+          this.focusFirstFocusableInRow();
+        } else {
+          this.focusPreviousFocusableInRow();
+        }
+        handled = true;
+        break;
+
       case "Home":
-        this.focusFirstRow();
+        if (modifier) {
+          this.focusFirstFocusableInRow();
+        } else {
+          this.focusFirstRow();
+        }
         handled = true;
         break;
 
       case "End":
-        this.focusLastRow();
+        if (modifier) {
+          this.focusLastFocusableInRow();
+        } else {
+          this.focusLastRow();
+        }
         handled = true;
         break;
 
@@ -100,7 +148,7 @@ export default class GridNavigationModifier extends Modifier {
         break;
 
       case "Enter":
-        this.activateCurrentRow();
+        this.activateCurrentFocusable();
         handled = true;
         break;
     }
@@ -114,10 +162,19 @@ export default class GridNavigationModifier extends Modifier {
   handleFocusIn(event) {
     const row = event.target.closest(this.options.rowSelector);
     if (row) {
-      const index = this.rows.indexOf(row);
-      if (index !== -1 && index !== this.activeRowIndex) {
-        this.activeRowIndex = index;
-        this.updateTabindices();
+      const rowIndex = this.rows.indexOf(row);
+      if (rowIndex !== -1) {
+        if (rowIndex !== this.activeRowIndex) {
+          this.activeRowIndex = rowIndex;
+          this.updateTabindices();
+        }
+
+        // Track which focusable element has focus within the row
+        const focusables = this.getFocusablesInRow(row);
+        const focusableIndex = focusables.indexOf(event.target);
+        if (focusableIndex !== -1) {
+          this.activeFocusableIndex = focusableIndex;
+        }
       }
     }
   }
@@ -129,11 +186,15 @@ export default class GridNavigationModifier extends Modifier {
       this.activeRowIndex,
       this.options.wrap
     );
+
+    // Check if we should trigger load-more (approaching end of list)
+    const threshold = this.options.loadMoreThreshold;
+    if (this.options.onLoadMore && rows.length - newIndex <= threshold) {
+      this.options.onLoadMore();
+    }
+
     if (newIndex !== this.activeRowIndex) {
       this.focusRow(newIndex);
-    } else if (this.options.onLoadMore) {
-      // At boundary - try to load more
-      this.options.onLoadMore();
     }
   }
 
@@ -170,19 +231,103 @@ export default class GridNavigationModifier extends Modifier {
     if (index >= 0 && index < rows.length) {
       this.activeRowIndex = index;
       this.updateTabindices();
-      rows[index].focus();
+
+      // Try to focus the same position in the new row, or first focusable
+      const focusables = this.getFocusablesInRow(rows[index]);
+      if (focusables.length > 0) {
+        // Clamp to available focusables in new row
+        const targetIndex = Math.min(this.activeFocusableIndex, focusables.length - 1);
+        this.activeFocusableIndex = targetIndex;
+        focusables[targetIndex].focus();
+      } else {
+        // No focusables, focus the row itself
+        rows[index].focus();
+      }
     }
   }
 
-  activateCurrentRow() {
-    const row = this.rows[this.activeRowIndex];
-    if (row) {
-      const topicLink = row.querySelector(".raw-topic-link");
-      if (topicLink) {
-        topicLink.click();
-      } else if (this.options.onRowActivate) {
-        const topicId = row.dataset.topicId;
-        this.options.onRowActivate(topicId);
+  /**
+   * Focus next focusable element within current row
+   */
+  focusNextFocusableInRow() {
+    const focusables = this.currentRowFocusables;
+    if (focusables.length === 0) {
+      return;
+    }
+
+    const newIndex = getNextIndex(
+      focusables.length,
+      this.activeFocusableIndex,
+      this.options.wrap
+    );
+
+    if (newIndex !== this.activeFocusableIndex) {
+      this.activeFocusableIndex = newIndex;
+      focusables[newIndex].focus();
+    }
+  }
+
+  /**
+   * Focus previous focusable element within current row
+   */
+  focusPreviousFocusableInRow() {
+    const focusables = this.currentRowFocusables;
+    if (focusables.length === 0) {
+      return;
+    }
+
+    const newIndex = getPreviousIndex(
+      focusables.length,
+      this.activeFocusableIndex,
+      this.options.wrap
+    );
+
+    if (newIndex !== this.activeFocusableIndex) {
+      this.activeFocusableIndex = newIndex;
+      focusables[newIndex].focus();
+    }
+  }
+
+  /**
+   * Focus first focusable element in current row
+   */
+  focusFirstFocusableInRow() {
+    const focusables = this.currentRowFocusables;
+    if (focusables.length > 0) {
+      this.activeFocusableIndex = 0;
+      focusables[0].focus();
+    }
+  }
+
+  /**
+   * Focus last focusable element in current row
+   */
+  focusLastFocusableInRow() {
+    const focusables = this.currentRowFocusables;
+    if (focusables.length > 0) {
+      this.activeFocusableIndex = focusables.length - 1;
+      focusables[focusables.length - 1].focus();
+    }
+  }
+
+  /**
+   * Activate (click) the currently focused element
+   */
+  activateCurrentFocusable() {
+    const focusables = this.currentRowFocusables;
+    if (focusables.length > 0 && this.activeFocusableIndex < focusables.length) {
+      focusables[this.activeFocusableIndex].click();
+    } else {
+      // Fallback: try to find the topic link
+      const row = this.rows[this.activeRowIndex];
+      if (row) {
+        const topicLink = row.querySelector(".raw-topic-link");
+        if (topicLink) {
+          topicLink.click();
+        } else if (this.options.onRowActivate) {
+          const topicId = row.dataset.topicId;
+          this.options.onRowActivate(topicId);
+        }
       }
     }
   }

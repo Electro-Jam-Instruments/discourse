@@ -182,6 +182,14 @@ export default class TopicList extends Component {
     });
   }
 
+  /**
+   * Total row count for aria-rowcount
+   * Uses totalRowCount arg if available (for pagination), otherwise topics.length + 1 for header
+   */
+  get ariaRowCount() {
+    return (this.args.totalRowCount ?? this.args.topics?.length ?? 0) + 1;
+  }
+
   <template>
     {{! template-lint-disable table-groups }}
     <table
@@ -192,8 +200,8 @@ export default class TopicList extends Component {
       }}
       role="grid"
       aria-labelledby={{@ariaLabelledby}}
-      aria-rowcount={{@topics.length}}
-      {{gridNavigation}}
+      aria-rowcount={{this.ariaRowCount}}
+      {{gridNavigation onLoadMore=@onLoadMore}}
       ...attributes
     >
       <caption class="sr-only">{{i18n "sr_topic_list_caption"}}</caption>

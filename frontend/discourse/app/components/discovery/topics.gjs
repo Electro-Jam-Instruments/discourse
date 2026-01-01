@@ -333,6 +333,7 @@ export default class DiscoveryTopics extends Component {
           @topics={{@model.topics}}
           @discoveryList={{true}}
           @focusLastVisitedTopic={{true}}
+          @onLoadMore={{this.loadMore}}
         />
 
         <LoadMore @action={{this.loadMore}} />

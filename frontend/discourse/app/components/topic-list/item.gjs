@@ -103,6 +103,65 @@ export default class Item extends Component {
     return this.args.index === 0 ? "0" : "-1";
   }
 
+  /**
+   * ARIA row index (1-based, accounting for header row)
+   * Header row is index 1, first data row is index 2
+   */
+  get ariaRowIndex() {
+    return this.args.index + 2;
+  }
+
+  /**
+   * Composite accessible name for screen readers
+   * Provides full context when navigating rows
+   */
+  get accessibleName() {
+    const topic = this.args.topic;
+    const parts = [];
+
+    // Topic title (required)
+    parts.push(topic.title);
+
+    // Status indicators
+    if (topic.pinned) {
+      parts.push(i18n("topic_statuses.pinned.title"));
+    }
+    if (topic.closed) {
+      parts.push(i18n("topic_statuses.closed.title"));
+    }
+    if (topic.archived) {
+      parts.push(i18n("topic_statuses.archived.title"));
+    }
+    if (topic.unseen) {
+      parts.push(i18n("filters.new.lower_title"));
+    }
+
+    // Category
+    if (topic.category?.name) {
+      parts.push(i18n("sr_category", { categoryName: topic.category.name }));
+    }
+
+    // Tags
+    if (topic.tags?.length > 0) {
+      parts.push(i18n("sr_tags", { tags: topic.tags.join(", ") }));
+    }
+
+    // Reply count
+    const replyCount = topic.replyCount ?? topic.reply_count ?? 0;
+    parts.push(i18n("sr_replies", { count: replyCount }));
+
+    // View count
+    const views = topic.views ?? 0;
+    parts.push(i18n("sr_views", { count: views }));
+
+    // Last activity (use relative time)
+    if (topic.bumpedAt) {
+      parts.push(i18n("sr_activity", { time: topic.bumpedAtTitle }));
+    }
+
+    return parts.join(", ");
+  }
+
   @action
   navigateToTopic(topic, href) {
     this.historyStore.set("lastTopicIdViewed", topic.id);
@@ -290,6 +349,8 @@ export default class Item extends Component {
       data-topic-id={{@topic.id}}
       role={{this.role}}
       tabindex={{this.tabindex}}
+      aria-rowindex={{this.ariaRowIndex}}
+      aria-label={{this.accessibleName}}
       class={{concatClass
         "topic-list-item"
         (if @topic.category (concat "category-" @topic.category.fullSlug))

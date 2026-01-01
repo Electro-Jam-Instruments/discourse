@@ -4812,6 +4812,17 @@ en:
       label_with_count: "Pending (%{count})"
     sr_topic_list_caption: Topic list, column headers with buttons are sortable.
 
+    # Screen reader strings for topic list row accessible names
+    sr_category: "in %{categoryName}"
+    sr_tags: "tags: %{tags}"
+    sr_replies:
+      one: "%{count} reply"
+      other: "%{count} replies"
+    sr_views:
+      one: "%{count} view"
+      other: "%{count} views"
+    sr_activity: "last activity %{time}"
+
     # This string uses the ICU Message Format. See https://meta.discourse.org/t/7035 for translation guidelines.
     posts_likes_MF: |
       { count, plural,

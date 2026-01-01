@@ -237,11 +237,17 @@ spec/system/navigation_toolbar_a11y_spec.rb
 
 **Requirements:**
 - Handle ArrowUp/ArrowDown for row navigation
-- Handle Home/End for first/last row
+- Handle ArrowLeft/ArrowRight for navigating between focusable elements within row
+  - Collect all interactive elements (links, buttons, inputs) in the row
+  - Navigate through them like a horizontal toolbar
+  - Example: Topic link → Category link → Tag links → Avatar links → Reply link → Activity link
+- Handle Home/End for first/last row (with Ctrl for first/last focusable element in row)
 - Handle PageUp/PageDown for jumping rows
-- Handle Enter to activate row
-- Implement roving tabindex on rows
-- Support infinite scroll loading
+- Handle Enter to activate current focused element
+- Implement roving tabindex pattern:
+  - ONE tab stop for entire grid
+  - Track activeRowIndex and activeFocusableIndex within row
+- Support infinite scroll loading (trigger load when approaching boundary)
 
 **Files to create:**
 ```
@@ -249,8 +255,10 @@ frontend/discourse/app/modifiers/grid-navigation.js
 ```
 
 **Acceptance criteria:**
-- [ ] All keyboard shortcuts implemented
-- [ ] Infinite scroll triggered at boundary
+- [ ] Up/Down navigates between rows (maintaining position in row if possible)
+- [ ] Left/Right navigates between focusable elements within current row
+- [ ] ONE tab stop for entire grid (roving tabindex)
+- [ ] Infinite scroll triggered when within 3 rows of boundary
 - [ ] Focus management correct
 
 ---
@@ -284,13 +292,22 @@ frontend/discourse/app/components/topic-list/list.gjs
 
 **Assign to:** Build Agent
 
-**Deliverable:** Modified `item.gjs` with row role
+**Deliverable:** Modified `item.gjs` with row role and composite accessible name
 
 **Requirements:**
 - Add `role="row"` to tr
 - Add `aria-rowindex` for logical position
 - Add `role="gridcell"` to td elements
 - Accept and apply tabindex
+- Add `aria-label` with composite accessible name built from:
+  - Topic title
+  - Category name
+  - Tags (if present)
+  - Reply count
+  - View count
+  - Last activity time
+  - Pinned/closed/archived status
+- Example: "How to configure SMTP, Category: Support, Tags: email setup, 15 replies, 234 views, last activity 2 hours ago"
 
 **Files to modify:**
 ```
@@ -301,6 +318,7 @@ frontend/discourse/app/components/topic-list/item.gjs
 - [ ] Row role applied
 - [ ] Row index correct (2-based, 1 is header)
 - [ ] Gridcell role on cells
+- [ ] Composite aria-label announces full row context
 
 ---
 
@@ -326,7 +344,39 @@ frontend/discourse/app/components/topic-list/header.gjs
 
 ---
 
-### Task 2.5: Add Grid i18n Strings
+### Task 2.5: Integrate Load-More with Grid Navigation
+
+**Assign to:** Build Agent
+
+**Deliverable:** Wire grid navigation to Discourse's infinite scroll system
+
+**Requirements:**
+- Connect gridNavigation modifier to `loadMoreTopics` action
+- Trigger load when user arrows within 3-5 rows of boundary
+- Maintain focus on current row after new topics load
+- Update `aria-rowcount` dynamically as more topics load
+- Handle loading state (don't allow navigation during load)
+- Consider virtualization for very long lists (500+ topics):
+  - Only render visible rows + buffer
+  - Maintain correct `aria-rowindex` for all rows
+  - Preserve focus when rows re-render
+
+**Files to modify:**
+```
+frontend/discourse/app/modifiers/grid-navigation.js
+frontend/discourse/app/components/topic-list/list.gjs
+```
+
+**Acceptance criteria:**
+- [ ] Arrow down near bottom triggers load-more
+- [ ] Focus preserved after load completes
+- [ ] aria-rowcount updates with total count
+- [ ] Loading state prevents navigation conflicts
+- [ ] Performance acceptable with 1000+ topics
+
+---
+
+### Task 2.6: Add Grid i18n Strings
 
 **Assign to:** Build Agent
 
