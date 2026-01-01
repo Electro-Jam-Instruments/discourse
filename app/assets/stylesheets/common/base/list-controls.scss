@@ -41,6 +41,13 @@
   margin-bottom: var(--nav-space);
 }
 
+.topic-filter-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--nav-space);
+}
+
 #navigation-bar {
   display: flex;
   flex-wrap: wrap;

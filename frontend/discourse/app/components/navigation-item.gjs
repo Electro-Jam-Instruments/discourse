@@ -18,8 +18,9 @@ import { filterTypeForMode } from "discourse/lib/filter-mode";
   "isHidden:hidden",
   "content.name"
 )
-@attributeBindings("content.title:title")
+@attributeBindings("content.title:title", "role")
 export default class NavigationItem extends Component {
+  role = "presentation";
   @tracked filterMode;
 
   hidden = false;
@@ -102,7 +103,8 @@ export default class NavigationItem extends Component {
     <a
       href={{this.hrefLink}}
       class={{this.activeClass}}
-      aria-current={{if this.activeClass "page"}}
+      role="tab"
+      aria-selected={{if this.active "true" "false"}}
     >
       {{#if this.hasIcon}}
         <span class={{this.content.name}}></span>

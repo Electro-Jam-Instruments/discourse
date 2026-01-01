@@ -55,7 +55,7 @@ module(
       sinon.restore();
     });
 
-    test("renders navigation items as list", async function (assert) {
+    test("renders navigation items as tablist", async function (assert) {
       await render(<template>
         <NavigationBar @navItems={{this.navItems}} />
       </template>);
@@ -63,9 +63,22 @@ module(
       const list = document.querySelector("#navigation-bar");
       assert.ok(list, "navigation bar renders");
       assert.strictEqual(list.tagName, "UL", "renders as unordered list");
+      assert.strictEqual(
+        list.getAttribute("role"),
+        "tablist",
+        "has role=tablist"
+      );
 
       const items = document.querySelectorAll("#navigation-bar a");
       assert.strictEqual(items.length, 4, "renders all nav items");
+
+      items.forEach((item) => {
+        assert.strictEqual(
+          item.getAttribute("role"),
+          "tab",
+          "each item has role=tab"
+        );
+      });
     });
 
     test("navigation items have correct display names", async function (assert) {
@@ -80,7 +93,7 @@ module(
       assert.strictEqual(items[3].textContent.trim(), "Unread");
     });
 
-    test("active item has aria-current page", async function (assert) {
+    test("active item has aria-selected true", async function (assert) {
       this.navItems[0].active = true;
 
       await render(<template>
@@ -89,9 +102,14 @@ module(
 
       const items = document.querySelectorAll("#navigation-bar a");
       assert.strictEqual(
-        items[0].getAttribute("aria-current"),
-        "page",
-        "active item has aria-current=page"
+        items[0].getAttribute("aria-selected"),
+        "true",
+        "active item has aria-selected=true"
+      );
+      assert.strictEqual(
+        items[1].getAttribute("aria-selected"),
+        "false",
+        "inactive item has aria-selected=false"
       );
     });
   }

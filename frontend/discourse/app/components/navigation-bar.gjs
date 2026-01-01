@@ -99,7 +99,7 @@ export default class NavigationBarComponent extends Component {
         </li>
       </ul>
     {{else}}
-      <ul id="navigation-bar" class="nav nav-pills">
+      <ul id="navigation-bar" class="nav nav-pills" role="tablist">
         {{#each @navItems as |navItem|}}
           <NavigationItem
             @content={{navItem}}
