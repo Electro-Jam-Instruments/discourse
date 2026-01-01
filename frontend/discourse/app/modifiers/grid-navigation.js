@@ -45,24 +45,53 @@ export default class GridNavigationModifier extends Modifier {
   }
 
   modify(element, positional, named) {
-    if (this.element) {
+    // Only set up listeners once per element
+    if (this.element !== element) {
       this.cleanup();
+      this.element = element;
+
+      this.handleKeydown = this.handleKeydown.bind(this);
+      this.handleFocusIn = this.handleFocusIn.bind(this);
+
+      this.element.addEventListener("keydown", this.handleKeydown);
+      this.element.addEventListener("focusin", this.handleFocusIn);
+
+      // Start with first data row (not header) as active
+      // Header is index 0, first data row is index 1
+      const hasHeader = this.element.querySelector(this.options.headerRowSelector);
+      this.activeRowIndex = hasHeader ? 1 : 0;
+      this.activeFocusableIndex = -1; // Start with row focus, not internal element
     }
 
-    this.element = element;
     this.options = { ...this.options, ...named };
 
-    this.handleKeydown = this.handleKeydown.bind(this);
-    this.handleFocusIn = this.handleFocusIn.bind(this);
+    // Preserve focus if currently focused element is in the grid
+    const focusedElement = document.activeElement;
+    if (focusedElement && this.element.contains(focusedElement)) {
+      const rows = this.rows;
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i] === focusedElement || rows[i].contains(focusedElement)) {
+          this.activeRowIndex = i;
+          if (rows[i] === focusedElement) {
+            this.activeFocusableIndex = -1;
+          } else {
+            const focusables = this.getFocusablesInRow(rows[i]);
+            const idx = focusables.indexOf(focusedElement);
+            if (idx !== -1) {
+              this.activeFocusableIndex = idx;
+            }
+          }
+          break;
+        }
+      }
+    }
 
-    this.element.addEventListener("keydown", this.handleKeydown);
-    this.element.addEventListener("focusin", this.handleFocusIn);
-
-    // Start with first data row (not header) as active
-    // Header is index 0, first data row is index 1
-    const hasHeader = this.element.querySelector(this.options.headerRowSelector);
-    this.activeRowIndex = hasHeader ? 1 : 0;
-    this.activeFocusableIndex = -1; // Start with row focus, not internal element
+    // Ensure activeRowIndex is valid (rows might have changed)
+    const rows = this.rows;
+    if (rows.length > 0 && (this.activeRowIndex < 0 || this.activeRowIndex >= rows.length)) {
+      const hasHeader = this.element.querySelector(this.options.headerRowSelector);
+      this.activeRowIndex = hasHeader ? 1 : 0;
+    }
 
     this.updateTabindices();
     this.setInternalTabindices();

@@ -4822,6 +4822,7 @@ en:
     sr_views:
       one: "%{count} view"
       other: "%{count} views"
+    sr_posters: "by %{posters}"
     sr_activity: "last activity %{time}"
 
     # This string uses the ICU Message Format. See https://meta.discourse.org/t/7035 for translation guidelines.

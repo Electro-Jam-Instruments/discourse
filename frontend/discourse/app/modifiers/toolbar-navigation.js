@@ -88,6 +88,17 @@ export default class ToolbarNavigationModifier extends Modifier {
     const focusedIndex = items.indexOf(focusedElement);
     if (focusedIndex !== -1) {
       this.activeIndex = focusedIndex;
+    } else {
+      // If no item is focused, find the active/selected tab and set activeIndex to it
+      // This ensures the roving tabindex starts at the currently selected nav item
+      const activeTabIndex = items.findIndex(
+        (item) =>
+          item.getAttribute("aria-selected") === "true" ||
+          item.classList.contains("active")
+      );
+      if (activeTabIndex !== -1) {
+        this.activeIndex = activeTabIndex;
+      }
     }
 
     this.updateTabindices();

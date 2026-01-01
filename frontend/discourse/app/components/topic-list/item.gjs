@@ -97,7 +97,9 @@ export default class Item extends Component {
 
   /**
    * Tabindex for roving tabindex pattern
-   * First row (index 0) gets tabindex="0", others get "-1"
+   * Grid modifier manages this via roving tabindex, but we need a default
+   * First data row starts with tabindex="0", others get "-1"
+   * Modifier will update these based on keyboard navigation
    */
   get tabindex() {
     return this.args.index === 0 ? "0" : "-1";
@@ -144,6 +146,16 @@ export default class Item extends Component {
     // Tags
     if (topic.tags?.length > 0) {
       parts.push(i18n("sr_tags", { tags: topic.tags.join(", ") }));
+    }
+
+    // Posters (featured users)
+    if (topic.featuredUsers?.length > 0) {
+      const usernames = topic.featuredUsers
+        .filter((poster) => poster.user?.username)
+        .map((poster) => poster.user.username);
+      if (usernames.length > 0) {
+        parts.push(i18n("sr_posters", { posters: usernames.join(", ") }));
+      }
     }
 
     // Reply count
