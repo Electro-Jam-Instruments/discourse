@@ -193,14 +193,31 @@ export default class Item extends Component {
     element.classList.add("highlighted");
   }
 
+  /**
+   * Handles focusin on the row - adds selected class when focus moves to internal elements
+   * This provides the left-bar highlight for keyboard navigation
+   */
   @action
-  onTitleFocus(event) {
-    event.target.closest(".topic-list-item").classList.add("selected");
+  onRowFocusIn(event) {
+    const row = event.currentTarget;
+    // Only add selected class when focus is on an internal element, not the row itself
+    // Row focus uses full rectangle outline, internal focus uses left-bar highlight
+    if (event.target !== row) {
+      row.classList.add("selected");
+    }
   }
 
+  /**
+   * Handles focusout on the row - removes selected class when focus leaves internal elements
+   */
   @action
-  onTitleBlur(event) {
-    event.target.closest(".topic-list-item").classList.remove("selected");
+  onRowFocusOut(event) {
+    const row = event.currentTarget;
+    // Only remove selected class if focus is leaving to outside the row
+    // or returning to the row element itself
+    if (!row.contains(event.relatedTarget) || event.relatedTarget === row) {
+      row.classList.remove("selected");
+    }
   }
 
   @action
@@ -358,6 +375,8 @@ export default class Item extends Component {
       {{on "keydown" this.keyDown}}
       {{on "click" this.click}}
       {{on "auxclick" this.click}}
+      {{on "focusin" this.onRowFocusIn}}
+      {{on "focusout" this.onRowFocusOut}}
       data-topic-id={{@topic.id}}
       role={{this.role}}
       tabindex={{this.tabindex}}
@@ -456,12 +475,7 @@ export default class Item extends Component {
                 {{~! no whitespace ~}}
                 <TopicStatus @topic={{@topic}} @context="topic-list" />
                 {{~! no whitespace ~}}
-                <TopicLink
-                  {{on "focus" this.onTitleFocus}}
-                  {{on "blur" this.onTitleBlur}}
-                  @topic={{@topic}}
-                  class="raw-link raw-topic-link"
-                />
+                <TopicLink @topic={{@topic}} class="raw-link raw-topic-link" />
                 {{~#if @topic.featured_link~}}
                   &nbsp;
                   {{~topicFeaturedLink @topic}}

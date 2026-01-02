@@ -398,7 +398,9 @@ export default class DiscoveryTopics extends Component {
             @dismissRead={{@dismissRead}}
           />
 
-          <FooterMessage @message={{this.footerMessage}}>
+          {{! Footer message is shown in-grid for keyboard navigation accessibility }}
+          {{! Only showing additional footer content here, not the duplicate message }}
+          <FooterMessage>
             <:messageDetails>
               {{#if @tag}}
                 {{htmlSafe

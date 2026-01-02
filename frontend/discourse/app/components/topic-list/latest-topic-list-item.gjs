@@ -1,5 +1,7 @@
 import Component from "@glimmer/component";
 import { concat } from "@ember/helper";
+import { on } from "@ember/modifier";
+import { action } from "@ember/object";
 import PluginOutlet from "discourse/components/plugin-outlet";
 import ItemRepliesCell from "discourse/components/topic-list/item/replies-cell";
 import TopicPostBadges from "discourse/components/topic-post-badges";
@@ -80,6 +82,33 @@ export default class LatestTopicListItem extends Component {
     return parts.join(", ");
   }
 
+  /**
+   * Handles focusin on the row - adds selected class when focus moves to internal elements
+   * This provides the left-bar highlight for keyboard navigation
+   */
+  @action
+  onRowFocusIn(event) {
+    const row = event.currentTarget;
+    // Only add selected class when focus is on an internal element, not the row itself
+    // Row focus uses full rectangle outline, internal focus uses left-bar highlight
+    if (event.target !== row) {
+      row.classList.add("selected");
+    }
+  }
+
+  /**
+   * Handles focusout on the row - removes selected class when focus leaves internal elements
+   */
+  @action
+  onRowFocusOut(event) {
+    const row = event.currentTarget;
+    // Only remove selected class if focus is leaving to outside the row
+    // or returning to the row element itself
+    if (!row.contains(event.relatedTarget) || event.relatedTarget === row) {
+      row.classList.remove("selected");
+    }
+  }
+
   <template>
     <div
       role="row"
@@ -87,6 +116,8 @@ export default class LatestTopicListItem extends Component {
       aria-rowindex={{this.ariaRowIndex}}
       aria-label={{this.accessibleName}}
       data-topic-id={{@topic.id}}
+      {{on "focusin" this.onRowFocusIn}}
+      {{on "focusout" this.onRowFocusOut}}
       class={{concatClass
         "latest-topic-list-item"
         this.tagClassNames

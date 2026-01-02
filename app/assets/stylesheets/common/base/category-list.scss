@@ -416,15 +416,18 @@
 }
 
 // Empty state row focus styles for grid navigation
+// Uses CSS variables for theme customization (see color_definitions.scss)
 .category-list-empty-row {
   &:focus {
-    outline: 2px solid var(--tertiary);
-    outline-offset: -2px;
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--tertiary);
-    outline-offset: -2px;
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
   }
 }
 

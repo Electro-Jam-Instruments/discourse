@@ -1,6 +1,4 @@
 import Component from "@glimmer/component";
-import { on } from "@ember/modifier";
-import { action } from "@ember/object";
 import { service } from "@ember/service";
 import PluginOutlet from "discourse/components/plugin-outlet";
 import ActionList from "discourse/components/topic-list/action-list";
@@ -37,16 +35,6 @@ export default class TopicCell extends Component {
     }));
   }
 
-  @action
-  onTitleFocus(event) {
-    event.target.closest(".topic-list-item").classList.add("selected");
-  }
-
-  @action
-  onTitleBlur(event) {
-    event.target.closest(".topic-list-item").classList.remove("selected");
-  }
-
   <template>
     <td class="main-link topic-list-data" colspan="1" role="gridcell">
       <PluginOutlet
@@ -68,12 +56,7 @@ export default class TopicCell extends Component {
           {{~! no whitespace ~}}
           <TopicStatus @topic={{@topic}} @context="topic-list" />
           {{~! no whitespace ~}}
-          <TopicLink
-            {{on "focus" this.onTitleFocus}}
-            {{on "blur" this.onTitleBlur}}
-            @topic={{@topic}}
-            class="raw-link raw-topic-link"
-          />
+          <TopicLink @topic={{@topic}} class="raw-link raw-topic-link" />
           {{~#if @topic.featured_link~}}
             &nbsp;
             {{~topicFeaturedLink @topic}}

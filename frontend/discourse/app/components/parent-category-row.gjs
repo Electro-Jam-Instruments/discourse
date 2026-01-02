@@ -1,4 +1,6 @@
 import { array, hash } from "@ember/helper";
+import { on } from "@ember/modifier";
+import { action } from "@ember/object";
 import { LinkTo } from "@ember/routing";
 import { htmlSafe } from "@ember/template";
 import CategoryListItem from "discourse/components/category-list-item";
@@ -13,6 +15,7 @@ import borderColor from "discourse/helpers/border-color";
 import categoryColorVariable from "discourse/helpers/category-color-variable";
 import dirSpan from "discourse/helpers/dir-span";
 import lazyHash from "discourse/helpers/lazy-hash";
+import domFromString from "discourse/lib/dom-from-string";
 import { gt } from "discourse/truth-helpers";
 import { i18n } from "discourse-i18n";
 
@@ -43,6 +46,16 @@ export default class ParentCategoryRow extends CategoryListItem {
     // Category name
     parts.push(category.name);
 
+    // Category description (strip HTML for screen reader)
+    if (category.description_excerpt) {
+      const plainText = domFromString(
+        `<div>${category.description_excerpt}</div>`
+      )[0].innerText;
+      if (plainText) {
+        parts.push(plainText);
+      }
+    }
+
     // Topic count - use topics_all_time to match visual display
     // The visual Topics column shows category.stat which uses topics_all_time
     const topicCount = category.topics_all_time ?? category.topic_count;
@@ -63,6 +76,33 @@ export default class ParentCategoryRow extends CategoryListItem {
     }
 
     return parts.join(", ");
+  }
+
+  /**
+   * Handles focusin on the row - adds selected class when focus moves to internal elements
+   * This provides the left-bar highlight for keyboard navigation
+   */
+  @action
+  onRowFocusIn(event) {
+    const row = event.currentTarget;
+    // Only add selected class when focus is on an internal element, not the row itself
+    // Row focus uses full rectangle outline, internal focus uses left-bar highlight
+    if (event.target !== row) {
+      row.classList.add("selected");
+    }
+  }
+
+  /**
+   * Handles focusout on the row - removes selected class when focus leaves internal elements
+   */
+  @action
+  onRowFocusOut(event) {
+    const row = event.currentTarget;
+    // Only remove selected class if focus is leaving to outside the row
+    // or returning to the row element itself
+    if (!row.contains(event.relatedTarget) || event.relatedTarget === row) {
+      row.classList.remove("selected");
+    }
   }
 
   <template>
@@ -159,6 +199,8 @@ export default class ParentCategoryRow extends CategoryListItem {
           tabindex={{this.tabindex}}
           aria-rowindex={{this.ariaRowIndex}}
           aria-label={{this.accessibleName}}
+          {{on "focusin" this.onRowFocusIn}}
+          {{on "focusout" this.onRowFocusOut}}
           class="{{if
               this.category.description_excerpt
               'has-description'

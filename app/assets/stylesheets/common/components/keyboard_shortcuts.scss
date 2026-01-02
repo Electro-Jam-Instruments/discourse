@@ -1,13 +1,18 @@
+// Left bar highlight for grid navigation focus
+// Uses CSS variables for theme customization (see color_definitions.scss)
 .topic-list tr.selected td:first-of-type,
 .topic-list-item.selected td:first-of-type,
 .latest-topic-list-item.selected,
+.category-list tr.selected td:first-of-type,
 .search-results .fps-result.selected {
-  box-shadow: inset 3px 0 0 var(--d-nav-color--active);
+  box-shadow: inset var(--d-grid-focus-bar-width) 0 0
+    var(--d-grid-focus-bar-color);
 }
 
 .featured-topic.selected,
 .topic-post.selected {
-  box-shadow: -3px 0 0 var(--d-nav-color--active);
+  box-shadow: calc(var(--d-grid-focus-bar-width) * -1) 0 0
+    var(--d-grid-focus-bar-color);
 }
 
 .topic-list tr.selected,
@@ -16,6 +21,7 @@
 .topic-post,
 .post-stream--cloaked,
 .latest-topic-list-item.selected,
+.category-list tr.selected,
 .search-results .fps-result.selected {
   &:focus-visible {
     outline: none;

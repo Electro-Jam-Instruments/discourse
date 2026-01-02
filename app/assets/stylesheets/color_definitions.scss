@@ -159,4 +159,15 @@
     var(--tertiary-400),
     var(--tertiary)
   );
+
+  // Grid focus indicator settings (accessibility)
+  // Rectangle outline (used for row-level focus)
+  --d-grid-focus-outline-width: 2px;
+  --d-grid-focus-outline-color: var(--tertiary);
+  --d-grid-focus-outline-offset: -2px;
+
+  // Left bar highlight (used for element-level focus within row)
+  // Set to 0 for release - rectangle only. Change to 3px to enable left bar.
+  --d-grid-focus-bar-width: 0;
+  --d-grid-focus-bar-color: var(--d-nav-color--active);
 }
