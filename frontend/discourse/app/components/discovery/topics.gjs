@@ -334,6 +334,7 @@ export default class DiscoveryTopics extends Component {
           @discoveryList={{true}}
           @focusLastVisitedTopic={{true}}
           @onLoadMore={{this.loadMore}}
+          @footerMessage={{if this.allLoaded this.footerMessage}}
         />
 
         <LoadMore @action={{this.loadMore}} />

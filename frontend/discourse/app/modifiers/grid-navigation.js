@@ -434,15 +434,17 @@ export default class GridNavigationModifier extends Modifier {
     }
 
     // Row is focused (activeFocusableIndex === -1) or no focusable found
-    // Activate primary action: topic link for data rows, do nothing for header
+    // Activate primary action: navigate for data rows, do nothing for header
     if (this.isHeaderRow) {
       // For header row, move focus to first column header
       this.focusNextFocusableInRow();
     } else {
-      // For data rows, try to find and click the topic link
-      const topicLink = row.querySelector(".raw-topic-link");
-      if (topicLink) {
-        topicLink.click();
+      // For data rows, try to find and click the primary link
+      // Topic list uses .raw-topic-link, category list uses .category-title-link
+      // Latest sidebar uses a.title
+      const primaryLink = row.querySelector(".raw-topic-link, .category-title-link, a.title");
+      if (primaryLink) {
+        primaryLink.click();
       } else if (this.options.onRowActivate) {
         const topicId = row.dataset.topicId;
         this.options.onRowActivate(topicId);

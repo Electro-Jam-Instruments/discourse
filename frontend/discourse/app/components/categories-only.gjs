@@ -29,6 +29,18 @@ export default class CategoriesOnly extends Component {
     return (this.mutedCategories?.length ?? 0) + 1;
   }
 
+  /**
+   * Accessible name for header row including column names
+   */
+  get categoryHeaderLabel() {
+    const columns = [i18n("categories.category"), i18n("categories.topics")];
+    if (this.showTopics) {
+      columns.push(i18n("categories.latest"));
+    }
+    const instructions = i18n("sr_category_list_header");
+    return `${columns.join(", ")}. ${instructions}`;
+  }
+
   @discourseComputed("showMutedCategories", "filteredCategories.length")
   mutedToggleIcon(showMutedCategories, filteredCategoriesLength) {
     if (filteredCategoriesLength === 0) {
@@ -111,7 +123,7 @@ export default class CategoriesOnly extends Component {
                   role="row"
                   tabindex="-1"
                   aria-rowindex="1"
-                  aria-label={{i18n "sr_category_list_header"}}
+                  aria-label={{this.categoryHeaderLabel}}
                 >
                   <th class="category" role="columnheader"><span
                       id="categories-only-category"
@@ -179,7 +191,7 @@ export default class CategoriesOnly extends Component {
                     role="row"
                     tabindex="-1"
                     aria-rowindex="1"
-                    aria-label={{i18n "sr_category_list_header"}}
+                    aria-label={{this.categoryHeaderLabel}}
                   >
                     <th class="category" role="columnheader"><span
                         id="categories-only-category-muted"

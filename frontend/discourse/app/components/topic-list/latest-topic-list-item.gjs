@@ -11,10 +11,12 @@ import categoryLink from "discourse/helpers/category-link";
 import concatClass from "discourse/helpers/concat-class";
 import discourseTags from "discourse/helpers/discourse-tags";
 import formatDate from "discourse/helpers/format-date";
+import { relativeAge } from "discourse/lib/formatter";
 import lazyHash from "discourse/helpers/lazy-hash";
 import topicFeaturedLink from "discourse/helpers/topic-featured-link";
 import topicLink from "discourse/helpers/topic-link";
 import { applyValueTransformer } from "discourse/lib/transformer";
+import { i18n } from "discourse-i18n";
 
 export default class LatestTopicListItem extends Component {
   get tagClassNames() {
@@ -27,8 +29,63 @@ export default class LatestTopicListItem extends Component {
     });
   }
 
+  /**
+   * Tabindex for roving tabindex pattern
+   */
+  get tabindex() {
+    return this.args.index === 0 ? "0" : "-1";
+  }
+
+  /**
+   * ARIA row index (1-based)
+   */
+  get ariaRowIndex() {
+    return (this.args.index ?? 0) + 1;
+  }
+
+  /**
+   * Composite accessible name for screen readers
+   * Format: "Title, in Category, N replies, time ago"
+   */
+  get accessibleName() {
+    const topic = this.args.topic;
+    const parts = [];
+
+    // Topic title
+    parts.push(topic.title);
+
+    // Pinned status
+    if (topic.pinned) {
+      parts.push(i18n("topic_statuses.pinned.title"));
+    }
+
+    // Category
+    if (topic.category?.name) {
+      parts.push(i18n("sr_category", { categoryName: topic.category.name }));
+    }
+
+    // Reply count
+    const replyCount = topic.replyCount ?? topic.reply_count ?? 0;
+    parts.push(i18n("sr_replies", { count: replyCount }));
+
+    // Age
+    if (topic.bumpedAt) {
+      const age = relativeAge(new Date(topic.bumpedAt), {
+        format: "medium-with-ago",
+        wrapInSpan: false,
+      });
+      parts.push(age);
+    }
+
+    return parts.join(", ");
+  }
+
   <template>
     <div
+      role="row"
+      tabindex={{this.tabindex}}
+      aria-rowindex={{this.ariaRowIndex}}
+      aria-label={{this.accessibleName}}
       data-topic-id={{@topic.id}}
       class={{concatClass
         "latest-topic-list-item"
@@ -53,7 +110,7 @@ export default class LatestTopicListItem extends Component {
         @name="latest-topic-list-item-topic-poster"
         @outletArgs={{lazyHash topic=@topic}}
       >
-        <div class="topic-poster">
+        <div role="gridcell" class="topic-poster">
           <UserLink @user={{@topic.lastPosterUser}}>
             {{avatar @topic.lastPosterUser imageSize="large"}}
           </UserLink>
@@ -61,7 +118,7 @@ export default class LatestTopicListItem extends Component {
         </div>
       </PluginOutlet>
 
-      <div class="main-link">
+      <div role="gridcell" class="main-link">
         <div class="top-row">
           <PluginOutlet
             @name="latest-topic-list-item-main-link-top-row"
@@ -97,7 +154,7 @@ export default class LatestTopicListItem extends Component {
         </div>
       </div>
 
-      <div class="topic-stats">
+      <div role="gridcell" class="topic-stats">
         <PluginOutlet
           @name="above-latest-topic-list-item-post-count"
           @connectorTagName="div"

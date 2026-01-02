@@ -147,6 +147,61 @@ sr_subcategories:
 sr_muted: "muted"
 ```
 
+## Issues Fixed
+
+### Header row now announces column names
+**Status:** FIXED
+
+The header row now dynamically builds its `aria-label` from the visible columns using the `categoryHeaderLabel` getter:
+
+```javascript
+get categoryHeaderLabel() {
+  const columns = [i18n("categories.category"), i18n("categories.topics")];
+  if (this.showTopics) {
+    columns.push(i18n("categories.latest"));
+  }
+  const instructions = i18n("sr_category_list_header");
+  return `${columns.join(", ")}. ${instructions}`;
+}
+```
+
+NVDA now announces:
+> "Category, Topics, Latest. Column headers, use arrow keys to navigate"
+
+### Enter on row now navigates to category
+**Status:** FIXED
+
+Updated `grid-navigation.js` to look for both topic links (`.raw-topic-link`) and category links (`.category-title-link`) when Enter is pressed on a row:
+
+```javascript
+// For data rows, try to find and click the primary link
+// Topic list uses .raw-topic-link, category list uses .category-title-link
+const primaryLink = row.querySelector(".raw-topic-link, .category-title-link");
+if (primaryLink) {
+  primaryLink.click();
+}
+```
+
+Enter on row-level focus now navigates to the category.
+
+### Topic count now matches visual display
+**Status:** FIXED
+
+Updated `accessibleName` to use `topics_all_time` (matching the visual Topics column) instead of `topic_count`:
+
+```javascript
+// Topic count - use topics_all_time to match visual display
+// The visual Topics column shows category.stat which uses topics_all_time
+const topicCount = category.topics_all_time ?? category.topic_count;
+if (topicCount !== undefined) {
+  parts.push(i18n("sr_category_topics", { count: topicCount }));
+}
+```
+
+## Known Issues
+
+None currently.
+
 ## Testing
 
 ### Manual Testing

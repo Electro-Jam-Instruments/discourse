@@ -265,6 +265,36 @@ setInternalTabindices() {
 
 **Solution:** Added CSS focus styles with `outline` instead of relying on default browser focus.
 
+## Issues Fixed
+
+### Header row now announces column names
+**Status:** FIXED
+
+The header row now dynamically builds its `aria-label` from the visible columns.
+
+**Implementation:** `topic-list/header.gjs` was converted from template-only to a component class with an `accessibleName` getter:
+
+```javascript
+get accessibleName() {
+  const columnNames = [];
+  for (const entry of this.args.columns) {
+    const name = entry.key;
+    if (name) {
+      const translatedName = this.getColumnDisplayName(name);
+      if (translatedName) {
+        columnNames.push(translatedName);
+      }
+    }
+  }
+  const columnList = columnNames.join(", ");
+  const instructions = i18n("sr_topic_list_header");
+  return columnList ? `${columnList}. ${instructions}` : instructions;
+}
+```
+
+NVDA now announces:
+> "Topic, Replies, Views, Activity. Column headers, use left and right arrows to navigate, Enter to sort"
+
 ## Testing
 
 ### Manual Testing

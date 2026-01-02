@@ -4,13 +4,26 @@ import { concat } from "@ember/helper";
 import PluginOutlet from "discourse/components/plugin-outlet";
 import LatestTopicListItem from "discourse/components/topic-list/latest-topic-list-item";
 import getUrl from "discourse/lib/get-url";
+import gridNavigation from "discourse/modifiers/grid-navigation";
 import { eq } from "discourse/truth-helpers";
 import { i18n } from "discourse-i18n";
 
 // Exists so plugins can use it
 export default class CategoriesTopicList extends Component {
+  /**
+   * Total row count for aria-rowcount
+   */
+  get topicRowCount() {
+    return this.topics?.length ?? 0;
+  }
+
   <template>
-    <div role="heading" aria-level="2" class="table-heading">
+    <div
+      role="heading"
+      aria-level="2"
+      class="table-heading"
+      id="latest-topics-heading"
+    >
       {{i18n (concat "filters." this.filter ".title")}}
       <PluginOutlet
         @name="categories-topics-table-heading"
@@ -19,9 +32,22 @@ export default class CategoriesTopicList extends Component {
     </div>
 
     {{#if this.topics}}
-      {{#each this.topics as |t|}}
-        <LatestTopicListItem @topic={{t}} />
-      {{/each}}
+      <div
+        role="grid"
+        aria-labelledby="latest-topics-heading"
+        aria-rowcount={{this.topicRowCount}}
+        class="latest-topic-list-container"
+        {{gridNavigation
+          headerRowSelector=null
+          dataRowSelector="[role='row']"
+        }}
+      >
+        <div role="rowgroup" class="latest-topic-list-body">
+          {{#each this.topics as |t index|}}
+            <LatestTopicListItem @topic={{t}} @index={{index}} />
+          {{/each}}
+        </div>
+      </div>
 
       <div class="more-topics">
         {{#if

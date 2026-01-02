@@ -185,9 +185,26 @@ export default class TopicList extends Component {
   /**
    * Total row count for aria-rowcount
    * Uses totalRowCount arg if available (for pagination), otherwise topics.length + 1 for header
+   * Add 1 more if we have a footer message row
    */
   get ariaRowCount() {
-    return (this.args.totalRowCount ?? this.args.topics?.length ?? 0) + 1;
+    const baseCount = (this.args.totalRowCount ?? this.args.topics?.length ?? 0) + 1;
+    return this.args.footerMessage ? baseCount + 1 : baseCount;
+  }
+
+  /**
+   * Row index for the footer message row
+   * Header is 1, topics are 2+, footer is last
+   */
+  get footerRowIndex() {
+    return (this.args.topics?.length ?? 0) + 2;
+  }
+
+  /**
+   * Column count for colspan on footer row
+   */
+  get columnCount() {
+    return this.columns.length;
   }
 
   <template>
@@ -269,6 +286,25 @@ export default class TopicList extends Component {
             @connectorTagName="tr"
           />
         {{/each}}
+
+        {{! Footer message row - navigable end-of-list indicator for screen readers }}
+        {{#if @footerMessage}}
+          <tr
+            role="row"
+            tabindex="-1"
+            aria-rowindex={{this.footerRowIndex}}
+            aria-label={{@footerMessage}}
+            class="topic-list-footer-row"
+          >
+            <td
+              role="gridcell"
+              colspan={{this.columnCount}}
+              class="topic-list-footer-cell"
+            >
+              {{@footerMessage}}
+            </td>
+          </tr>
+        {{/if}}
       </tbody>
 
       <PluginOutlet

@@ -34,6 +34,7 @@ export default class ParentCategoryRow extends CategoryListItem {
 
   /**
    * Composite accessible name for screen readers
+   * Uses topics_all_time to match what's shown in the visual Topics column
    */
   get accessibleName() {
     const category = this.category;
@@ -42,9 +43,11 @@ export default class ParentCategoryRow extends CategoryListItem {
     // Category name
     parts.push(category.name);
 
-    // Topic count
-    if (category.topic_count !== undefined) {
-      parts.push(i18n("sr_category_topics", { count: category.topic_count }));
+    // Topic count - use topics_all_time to match visual display
+    // The visual Topics column shows category.stat which uses topics_all_time
+    const topicCount = category.topics_all_time ?? category.topic_count;
+    if (topicCount !== undefined) {
+      parts.push(i18n("sr_category_topics", { count: topicCount }));
     }
 
     // Subcategory count
