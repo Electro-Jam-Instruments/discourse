@@ -9,16 +9,29 @@ When a list reaches its end or is empty, screen reader users navigating with arr
 2. Know when a list is completely empty
 3. Understand why (category filter, no results, etc.)
 
-## Implementation: Topic List Footer Row
+## Implementation Summary
 
-The topic list grid now includes a navigable footer row that announces the end-of-list message.
+All grid-based lists now include navigable rows for empty states and end-of-list indicators:
 
-### Files Modified
+| Location | Status |
+|----------|--------|
+| Topic list (with topics) | **DONE** - Footer row added |
+| Topic list (empty) | **DONE** - Empty state row added |
+| Category list | **DONE** - Empty state row added |
+| Latest sidebar | **DONE** - Empty state row added |
+| Search results | Not started |
+| Notifications | Not started |
+| Bookmarks | Not started |
 
-- **`frontend/discourse/app/components/topic-list/list.gjs`** - Added footer row support
-- **`frontend/discourse/app/components/discovery/topics.gjs`** - Passes footerMessage to List
+## Implementation: Topic List
 
-### How It Works
+### Footer Row (End of List)
+
+The topic list grid includes a navigable footer row that announces the end-of-list message.
+
+**Files Modified:**
+- `frontend/discourse/app/components/topic-list/list.gjs` - Added footer row support
+- `frontend/discourse/app/components/discovery/topics.gjs` - Passes footerMessage to List
 
 When all topics are loaded, the `footerMessage` is passed to the List component:
 
@@ -46,50 +59,133 @@ The List component renders a navigable footer row at the end of the grid:
 </tr>
 ```
 
-### Footer Message Computation
+### Empty State Row (No Topics)
 
-The `footerMessage` getter in `discovery/topics.gjs` builds the message based on context:
+When the topic list is empty, an empty state row is shown within the grid.
 
-- For category view: "There are no more X topics"
-- For tag view: "There are no more X topics"
-- For general view: "There are no more topics"
+**Files Modified:**
+- `frontend/discourse/app/components/topic-list/list.gjs` - Added empty state row
+- `frontend/discourse/app/components/discovery/topics.gjs` - Passes emptyMessage to List
+- `app/assets/stylesheets/common/base/_topic-list.scss` - Focus styles
 
-The message is only shown when `allLoaded` is true (no more topics to load).
+```html
+<tr
+  role="row"
+  tabindex="0"
+  aria-rowindex="2"
+  aria-label={{@emptyMessage}}
+  class="topic-list-empty-row"
+>
+  <td role="gridcell" colspan={{this.columnCount}} class="topic-list-empty-cell">
+    {{@emptyMessage}}
+  </td>
+</tr>
+```
 
-### Keyboard Navigation
+The `emptyMessage` getter builds context-aware messages:
+- For category view: "There are no {category} topics"
+- For tag view: "There are no {tag} topics"
+- For general view: "There are no topics"
 
-Users can Arrow Down past the last topic to reach the footer row, which announces:
-> "There are no more NVDA PPT Dev topics"
+## Implementation: Category List
 
-This provides a clear end-of-list indicator for screen reader users.
+The category list grid always renders, with an empty state row when no categories exist.
 
-## Known Limitations
+**Files Modified:**
+- `frontend/discourse/app/components/categories-only.gjs` - Added empty state support
+- `app/assets/stylesheets/common/base/category-list.scss` - Focus styles
 
-### Completely Empty Lists
+```html
+<tr
+  role="row"
+  tabindex="0"
+  aria-rowindex="2"
+  aria-label={{this.emptyMessage}}
+  class="category-list-empty-row"
+>
+  <td role="gridcell" colspan={{this.columnCount}} class="category-list-empty-cell">
+    {{this.emptyMessage}}
+  </td>
+</tr>
+```
 
-When there are zero topics, the grid is not rendered at all. The empty state education component (`EmptyTopicFilter`) is shown instead. This is not yet navigable as a grid row.
+Key features:
+- Grid always renders (even when empty)
+- Empty state row is focusable via Tab
+- Announces "No categories" message
 
-**TODO:** Consider adding grid rendering even when empty, with the empty state as the only row.
+## Implementation: Latest Sidebar
 
-### Category Grid
+The Latest sidebar grid always renders, with an empty state row when no topics exist.
 
-The category grid does not yet have empty state handling. Most category lists always have content.
+**Files Modified:**
+- `frontend/discourse/app/components/categories-topic-list.gjs` - Added empty state support
+- `app/assets/stylesheets/desktop/latest-topic-list.scss` - Focus styles
 
-### Latest Sidebar
+```html
+<div
+  role="row"
+  tabindex="0"
+  aria-rowindex="1"
+  aria-label={{this.emptyMessage}}
+  class="latest-topic-list-empty-row"
+>
+  <div role="gridcell" class="latest-topic-list-empty-cell">
+    {{this.emptyMessage}}
+  </div>
+</div>
+```
 
-The latest sidebar grid does not have empty state handling - the "no topics" message is shown outside the grid.
+Key features:
+- Grid always renders (even when empty)
+- Uses div elements (consistent with existing grid structure)
+- Empty state row is focusable via Tab
+- "More" button only shown when topics exist
 
-## Other Empty States to Address
+## Keyboard Navigation
 
-| Location | Status |
-|----------|--------|
-| Topic list (with topics) | **DONE** - Footer row added |
-| Topic list (empty) | Not started - uses EmptyTopicFilter |
-| Category list | Not started |
-| Latest sidebar | Not started |
-| Search results | Not started |
-| Notifications | Not started |
-| Bookmarks | Not started |
+For all empty state implementations:
+
+| Key | Action |
+|-----|--------|
+| Tab | Focus empty state row (when grid is empty) |
+| Arrow Down/Up | Navigate to empty state row (when grid has items) |
+| Tab | Exit grid to next region |
+
+## Screen Reader Behavior
+
+- Empty state row announces full message via `aria-label`
+- Context-aware messages include category/tag names when applicable
+- Roving tabindex ensures single tab stop for grid
+
+## Focus Styles
+
+All empty state rows have consistent focus styles:
+
+```scss
+&:focus {
+  outline: 2px solid var(--tertiary);
+  outline-offset: -2px;
+}
+
+&:focus-visible {
+  outline: 2px solid var(--tertiary);
+  outline-offset: -2px;
+}
+```
+
+## Testing
+
+### Manual Testing
+1. Navigate to a category with no topics
+2. Tab to grid - should focus empty state row
+3. Screen reader should announce empty message
+4. Tab should exit to next region
+
+### Screen Reader Testing
+- Empty state row should announce context-aware message
+- No double announcements
+- Focus should be clearly indicated
 
 ## References
 

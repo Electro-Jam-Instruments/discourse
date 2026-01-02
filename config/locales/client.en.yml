@@ -1390,6 +1390,7 @@ en:
       categories_label: "categories"
       subcategories_label: "subcategories"
       no_subcategories: "no subcategories"
+      none: "There are no categories to display."
       remove_filter: "remove filter"
       plus_more_count:
         one: "+%{count} more"

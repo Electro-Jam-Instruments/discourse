@@ -11,10 +11,26 @@ import { i18n } from "discourse-i18n";
 // Exists so plugins can use it
 export default class CategoriesTopicList extends Component {
   /**
-   * Total row count for aria-rowcount
+   * Total row count for aria-rowcount (topics, or 1 for empty state)
    */
   get topicRowCount() {
-    return this.topics?.length ?? 0;
+    const count = this.topics?.length ?? 0;
+    return count === 0 ? 1 : count;
+  }
+
+  /**
+   * Whether to show empty state row
+   */
+  get showEmptyState() {
+    return !this.topics || this.topics.length === 0;
+  }
+
+  /**
+   * Empty state message for screen readers
+   */
+  get emptyMessage() {
+    const filter = this.filter || "latest";
+    return i18n(`topics.none.${filter}`);
   }
 
   <template>
@@ -31,24 +47,39 @@ export default class CategoriesTopicList extends Component {
       />
     </div>
 
-    {{#if this.topics}}
-      <div
-        role="grid"
-        aria-labelledby="latest-topics-heading"
-        aria-rowcount={{this.topicRowCount}}
-        class="latest-topic-list-container"
-        {{gridNavigation
-          headerRowSelector=null
-          dataRowSelector="[role='row']"
-        }}
-      >
-        <div role="rowgroup" class="latest-topic-list-body">
-          {{#each this.topics as |t index|}}
-            <LatestTopicListItem @topic={{t}} @index={{index}} />
-          {{/each}}
-        </div>
-      </div>
+    <div
+      role="grid"
+      aria-labelledby="latest-topics-heading"
+      aria-rowcount={{this.topicRowCount}}
+      class="latest-topic-list-container"
+      {{gridNavigation
+        headerRowSelector=null
+        dataRowSelector="[role='row']"
+      }}
+    >
+      <div role="rowgroup" class="latest-topic-list-body">
+        {{#each this.topics as |t index|}}
+          <LatestTopicListItem @topic={{t}} @index={{index}} />
+        {{/each}}
 
+        {{! Empty state row - navigable row for screen readers when list is empty }}
+        {{#if this.showEmptyState}}
+          <div
+            role="row"
+            tabindex="0"
+            aria-rowindex="1"
+            aria-label={{this.emptyMessage}}
+            class="latest-topic-list-empty-row"
+          >
+            <div role="gridcell" class="latest-topic-list-empty-cell">
+              {{this.emptyMessage}}
+            </div>
+          </div>
+        {{/if}}
+      </div>
+    </div>
+
+    {{#if this.topics}}
       <div class="more-topics">
         {{#if
           (eq
@@ -66,10 +97,6 @@ export default class CategoriesTopicList extends Component {
             class="btn btn-default pull-right"
           >{{i18n "more"}}</a>
         {{/if}}
-      </div>
-    {{else}}
-      <div class="no-topics">
-        <h3>{{i18n (concat "topics.none." this.filter)}}</h3>
       </div>
     {{/if}}
   </template>

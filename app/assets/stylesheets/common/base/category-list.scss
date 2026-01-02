@@ -415,6 +415,26 @@
   display: none;
 }
 
+// Empty state row focus styles for grid navigation
+.category-list-empty-row {
+  &:focus {
+    outline: 2px solid var(--tertiary);
+    outline-offset: -2px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tertiary);
+    outline-offset: -2px;
+  }
+}
+
+// Empty state row styling
+.category-list-empty-row .category-list-empty-cell {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--primary-medium);
+}
+
 .navigation-categories .category-list {
   margin-bottom: 3em;
 

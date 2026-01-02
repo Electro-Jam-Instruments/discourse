@@ -124,6 +124,34 @@
   }
 }
 
+// Footer and empty state row focus styles for grid navigation
+.topic-list-footer-row,
+.topic-list-empty-row {
+  &:focus {
+    outline: 2px solid var(--tertiary);
+    outline-offset: -2px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tertiary);
+    outline-offset: -2px;
+  }
+}
+
+// Empty state row styling
+.topic-list-empty-row .topic-list-empty-cell {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--primary-medium);
+}
+
+// Footer row styling
+.topic-list-footer-row .topic-list-footer-cell {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--primary-medium);
+}
+
 .topic-list-main-link {
   font-size: var(--d-topic-list-title-font-size);
 

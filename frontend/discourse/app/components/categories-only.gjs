@@ -16,10 +16,33 @@ export default class CategoriesOnly extends Component {
   showMuted = false;
 
   /**
-   * Total row count for aria-rowcount (categories + header)
+   * Total row count for aria-rowcount (categories + header, or header + empty row)
    */
   get categoryRowCount() {
-    return (this.categories?.length ?? 0) + 1;
+    const categoryCount = this.filteredCategories?.length ?? 0;
+    // If no categories, we show an empty state row
+    return categoryCount === 0 ? 2 : categoryCount + 1;
+  }
+
+  /**
+   * Whether to show empty state row
+   */
+  get showEmptyState() {
+    return !this.filteredCategories || this.filteredCategories.length === 0;
+  }
+
+  /**
+   * Empty state message for screen readers
+   */
+  get emptyMessage() {
+    return i18n("categories.none");
+  }
+
+  /**
+   * Column count for colspan on empty row
+   */
+  get columnCount() {
+    return this.showTopics ? 3 : 2;
   }
 
   /**
@@ -93,59 +116,77 @@ export default class CategoriesOnly extends Component {
       @name="categories-only-wrapper"
       @outletArgs={{lazyHash categories=this.categories}}
     >
-      {{#if this.categories}}
+      {{#if this.site.mobileView}}
         {{#if this.filteredCategories}}
-          {{#if this.site.mobileView}}
-            <div class="category-list {{if this.showTopics 'with-topics'}}">
-              <PluginOutlet
-                @name="mobile-categories"
-                @outletArgs={{lazyHash categories=this.filteredCategories}}
-              >
-                {{#each this.filteredCategories as |c|}}
-                  <ParentCategoryRow
-                    @category={{c}}
-                    @showTopics={{this.showTopics}}
-                  />
-                {{/each}}
-              </PluginOutlet>
-            </div>
-          {{else}}
-            <table
-              class="category-list {{if this.showTopics 'with-topics'}}"
-              role="grid"
-              aria-labelledby="categories-only-category"
-              aria-rowcount={{this.categoryRowCount}}
-              {{gridNavigation}}
+          <div class="category-list {{if this.showTopics 'with-topics'}}">
+            <PluginOutlet
+              @name="mobile-categories"
+              @outletArgs={{lazyHash categories=this.filteredCategories}}
             >
-              <caption class="sr-only">{{i18n "sr_category_list_caption"}}</caption>
-              <thead class="category-list-header" role="rowgroup">
-                <tr
-                  role="row"
-                  tabindex="-1"
-                  aria-rowindex="1"
-                  aria-label={{this.categoryHeaderLabel}}
-                >
-                  <th class="category" role="columnheader"><span
-                      id="categories-only-category"
-                    >{{i18n "categories.category"}}</span></th>
-                  <th class="topics" role="columnheader">{{i18n "categories.topics"}}</th>
-                  {{#if this.showTopics}}
-                    <th class="latest" role="columnheader">{{i18n "categories.latest"}}</th>
-                  {{/if}}
-                </tr>
-              </thead>
-              <tbody class="category-list-body" role="rowgroup">
-                {{#each this.categories as |category index|}}
-                  <ParentCategoryRow
-                    @category={{category}}
-                    @showTopics={{this.showTopics}}
-                    @index={{index}}
-                  />
-                {{/each}}
-              </tbody>
-            </table>
-          {{/if}}
+              {{#each this.filteredCategories as |c|}}
+                <ParentCategoryRow
+                  @category={{c}}
+                  @showTopics={{this.showTopics}}
+                />
+              {{/each}}
+            </PluginOutlet>
+          </div>
         {{/if}}
+      {{else}}
+        <table
+          class="category-list {{if this.showTopics 'with-topics'}}"
+          role="grid"
+          aria-labelledby="categories-only-category"
+          aria-rowcount={{this.categoryRowCount}}
+          {{gridNavigation}}
+        >
+          <caption class="sr-only">{{i18n "sr_category_list_caption"}}</caption>
+          <thead class="category-list-header" role="rowgroup">
+            <tr
+              role="row"
+              tabindex="-1"
+              aria-rowindex="1"
+              aria-label={{this.categoryHeaderLabel}}
+            >
+              <th class="category" role="columnheader"><span
+                  id="categories-only-category"
+                >{{i18n "categories.category"}}</span></th>
+              <th class="topics" role="columnheader">{{i18n "categories.topics"}}</th>
+              {{#if this.showTopics}}
+                <th class="latest" role="columnheader">{{i18n "categories.latest"}}</th>
+              {{/if}}
+            </tr>
+          </thead>
+          <tbody class="category-list-body" role="rowgroup">
+            {{#each this.filteredCategories as |category index|}}
+              <ParentCategoryRow
+                @category={{category}}
+                @showTopics={{this.showTopics}}
+                @index={{index}}
+              />
+            {{/each}}
+
+            {{! Empty state row - navigable row for screen readers when list is empty }}
+            {{#if this.showEmptyState}}
+              <tr
+                role="row"
+                tabindex="0"
+                aria-rowindex="2"
+                aria-label={{this.emptyMessage}}
+                class="category-list-empty-row"
+              >
+                <td
+                  role="gridcell"
+                  colspan={{this.columnCount}}
+                  class="category-list-empty-cell"
+                >
+                  {{this.emptyMessage}}
+                </td>
+              </tr>
+            {{/if}}
+          </tbody>
+        </table>
+      {{/if}}
 
         {{#if this.mutedCategories}}
           <div class="muted-categories">

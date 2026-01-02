@@ -179,6 +179,26 @@ export default class DiscoveryTopics extends Component {
     }
   }
 
+  /**
+   * Empty state message for screen readers when topic list is empty
+   * Used as aria-label on the empty state row
+   */
+  get emptyMessage() {
+    const filterSegments = (this.args.model.get("filter") || "").split("/");
+    const lastFilterSegment = filterSegments.at(-1);
+    const { category, tag } = this.args;
+
+    if (category) {
+      return i18n("topics.none.category", { category: category.name });
+    } else if (tag) {
+      return i18n("topics.none.tag", { tag: tag.id });
+    } else {
+      return i18n(`topics.none.${lastFilterSegment}`, {
+        category: filterSegments[1],
+      });
+    }
+  }
+
   get showEmptyFilterEducationInFooter() {
     const topicsLength = this.args.model.get("topics.length");
 
@@ -313,30 +333,31 @@ export default class DiscoveryTopics extends Component {
         />
       </span>
 
-      {{#if this.hasTopics}}
-        <List
-          @ariaLabelledby="topic-list-heading"
-          @highlightLastVisited={{true}}
-          @top={{this.top}}
-          @hot={{this.hot}}
-          @showTopicPostBadges={{this.showTopicPostBadges}}
-          @showPosters={{true}}
-          @canBulkSelect={{@canBulkSelect}}
-          @bulkSelectHelper={{@bulkSelectHelper}}
-          @changeSort={{@changeSort}}
-          @hideCategory={{@model.hideCategory}}
-          @order={{this.order}}
-          @ascending={{this.ascending}}
-          @expandGloballyPinned={{this.expandGloballyPinned}}
-          @expandAllPinned={{this.expandAllPinned}}
-          @category={{@category}}
-          @topics={{@model.topics}}
-          @discoveryList={{true}}
-          @focusLastVisitedTopic={{true}}
-          @onLoadMore={{this.loadMore}}
-          @footerMessage={{if this.allLoaded this.footerMessage}}
-        />
+      <List
+        @ariaLabelledby="topic-list-heading"
+        @highlightLastVisited={{true}}
+        @top={{this.top}}
+        @hot={{this.hot}}
+        @showTopicPostBadges={{this.showTopicPostBadges}}
+        @showPosters={{true}}
+        @canBulkSelect={{@canBulkSelect}}
+        @bulkSelectHelper={{@bulkSelectHelper}}
+        @changeSort={{@changeSort}}
+        @hideCategory={{@model.hideCategory}}
+        @order={{this.order}}
+        @ascending={{this.ascending}}
+        @expandGloballyPinned={{this.expandGloballyPinned}}
+        @expandAllPinned={{this.expandAllPinned}}
+        @category={{@category}}
+        @topics={{@model.topics}}
+        @discoveryList={{true}}
+        @focusLastVisitedTopic={{true}}
+        @onLoadMore={{this.loadMore}}
+        @footerMessage={{if this.allLoaded this.footerMessage}}
+        @emptyMessage={{unless this.hasTopics this.emptyMessage}}
+      />
 
+      {{#if this.hasTopics}}
         <LoadMore @action={{this.loadMore}} />
       {{/if}}
 

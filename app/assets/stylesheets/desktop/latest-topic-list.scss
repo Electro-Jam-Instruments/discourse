@@ -90,3 +90,28 @@
     color: var(--primary-low-mid-or-secondary-high);
   }
 }
+
+// Empty state row for grid navigation
+.latest-topic-list-empty-row {
+  padding: 1em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  // Focus styles for grid navigation
+  &:focus {
+    outline: 2px solid var(--tertiary);
+    outline-offset: -2px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tertiary);
+    outline-offset: -2px;
+  }
+}
+
+.latest-topic-list-empty-cell {
+  text-align: center;
+  color: var(--primary-medium);
+  padding: var(--space-4);
+}

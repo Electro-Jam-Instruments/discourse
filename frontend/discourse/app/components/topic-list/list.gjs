@@ -185,11 +185,28 @@ export default class TopicList extends Component {
   /**
    * Total row count for aria-rowcount
    * Uses totalRowCount arg if available (for pagination), otherwise topics.length + 1 for header
-   * Add 1 more if we have a footer message row
+   * Add 1 more if we have a footer message row or empty state row
    */
   get ariaRowCount() {
-    const baseCount = (this.args.totalRowCount ?? this.args.topics?.length ?? 0) + 1;
-    return this.args.footerMessage ? baseCount + 1 : baseCount;
+    const topicsLength = this.args.topics?.length ?? 0;
+    const baseCount = (this.args.totalRowCount ?? topicsLength) + 1;
+
+    // Add 1 for footer message row (when topics exist and all loaded)
+    if (this.args.footerMessage) {
+      return baseCount + 1;
+    }
+    // Add 1 for empty state row (when no topics)
+    if (topicsLength === 0 && this.args.emptyMessage) {
+      return baseCount + 1;
+    }
+    return baseCount;
+  }
+
+  /**
+   * Whether to show empty state row
+   */
+  get showEmptyState() {
+    return (this.args.topics?.length ?? 0) === 0 && this.args.emptyMessage;
   }
 
   /**
@@ -201,7 +218,7 @@ export default class TopicList extends Component {
   }
 
   /**
-   * Column count for colspan on footer row
+   * Column count for colspan on footer/empty row
    */
   get columnCount() {
     return this.columns.length;
@@ -286,6 +303,25 @@ export default class TopicList extends Component {
             @connectorTagName="tr"
           />
         {{/each}}
+
+        {{! Empty state row - navigable row for screen readers when list is empty }}
+        {{#if this.showEmptyState}}
+          <tr
+            role="row"
+            tabindex="0"
+            aria-rowindex="2"
+            aria-label={{@emptyMessage}}
+            class="topic-list-empty-row"
+          >
+            <td
+              role="gridcell"
+              colspan={{this.columnCount}}
+              class="topic-list-empty-cell"
+            >
+              {{@emptyMessage}}
+            </td>
+          </tr>
+        {{/if}}
 
         {{! Footer message row - navigable end-of-list indicator for screen readers }}
         {{#if @footerMessage}}
