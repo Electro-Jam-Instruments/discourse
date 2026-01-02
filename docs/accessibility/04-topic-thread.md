@@ -282,12 +282,223 @@ There's a `topic-timeline` component showing:
    - There's a separate "Reply" button for replying to the topic (not a specific post)
    - Where should this be in the tab order?
 
-3. **DISCUSS BEFORE IMPLEMENTATION: Table/grid structure for posts?**
-   - Could posts use a table/grid structure so screen reader users can navigate by "column"?
-   - Example: Navigate down the "author" column to quickly find posts by a specific user
-   - Same for reactions, timestamps, etc.
-   - This would enable screen reader table navigation commands (Ctrl+Alt+Arrow in NVDA)
-   - **ASK USER:** Is this the desired approach before starting implementation?
+---
+
+## DECIDED: Grid Pattern for Posts (CONFIRMED)
+
+**Decision:** Use WAI-ARIA Grid pattern for post stream, matching topic list and category list.
+
+**Rationale:** Consistency across all vertical lists + "glance down column" capability for screen reader users.
+
+### Grid Column Mapping
+
+The current visual layout maps naturally to columns:
+
+| Column | Content | Current CSS Class | Width |
+|--------|---------|-------------------|-------|
+| 1. Avatar | User avatar + flair | `.topic-avatar` | ~45-60px |
+| 2. Author/Meta | Username, badges, timestamp | `.names`, `.post-infos` | auto |
+| 3. Content | Post body (cooked HTML) | `.cooked` | flex/wide |
+| 4. Actions | Like, reply, bookmark, etc. | `.post-controls .actions` | auto |
+
+### Visual Layout Preservation
+
+**Key insight:** We can add ARIA grid semantics WITHOUT changing the visual layout.
+
+Current structure:
+```html
+<div class="topic-post">
+  <article class="boxed">
+    <div class="row">
+      <div class="topic-avatar">...</div>
+      <div class="topic-body">
+        <div class="topic-meta-data">...</div>
+        <div class="cooked">...</div>
+        <nav class="post-controls">...</nav>
+      </div>
+    </div>
+  </article>
+</div>
+```
+
+Grid-accessible structure (2-cell, current implementation):
+```html
+<div class="post-stream" role="grid" aria-label="Posts">
+  <div class="topic-post" role="row" tabindex="0" aria-rowindex="1" aria-label="...">
+    <article class="boxed">
+      <div class="row">
+        <!-- Cell 1: Avatar -->
+        <div class="topic-avatar" role="gridcell">...</div>
+        <!-- Cell 2: Body (includes meta, content, AND actions) -->
+        <div class="topic-body" role="gridcell">
+          <div class="topic-meta-data">...</div>
+          <div class="cooked" role="document">...</div>
+          <nav class="post-controls">
+            <div class="actions" role="toolbar" aria-label="Post actions">
+              <button>Like</button>
+              <button>Share</button>
+              <button>Bookmark</button>
+              <button>Reply</button>
+              ...
+            </div>
+          </nav>
+        </div>
+      </div>
+    </article>
+  </div>
+</div>
+```
+
+**Note:** This 2-cell structure matches the current DOM exactly. No template restructuring needed. Arrow Right navigation still reaches toolbar buttons by continuing past the Body cell into the toolbar.
+
+Future 3-cell structure (planned):
+```html
+<!-- Cell 2 would be split, with post-controls moved out as Cell 3 -->
+<div class="topic-body-content" role="gridcell">...</div>
+<nav class="post-controls" role="gridcell">...</nav>
+```
+
+### Keyboard Navigation
+
+| Key | Context | Action |
+|-----|---------|--------|
+| Arrow Down | On post row | Move to next post |
+| Arrow Up | On post row | Move to previous post |
+| Arrow Right | On post row | Move to next cell (avatar → body → actions) |
+| Arrow Left | On post row | Move to previous cell |
+| Enter | On post row | Enter document mode for reading content |
+| Escape | In document mode | Return to post row |
+| Tab | On post row | Move to actions toolbar (or exit grid) |
+| Home | On post row | Move to first post |
+| End | On post row | Move to last loaded post |
+
+### Screen Reader Column Navigation
+
+With grid role, screen reader users can:
+- **Ctrl+Alt+Down** (NVDA): Move down same column (e.g., scan all avatars)
+- **Ctrl+Alt+Right**: Move to next column in same row
+- **Read column header**: Understand what data is in each column
+
+### DECIDED: Phased Cell Structure Approach
+
+#### Phase 1: 2-Cell Structure (CURRENT IMPLEMENTATION)
+
+**Decision:** Start with 2 cells to validate the approach with high confidence.
+
+```
+[Avatar] [Body (meta + content + actions)]
+```
+
+| Cell | Content | CSS Class | Notes |
+|------|---------|-----------|-------|
+| 1. Avatar | User avatar + flair | `.topic-avatar` | Visual identifier |
+| 2. Body | Meta-data + content + actions | `.topic-body` | Everything else |
+
+**Rationale for starting with 2-cell:**
+- Matches current DOM structure exactly (no restructuring needed)
+- 85-90% confidence vs 65% for 3-cell
+- LOW risk - no CSS changes, no plugin outlet disruption
+- Validates the grid pattern approach before major restructuring
+- Arrow navigation STILL reaches toolbar buttons directly
+
+**Keyboard Flow (2-cell):**
+```
+[Post Row]
+    ↓ Arrow Right
+[Avatar] → [Body] → [Like] → [Share] → [Bookmark] → [Reply] → ...
+```
+
+#### Phase 2: 3-Cell Structure (PLANNED FUTURE)
+
+**Goal:** After 2-cell is validated and working, refactor to true 3-cell separation.
+
+```
+[Avatar] [Body (meta + content)] [Actions]
+```
+
+| Cell | Content | CSS Class | Notes |
+|------|---------|-----------|-------|
+| 1. Avatar | User avatar + flair | `.topic-avatar` | Visual identifier |
+| 2. Body | Meta-data + post content | `.topic-body-content` (new) | Semantically related info |
+| 3. Actions | Toolbar buttons | `.post-controls` | Operations on the post |
+
+**Why 3-cell is valuable (future):**
+- True column separation for screen reader column navigation (Ctrl+Alt+Down)
+- Cleaner semantic structure
+- Better "glance down column" capability
+
+**Why deferred:**
+- Requires moving `<PostMenu>` out of `.topic-body` (4 levels deep currently)
+- Template restructuring could break plugins
+- CSS changes needed to maintain visual layout
+- Higher risk, lower confidence (65%)
+
+**Transition Plan:**
+1. Implement 2-cell, gather user feedback
+2. If 3-cell column navigation is requested, plan DOM restructuring
+3. Move PostMenu component to be sibling of topic-body
+4. Update CSS to maintain visual layout
+
+**Feasibility Assessment:** See `docs/research/post-stream-grid-feasibility-assessment.md`
+
+### DECIDED: Direct Button Navigation (CONFIRMED)
+
+**Question:** When Arrow Right moves from Body cell to Actions cell, where does focus go?
+- **Option A:** Focus Actions cell container, then Tab/Enter to enter buttons
+- **Option B:** Focus directly on first toolbar button (Like)
+
+**Decision:** Option B - Arrow Right moves focus directly into toolbar buttons.
+
+**Rationale:**
+- Matches existing grid pattern in topic list and category list
+- More direct for acting on a post (fewer keystrokes)
+- Consistent with "arrows navigate through interactive elements" pattern
+- Can revisit if user testing shows issues
+
+**Keyboard Flow:**
+```
+[Post Row focused]
+    ↓ Arrow Right
+[Avatar Cell] → [Body Cell] → [Like button] → [Share] → [Bookmark] → [Reply] → ...
+    ↓ Arrow Left (from Like)
+[Body Cell]
+```
+
+### Implementation Plan (2-Cell)
+
+#### Phase 1: Basic Grid Structure (2-Cell)
+1. Add `role="grid"` to `.post-stream`
+2. Add `role="row"` and `tabindex` to `.topic-post`
+3. Add `role="gridcell"` to:
+   - `.topic-avatar` (Cell 1)
+   - `.topic-body` (Cell 2 - includes actions)
+4. Create `post-stream-navigation.js` modifier (adapt grid-navigation patterns)
+5. Add composite `aria-label` for each post row
+
+#### Phase 2: Actions Toolbar Integration
+1. Add `role="toolbar"` to `.actions` inside `.post-controls`
+2. Arrow Right from Body cell → focus first toolbar button directly
+3. Arrow Left/Right navigates between toolbar buttons
+4. Arrow Left from first button → returns to Body cell
+5. Implement roving tabindex for toolbar buttons
+
+#### Phase 3: Document Mode for Reading
+1. Add `role="document"` to `.cooked` container
+2. Enter on Body cell → focus moves to `.cooked` content
+3. Escape returns to row
+4. Screen reader virtual cursor works inside document
+
+#### Phase 4: Polish & Edge Cases
+1. Focus styles using CSS variables (`--d-grid-focus-*`)
+2. Empty state handling (no posts)
+3. New post announcements via live region
+4. Load more / infinite scroll handling
+5. Small action posts (system messages)
+6. New posts group marker accessibility
+
+#### Future Phase: 3-Cell Restructuring
+- See "Phase 2: 3-Cell Structure" section above
+- Requires DOM restructuring work
 
 ## Files to Modify
 
@@ -325,6 +536,50 @@ There's a `topic-timeline` component showing:
 - Announce new posts
 - Handle edge cases (deleted posts, etc.)
 - Optimize for long threads
+
+## Implementation Status
+
+### Phase 1: 2-Cell Grid Pattern - COMPLETED (2026-01-02)
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `components/post-stream.gjs` | Added `role="grid"`, `aria-label`, `PostStreamNavigation` modifier |
+| `components/post.gjs` | Added `role="row"`, `tabindex="-1"`, `aria-label`, gridcell roles on avatar/body |
+| `components/post/avatar.gjs` | Added `...attributes` to accept role/tabindex |
+| `components/post/menu.gjs` | Added `role="toolbar"`, `aria-label` on `.actions` |
+| `components/post/small-action.gjs` | Added `role="row"`, `tabindex="-1"`, `aria-label` |
+| `components/post/cooked-html.gjs` | Added `role` getter returning "document" for stream elements |
+| `components/decorated-html.gjs` | Added support for `@role` argument |
+| `modifiers/post-stream-navigation.js` | **NEW** - Full keyboard navigation modifier |
+| `config/locales/client.en.yml` | Added i18n strings for grid accessibility |
+
+**New i18n Keys:**
+- `post_stream.aria_label`: "Post stream"
+- `post.sr_replying_to`: "replying to %{username}"
+- `post.sr_like_count`: "%{count} like(s)"
+- `post.sr_edited`: "edited"
+- `post.sr_wiki`: "wiki"
+- `post.sr_reply_count`: "%{count} reply(ies)"
+- `post.sr_post_actions`: "Post actions"
+
+**Keyboard Navigation Implemented:**
+- Arrow Up/Down: Move between posts
+- Arrow Left/Right: Move through cells and toolbar buttons
+- Ctrl+Enter: Enter document mode for reading post content
+- Escape: Exit document mode
+- Home/End: First/last post
+- PageUp/PageDown: Jump multiple posts
+- Ctrl+Arrow Up/Down: First/last post
+
+**Sub-Agent Validation:**
+- Used `strategic-planner` agent with ULTRATHINK directive
+- Initial 3-cell confidence: 65% (deferred)
+- 2-cell confidence: 85-90%
+- Post-implementation review: 78% → 92% after fixes
+- See `docs/research/post-stream-grid-feasibility-assessment.md`
+- See `docs/research/sub-agent-definitions.md`
 
 ## References
 
