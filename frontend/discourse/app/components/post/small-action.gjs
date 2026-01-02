@@ -152,6 +152,9 @@ export default class PostSmallAction extends Component {
   <template>
     <div
       ...attributes
+      role="row"
+      tabindex="-1"
+      aria-label={{this.a11yHeadingText}}
       {{! The component is wrapped in a `div` and sets the same `id` below in the `article` tag,
           we need to only set it in the `div` when the post is cloaked.
           This is not ideal, but the post-stream component sets the `id` for the children to ensure

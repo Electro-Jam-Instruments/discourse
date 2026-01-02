@@ -149,6 +149,9 @@ export default class DecoratedHtml extends Component {
     if (this.args.className) {
       cookedDiv.className = this.args.className;
     }
+    if (this.args.role) {
+      cookedDiv.setAttribute("role", this.args.role);
+    }
     return cookedDiv;
   }
 

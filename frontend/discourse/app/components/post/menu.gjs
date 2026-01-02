@@ -645,7 +645,7 @@ export default class PostMenu extends Component {
             @state={{this.state}}
           />
         {{/each}}
-        <div class="actions">
+        <div class="actions" role="toolbar" aria-label={{i18n "post.sr_post_actions"}}>
           {{#each this.visibleButtons key="key" as |button|}}
             <PostMenuButtonWrapper
               @buttonActions={{this.buttonActions}}

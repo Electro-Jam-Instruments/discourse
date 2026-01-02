@@ -4175,6 +4175,9 @@ en:
         clear_all: "Clear all"
         actions: "Bulk actions"
 
+    post_stream:
+      aria_label: "Post stream"
+
     post:
       accessible_heading: "post by %{username} %{date}"
       heading_anchor: "Heading link"
@@ -4220,6 +4223,16 @@ en:
         one: "view %{count} hidden reply"
         other: "view %{count} hidden replies"
       sr_reply_to: "Reply to post #%{post_number} by @%{username}"
+      sr_replying_to: "replying to %{username}"
+      sr_like_count:
+        one: "%{count} like"
+        other: "%{count} likes"
+      sr_edited: "edited"
+      sr_wiki: "wiki"
+      sr_reply_count:
+        one: "%{count} reply"
+        other: "%{count} replies"
+      sr_post_actions: "Post actions"
       link_clicked:
         one: "link clicked %{count} time"
         other: "link clicked %{count} times"

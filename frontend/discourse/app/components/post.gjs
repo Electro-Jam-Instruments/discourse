@@ -166,6 +166,75 @@ export default class Post extends Component {
     });
   }
 
+  /**
+   * Composite aria-label for the post row in grid navigation
+   * Follows the order defined in docs/accessibility/04-topic-thread.md:
+   * Author -> Replying to -> Attachments -> Reactions -> Edited -> Wiki -> Message preview -> Age -> Reply count
+   */
+  get postRowAriaLabel() {
+    const post = this.args.post;
+    const parts = [];
+
+    // 1. Author
+    parts.push(post.username);
+
+    // 2. Replying to (if reply to specific post)
+    if (
+      post.reply_to_post_number &&
+      post.reply_to_user?.username &&
+      !this.isReplyingDirectlyToPostAbove
+    ) {
+      parts.push(
+        i18n("post.sr_replying_to", { username: post.reply_to_user.username })
+      );
+    }
+
+    // 3. Attachments (future enhancement)
+    // TODO: Check link_counts for attachments
+
+    // 4. Reactions - like count
+    const likeCount = post.likeAction?.count;
+    if (likeCount && likeCount > 0) {
+      parts.push(i18n("post.sr_like_count", { count: likeCount }));
+    }
+
+    // 5. Edited indicator
+    if (post.version > 1) {
+      parts.push(i18n("post.sr_edited"));
+    }
+
+    // 6. Wiki indicator
+    if (post.wiki) {
+      parts.push(i18n("post.sr_wiki"));
+    }
+
+    // 7. Message preview (first ~100 chars)
+    if (post.excerpt) {
+      const preview =
+        post.excerpt.length > 100
+          ? post.excerpt.substring(0, 100) + "..."
+          : post.excerpt;
+      parts.push(preview);
+    }
+
+    // 8. Age
+    if (post.displayDate) {
+      parts.push(
+        relativeAge(new Date(post.displayDate), {
+          format: "medium-with-ago",
+          wrapInSpan: false,
+        })
+      );
+    }
+
+    // 9. Reply count
+    if (post.reply_count > 0) {
+      parts.push(i18n("post.sr_reply_count", { count: post.reply_count }));
+    }
+
+    return parts.join(", ");
+  }
+
   get repliesShown() {
     return this.filteredRepliesView
       ? this.filteredRepliesShown
@@ -412,6 +481,9 @@ export default class Post extends Component {
   <template>
     <div
       ...attributes
+      role="row"
+      tabindex="-1"
+      aria-label={{this.postRowAriaLabel}}
       class={{unless
         @cloaked
         (concatClass
@@ -523,11 +595,13 @@ export default class Post extends Component {
                 {{/if}}
                 <div class="post__row row">
                   <PostAvatar
+                    role="gridcell"
+                    tabindex="-1"
                     @post={{@post}}
                     @decoratorState={{this.decoratorState}}
                     @keyboardSelected={{@keyboardSelected}}
                   />
-                  <div class="post__body topic-body clearfix">
+                  <div class="post__body topic-body clearfix" role="gridcell" tabindex="-1">
                     <PluginOutlet
                       @name="post-metadata"
                       @outletArgs={{postOutletArgs}}

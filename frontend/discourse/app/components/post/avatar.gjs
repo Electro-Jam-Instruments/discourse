@@ -69,7 +69,7 @@ export default class PostAvatar extends Component {
   }
 
   <template>
-    <div class={{concatClass "topic-avatar" this.additionalClasses}}>
+    <div class={{concatClass "topic-avatar" this.additionalClasses}} ...attributes>
       {{#let
         (lazyHash
           post=@post

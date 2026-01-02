@@ -12,8 +12,10 @@ import lazyHash from "discourse/helpers/lazy-hash";
 import { bind } from "discourse/lib/decorators";
 import offsetCalculator from "discourse/lib/offset-calculator";
 import { Placeholder } from "discourse/models/post-stream";
+import PostStreamNavigation from "discourse/modifiers/post-stream-navigation";
 import PostStreamViewportTracker from "discourse/modifiers/post-stream-viewport-tracker";
 import { and, not } from "discourse/truth-helpers";
+import { i18n } from "discourse-i18n";
 import Post from "./post";
 import PostGap from "./post/gap";
 import PostLoadMoreAccessible from "./post/load-more-accessible";
@@ -254,6 +256,8 @@ export default class PostStream extends Component {
     <ConditionalLoadingSpinner @condition={{@postStream.loadingAbove}} />
     <div
       class="post-stream"
+      role="grid"
+      aria-label={{i18n "post_stream.aria_label"}}
       {{this.viewportTracker.setup
         currentPostChanged=@currentPostChanged
         currentPostScrolled=@currentPostScrolled
@@ -262,6 +266,7 @@ export default class PostStream extends Component {
         setCloakingBoundaries=this.setCloakingBoundaries
         topicId=@topic.id
       }}
+      {{PostStreamNavigation}}
     >
       {{#if (and (not @postStream.loadingAbove) @postStream.canPrependMore)}}
         <PostLoadMoreAccessible

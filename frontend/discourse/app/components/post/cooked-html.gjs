@@ -147,6 +147,11 @@ export default class PostCookedHtml extends Component {
     return this.args.className ?? "cooked";
   }
 
+  get role() {
+    // Stream elements get role="document" for screen reader document mode navigation
+    return this.isStreamElement ? "document" : null;
+  }
+
   get cooked() {
     if (this.isIgnored) {
       return i18n("post.ignored");
@@ -186,6 +191,7 @@ export default class PostCookedHtml extends Component {
   <template>
     <DecoratedHtml
       @className={{this.className}}
+      @role={{this.role}}
       @decorate={{this.decorate}}
       @decorateArgs={{lazyHash
         highlightTerm=this.highlightTerm
