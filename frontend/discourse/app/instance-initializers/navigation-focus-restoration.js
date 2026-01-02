@@ -1,9 +1,12 @@
-import { scheduleOnce } from "@ember/runloop";
+import { next } from "@ember/runloop";
 
 /**
  * Restores focus to the active navigation tab after route transitions.
  * This ensures screen reader users maintain their place in the navigation
  * after selecting a tab (Latest, Hot, Categories, etc.).
+ *
+ * Uses next() instead of scheduleOnce("afterRender") to ensure this runs
+ * AFTER clean-dom-on-route-change blurs the active element.
  */
 function restoreFocusToActiveTab() {
   const activeTab = document.querySelector(
@@ -25,8 +28,9 @@ export default {
         return;
       }
 
-      // Restore focus to active tab if navigation bar exists on the page
-      scheduleOnce("afterRender", null, restoreFocusToActiveTab);
+      // Use next() to ensure we run after clean-dom-on-route-change
+      // which uses scheduleOnce("afterRender") and blurs active element
+      next(null, restoreFocusToActiveTab);
     });
   },
 };

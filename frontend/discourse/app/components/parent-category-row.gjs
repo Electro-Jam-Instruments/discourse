@@ -17,6 +17,51 @@ import { gt } from "discourse/truth-helpers";
 import { i18n } from "discourse-i18n";
 
 export default class ParentCategoryRow extends CategoryListItem {
+  /**
+   * Tabindex for roving tabindex pattern
+   * Grid modifier manages this, but we need a default
+   */
+  get tabindex() {
+    return this.index === 0 ? "0" : "-1";
+  }
+
+  /**
+   * ARIA row index (1-based, accounting for header row)
+   */
+  get ariaRowIndex() {
+    return (this.index ?? 0) + 2;
+  }
+
+  /**
+   * Composite accessible name for screen readers
+   */
+  get accessibleName() {
+    const category = this.category;
+    const parts = [];
+
+    // Category name
+    parts.push(category.name);
+
+    // Topic count
+    if (category.topic_count !== undefined) {
+      parts.push(i18n("sr_category_topics", { count: category.topic_count }));
+    }
+
+    // Subcategory count
+    if (category.subcategories?.length > 0) {
+      parts.push(
+        i18n("sr_subcategories", { count: category.subcategories.length })
+      );
+    }
+
+    // Muted status
+    if (this.isMuted) {
+      parts.push(i18n("sr_muted"));
+    }
+
+    return parts.join(", ");
+  }
+
   <template>
     {{#unless this.isHidden}}
       <PluginOutlet
@@ -107,6 +152,10 @@ export default class ParentCategoryRow extends CategoryListItem {
         <tr
           data-category-id={{this.category.id}}
           data-notification-level={{this.category.notificationLevelString}}
+          role="row"
+          tabindex={{this.tabindex}}
+          aria-rowindex={{this.ariaRowIndex}}
+          aria-label={{this.accessibleName}}
           class="{{if
               this.category.description_excerpt
               'has-description'

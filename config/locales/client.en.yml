@@ -4825,6 +4825,18 @@ en:
     sr_posters: "by %{posters}"
     sr_activity: "last activity %{time}"
 
+    # Screen reader strings for category list
+    sr_category_list_caption: "Category list with keyboard navigation"
+    sr_category_list_header: "Column headers, use arrow keys to navigate"
+    sr_muted_category_list_caption: "Muted categories list"
+    sr_category_topics:
+      one: "%{count} topic"
+      other: "%{count} topics"
+    sr_subcategories:
+      one: "%{count} subcategory"
+      other: "%{count} subcategories"
+    sr_muted: "muted"
+
     # This string uses the ICU Message Format. See https://meta.discourse.org/t/7035 for translation guidelines.
     posts_likes_MF: |
       { count, plural,

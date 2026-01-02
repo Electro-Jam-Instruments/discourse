@@ -8,11 +8,26 @@ import PluginOutlet from "discourse/components/plugin-outlet";
 import icon from "discourse/helpers/d-icon";
 import lazyHash from "discourse/helpers/lazy-hash";
 import discourseComputed from "discourse/lib/decorators";
+import gridNavigation from "discourse/modifiers/grid-navigation";
 import { i18n } from "discourse-i18n";
 
 @tagName("")
 export default class CategoriesOnly extends Component {
   showMuted = false;
+
+  /**
+   * Total row count for aria-rowcount (categories + header)
+   */
+  get categoryRowCount() {
+    return (this.categories?.length ?? 0) + 1;
+  }
+
+  /**
+   * Total row count for muted table aria-rowcount
+   */
+  get mutedCategoryRowCount() {
+    return (this.mutedCategories?.length ?? 0) + 1;
+  }
 
   @discourseComputed("showMutedCategories", "filteredCategories.length")
   mutedToggleIcon(showMutedCategories, filteredCategoriesLength) {
@@ -83,25 +98,36 @@ export default class CategoriesOnly extends Component {
               </PluginOutlet>
             </div>
           {{else}}
-            <table class="category-list {{if this.showTopics 'with-topics'}}">
-              <thead>
-                <tr>
-                  <th class="category"><span
-                      role="heading"
-                      aria-level="2"
+            <table
+              class="category-list {{if this.showTopics 'with-topics'}}"
+              role="grid"
+              aria-labelledby="categories-only-category"
+              aria-rowcount={{this.categoryRowCount}}
+              {{gridNavigation}}
+            >
+              <caption class="sr-only">{{i18n "sr_category_list_caption"}}</caption>
+              <thead class="category-list-header" role="rowgroup">
+                <tr
+                  role="row"
+                  tabindex="-1"
+                  aria-rowindex="1"
+                  aria-label={{i18n "sr_category_list_header"}}
+                >
+                  <th class="category" role="columnheader"><span
                       id="categories-only-category"
                     >{{i18n "categories.category"}}</span></th>
-                  <th class="topics">{{i18n "categories.topics"}}</th>
+                  <th class="topics" role="columnheader">{{i18n "categories.topics"}}</th>
                   {{#if this.showTopics}}
-                    <th class="latest">{{i18n "categories.latest"}}</th>
+                    <th class="latest" role="columnheader">{{i18n "categories.latest"}}</th>
                   {{/if}}
                 </tr>
               </thead>
-              <tbody aria-labelledby="categories-only-category">
-                {{#each this.categories as |category|}}
+              <tbody class="category-list-body" role="rowgroup">
+                {{#each this.categories as |category index|}}
                   <ParentCategoryRow
                     @category={{category}}
                     @showTopics={{this.showTopics}}
+                    @index={{index}}
                   />
                 {{/each}}
               </tbody>
@@ -142,26 +168,35 @@ export default class CategoriesOnly extends Component {
                 class="category-list
                   {{if this.showTopics 'with-topics'}}
                   {{unless this.showMutedCategories 'hidden'}}"
+                role="grid"
+                aria-labelledby="categories-only-category-muted"
+                aria-rowcount={{this.mutedCategoryRowCount}}
+                {{gridNavigation}}
               >
-                <thead>
-                  <tr>
-                    <th class="category"><span
-                        role="heading"
-                        aria-level="2"
+                <caption class="sr-only">{{i18n "sr_muted_category_list_caption"}}</caption>
+                <thead class="category-list-header" role="rowgroup">
+                  <tr
+                    role="row"
+                    tabindex="-1"
+                    aria-rowindex="1"
+                    aria-label={{i18n "sr_category_list_header"}}
+                  >
+                    <th class="category" role="columnheader"><span
                         id="categories-only-category-muted"
                       >{{i18n "categories.category"}}</span></th>
-                    <th class="topics">{{i18n "categories.topics"}}</th>
+                    <th class="topics" role="columnheader">{{i18n "categories.topics"}}</th>
                     {{#if this.showTopics}}
-                      <th class="latest">{{i18n "categories.latest"}}</th>
+                      <th class="latest" role="columnheader">{{i18n "categories.latest"}}</th>
                     {{/if}}
                   </tr>
                 </thead>
-                <tbody aria-labelledby="categories-only-category-muted">
-                  {{#each this.categories as |category|}}
+                <tbody class="category-list-body" role="rowgroup">
+                  {{#each this.mutedCategories as |category index|}}
                     <ParentCategoryRow
                       @category={{category}}
                       @showTopics={{this.showTopics}}
                       @listType="muted"
+                      @index={{index}}
                     />
                   {{/each}}
                 </tbody>

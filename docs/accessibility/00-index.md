@@ -9,6 +9,7 @@ This folder contains documentation for accessibility improvements to Discourse, 
 | [00-index.md](00-index.md) | This index - overview of all accessibility documentation |
 | [01-toolbar.md](01-toolbar.md) | Navigation toolbar implementation (categories, tags, nav tabs) |
 | [02-topic-grid.md](02-topic-grid.md) | Topic list grid implementation with keyboard navigation |
+| [03-category-grid.md](03-category-grid.md) | Category list grid implementation with keyboard navigation |
 
 ## Implementation Overview
 
@@ -34,8 +35,14 @@ This folder contains documentation for accessibility improvements to Discourse, 
 - `frontend/discourse/app/components/d-navigation.gjs` - Main navigation wrapper
 - `frontend/discourse/app/components/navigation-bar.gjs` - Nav tabs container
 - `frontend/discourse/app/components/topic-list/list.gjs` - Topic list grid
-- `frontend/discourse/app/components/topic-list/item.gjs` - Grid row
-- `frontend/discourse/app/components/topic-list/header.gjs` - Grid header row
+- `frontend/discourse/app/components/topic-list/item.gjs` - Topic grid row
+- `frontend/discourse/app/components/topic-list/header.gjs` - Topic grid header row
+- `frontend/discourse/app/components/categories-only.gjs` - Category list grid
+- `frontend/discourse/app/components/parent-category-row.gjs` - Category grid row
+- `frontend/discourse/app/components/discourse-root.js` - Application root with role="application"
+
+#### Instance Initializers
+- `frontend/discourse/app/instance-initializers/navigation-focus-restoration.js` - Focus restoration after route transitions
 
 #### Utilities
 - `frontend/discourse/app/lib/keyboard-navigation-utils.js` - Shared navigation helpers
@@ -50,6 +57,7 @@ This folder contains documentation for accessibility improvements to Discourse, 
 
 | Commit | Description |
 |--------|-------------|
+| `4560cd4486` | A11Y: Fix grid focus persistence and add poster names to row labels |
 | `ed53e6cad8` | A11Y: Improve grid and toolbar keyboard navigation |
 | `870a684424` | A11Y: Enhance grid navigation with Left/Right arrows and row labels |
 | `1becb758ed` | A11Y: Implement WAI-ARIA grid pattern for topic list |

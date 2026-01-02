@@ -98,13 +98,18 @@ export default class GridNavigationModifier extends Modifier {
   }
 
   /**
-   * Set tabindex="-1" on all internal focusable elements
+   * Set tabindex="-1" on all internal focusable elements within rows
    * This ensures single tab stop for the entire grid
+   * Excludes row elements themselves - they are managed by updateTabindices()
    */
   setInternalTabindices() {
     const allFocusables = this.element.querySelectorAll(this.options.focusableSelector);
+    const rows = this.rows;
     allFocusables.forEach((el) => {
-      el.setAttribute("tabindex", "-1");
+      // Don't modify tabindex on row elements - they're managed by updateTabindices()
+      if (!rows.includes(el)) {
+        el.setAttribute("tabindex", "-1");
+      }
     });
   }
 
