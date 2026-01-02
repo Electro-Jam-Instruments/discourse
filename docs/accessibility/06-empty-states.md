@@ -187,6 +187,28 @@ All empty state rows have consistent focus styles:
 - No double announcements
 - Focus should be clearly indicated
 
+## Known Issues / Future Work
+
+### Footer vs In-List Message Inconsistency
+
+**Status:** FIXED
+
+**Issue Identified:** Topic list was showing "no more content" both IN the list (as a navigable row) AND in a separate footer element outside the grid. This created duplicate announcements.
+
+**Solution Implemented:**
+- Footer message is now only shown in-grid (as navigable row) for keyboard navigation
+- External `FooterMessage` component no longer receives the duplicate message
+- Additional footer content (browse links, create topic links) still display via `:messageDetails` slot
+
+**Files Modified:**
+- `frontend/discourse/app/components/discovery/topics.gjs` - Removed `@message` from FooterMessage
+- `frontend/discourse/app/components/footer-message.gjs` - Updated to show slots even without message
+
+**Pattern Established:**
+- End-of-list messages should be in-grid as navigable rows
+- External footer content (links, buttons) can still appear in `<footer>` element
+- Avoid duplicating the same text in both locations
+
 ## References
 
 - [Fluent UI Empty State Pattern](https://react.fluentui.dev/?path=/docs/components-emptycontent--docs)
