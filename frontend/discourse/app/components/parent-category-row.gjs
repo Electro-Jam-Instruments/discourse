@@ -6,6 +6,7 @@ import { htmlSafe } from "@ember/template";
 import CategoryListItem from "discourse/components/category-list-item";
 import CategoryTitleLink from "discourse/components/category-title-link";
 import CategoryUnread from "discourse/components/category-unread";
+import DecoratedHtml from "discourse/components/decorated-html";
 import MobileCategoryTopic from "discourse/components/mobile-category-topic";
 import PluginOutlet from "discourse/components/plugin-outlet";
 import SubCategoryItem from "discourse/components/sub-category-item";
@@ -141,7 +142,12 @@ export default class ParentCategoryRow extends CategoryListItem {
               {{#if this.category.description_excerpt}}
                 <tr class="category-description">
                   <td colspan="3">
-                    {{htmlSafe this.category.description_excerpt}}
+                    <DecoratedHtml
+                      @html={{dirSpan
+                        this.category.description_excerpt
+                        htmlSafe="true"
+                      }}
+                    />
                   </td>
                 </tr>
               {{/if}}
@@ -235,7 +241,12 @@ export default class ParentCategoryRow extends CategoryListItem {
 
             {{#if this.category.description_excerpt}}
               <div class="category-description">
-                {{dirSpan this.category.description_excerpt htmlSafe="true"}}
+                <DecoratedHtml
+                  @html={{dirSpan
+                    this.category.description_excerpt
+                    htmlSafe="true"
+                  }}
+                />
               </div>
             {{/if}}
 

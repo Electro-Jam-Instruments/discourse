@@ -123,7 +123,7 @@ export default class DNavigation extends Component {
     return canEdit;
   }
 
-  @discourseComputed("additionalTags", "category", "tag.id")
+  @discourseComputed("additionalTags", "category", "tag.name")
   showToggleInfo(additionalTags, category, tagId) {
     return !additionalTags && !category && tagId !== "none";
   }
@@ -132,7 +132,7 @@ export default class DNavigation extends Component {
     "filterType",
     "category",
     "noSubcategories",
-    "tag.id",
+    "tag.name",
     "router.currentRoute.queryParams",
     "skipCategoriesNavItem"
   )
