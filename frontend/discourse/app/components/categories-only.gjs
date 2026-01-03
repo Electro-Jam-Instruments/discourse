@@ -257,7 +257,6 @@ export default class CategoriesOnly extends Component {
             {{/if}}
           </div>
         {{/if}}
-      {{/if}}
     </PluginOutlet>
 
     <PluginOutlet
