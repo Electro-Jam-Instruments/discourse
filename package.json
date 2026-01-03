@@ -78,8 +78,7 @@
       ]
     },
     "overrides": {
-      "@ember/test-waiters": "4.1.1",
-      "@babel/plugin-proposal-class-properties": "npm:@babel/plugin-transform-class-properties@^7.27.1"
+      "@ember/test-waiters": "4.1.1"
     }
   }
 }
