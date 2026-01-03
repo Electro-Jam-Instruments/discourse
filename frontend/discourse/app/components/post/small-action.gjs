@@ -180,10 +180,10 @@ export default class PostSmallAction extends Component {
           data-topic-id={{@post.topicId}}
           data-user-id={{@post.user_id}}
         >
-          <div class="topic-avatar">
+          <div class="topic-avatar" role="gridcell" tabindex="-1">
             {{icon this.icon}}
           </div>
-          <div class="small-action-desc">
+          <div class="small-action-desc" role="gridcell" tabindex="-1">
             <div class="small-action-contents">
               <UserAvatar
                 @ariaHidden={{false}}

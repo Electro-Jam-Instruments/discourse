@@ -270,7 +270,7 @@ export default class GridNavigationModifier extends Modifier {
   focusNextRow() {
     const rows = this.rows;
     const newIndex = getNextIndex(
-      rows.length,
+      rows,
       this.activeRowIndex,
       this.options.wrap
     );
@@ -289,7 +289,7 @@ export default class GridNavigationModifier extends Modifier {
   focusPreviousRow() {
     const rows = this.rows;
     const newIndex = getPreviousIndex(
-      rows.length,
+      rows,
       this.activeRowIndex,
       this.options.wrap
     );
@@ -344,7 +344,7 @@ export default class GridNavigationModifier extends Modifier {
       newIndex = 0;
     } else {
       newIndex = getNextIndex(
-        focusables.length,
+        focusables,
         this.activeFocusableIndex,
         this.options.wrap
       );
@@ -383,7 +383,7 @@ export default class GridNavigationModifier extends Modifier {
     }
 
     const newIndex = getPreviousIndex(
-      focusables.length,
+      focusables,
       this.activeFocusableIndex,
       this.options.wrap
     );
