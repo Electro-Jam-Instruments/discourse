@@ -618,7 +618,7 @@ export default class Post extends Component {
                     class="post__body topic-body clearfix"
                     role="gridcell"
                     tabindex="-1"
-                    aria-describedby={{this.postContentId}}
+                    aria-labelledby={{this.postContentId}}
                   >
                     <PluginOutlet
                       @name="post-metadata"
