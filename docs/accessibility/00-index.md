@@ -68,6 +68,9 @@ This folder contains documentation for accessibility improvements to Discourse, 
 
 | Commit | Description |
 |--------|-------------|
+| `c37d121b4d` | A11Y: Use aria-label with computed text for post content gridcell |
+| `9271a80579` | A11Y: Use aria-labelledby instead of aria-describedby for post content |
+| `08e5225d51` | A11Y: Fix NVDA char-by-char navigation when focusing post content |
 | `b14576b549` | A11Y: Screen readers can now navigate posts with left/right arrow keys |
 | `8a05c58263` | A11Y: Fix NVDA reading post content when navigating with Arrow Right/Left |
 | `a98d18dbf7` | A11Y: Enable full post content reading during keyboard navigation |

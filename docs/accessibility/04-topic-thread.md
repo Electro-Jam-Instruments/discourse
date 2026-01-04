@@ -566,33 +566,57 @@ With grid role, screen reader users can:
 |--------|---------|
 | `b14576b549` | Remove static role="document", add dynamically on Ctrl+Enter, remove on Escape |
 
-### Phase 1.2: Fix NVDA Char-by-Char Navigation - IN PROGRESS (2026-01-04)
+### Phase 1.2: Fix NVDA Char-by-Char Navigation - COMPLETED (2026-01-04)
 
 **Problem:** When Arrow Right focuses `.cooked` directly, NVDA enters char-by-char text navigation mode instead of reading the full content.
 
-**Solution:** Focus the gridcell (`.post__body`) instead of `.cooked`, with `aria-describedby` pointing to the content. NVDA reads the described content without entering char-by-char mode.
+**Solution Evolution:**
+1. First tried `aria-describedby` - NVDA didn't auto-read
+2. Then tried `aria-labelledby` - doesn't work with complex HTML div content (accessibility tree shows no label)
+3. Final solution: Use `aria-label` with computed plain text extracted from post content at render time
 
-**Files Modified (uncommitted):**
+| Commit | Changes |
+|--------|---------|
+| `08e5225d51` | Focus gridcell instead of .cooked directly |
+| `9271a80579` | Use aria-labelledby instead of aria-describedby (didn't work with complex HTML) |
+| `c37d121b4d` | Use aria-label with computed text (final working solution) |
+
+**Files Modified:**
 
 | File | Changes |
 |------|---------|
 | `components/post/cooked-html.gjs` | Added `cookedId` getter, passes `@id` to DecoratedHtml |
-| `components/post.gjs` | Added `postContentId` getter, gridcell now has `tabindex="-1"` and `aria-describedby` |
+| `components/post.gjs` | Added `postContentId` getter, `postContentLabel` getter (extracts plain text), gridcell uses `aria-label` |
 | `modifiers/post-stream-navigation.js` | Focus `.post__body[role="gridcell"]` instead of `.cooked` |
 
 **New DOM Structure:**
 ```html
-<div class="post__body topic-body" role="gridcell" tabindex="-1" aria-describedby="post-content-123">
+<div class="post__body topic-body" role="gridcell" tabindex="-1" aria-label="Plain text content extracted from post...">
   ...
   <div class="cooked" id="post-content-123">
-    <!-- Post content -->
+    <!-- Post content (complex HTML) -->
   </div>
   ...
 </div>
 ```
 
+**Key Implementation Detail:**
+The `postContentLabel` getter extracts plain text:
+```javascript
+get postContentLabel() {
+  const post = this.args.post;
+  let content = post.excerpt;
+  if (!content && post.cooked) {
+    const div = document.createElement("div");
+    div.innerHTML = post.cooked;
+    content = div.textContent?.trim();
+  }
+  return content || "";
+}
+```
+
 **Keyboard Behavior:**
-- Arrow Right: Focuses gridcell, NVDA reads content via aria-describedby
+- Arrow Right: Focuses gridcell, NVDA reads content via aria-label
 - Ctrl+Enter: Enters document mode (adds role="document" to .cooked, focuses it)
 - Escape: Exits document mode (removes role="document", returns focus to row)
 
