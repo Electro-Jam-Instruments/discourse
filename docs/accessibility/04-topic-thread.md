@@ -556,6 +556,46 @@ With grid role, screen reader users can:
 | `config/locales/client.en.yml` | Added i18n strings for grid accessibility |
 | `stylesheets/common/base/topic-post.scss` | Added focus outline styles for `.topic-post[role="row"]` and gridcells |
 
+### Phase 1.1: Fix NVDA Arrow Navigation - COMPLETED (2026-01-04)
+
+**Problem:** Static `role="document"` on `.cooked` elements was blocking NVDA application mode, preventing arrow key navigation.
+
+**Solution:** Made `role="document"` dynamic - only added when user enters document mode (Ctrl+Enter).
+
+| Commit | Changes |
+|--------|---------|
+| `b14576b549` | Remove static role="document", add dynamically on Ctrl+Enter, remove on Escape |
+
+### Phase 1.2: Fix NVDA Char-by-Char Navigation - IN PROGRESS (2026-01-04)
+
+**Problem:** When Arrow Right focuses `.cooked` directly, NVDA enters char-by-char text navigation mode instead of reading the full content.
+
+**Solution:** Focus the gridcell (`.post__body`) instead of `.cooked`, with `aria-describedby` pointing to the content. NVDA reads the described content without entering char-by-char mode.
+
+**Files Modified (uncommitted):**
+
+| File | Changes |
+|------|---------|
+| `components/post/cooked-html.gjs` | Added `cookedId` getter, passes `@id` to DecoratedHtml |
+| `components/post.gjs` | Added `postContentId` getter, gridcell now has `tabindex="-1"` and `aria-describedby` |
+| `modifiers/post-stream-navigation.js` | Focus `.post__body[role="gridcell"]` instead of `.cooked` |
+
+**New DOM Structure:**
+```html
+<div class="post__body topic-body" role="gridcell" tabindex="-1" aria-describedby="post-content-123">
+  ...
+  <div class="cooked" id="post-content-123">
+    <!-- Post content -->
+  </div>
+  ...
+</div>
+```
+
+**Keyboard Behavior:**
+- Arrow Right: Focuses gridcell, NVDA reads content via aria-describedby
+- Ctrl+Enter: Enters document mode (adds role="document" to .cooked, focuses it)
+- Escape: Exits document mode (removes role="document", returns focus to row)
+
 **New i18n Keys:**
 - `post_stream.aria_label`: "Post stream"
 - `post.sr_replying_to`: "replying to %{username}"

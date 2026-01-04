@@ -10,6 +10,11 @@ This folder contains documentation for accessibility improvements to Discourse, 
 | [01-toolbar.md](01-toolbar.md) | Navigation toolbar implementation (categories, tags, nav tabs) |
 | [02-topic-grid.md](02-topic-grid.md) | Topic list grid implementation with keyboard navigation |
 | [03-category-grid.md](03-category-grid.md) | Category list grid implementation with keyboard navigation |
+| [04-topic-thread.md](04-topic-thread.md) | Post stream grid implementation for reading topics |
+| [06-empty-states.md](06-empty-states.md) | Empty state accessibility |
+| [07-global-theme-accessibility.md](07-global-theme-accessibility.md) | Global theme accessibility |
+| [07-latest-sidebar.md](07-latest-sidebar.md) | Latest sidebar accessibility |
+| [08-per-user-theme-preferences.md](08-per-user-theme-preferences.md) | Per-user theme preferences |
 
 ## Implementation Overview
 
@@ -30,6 +35,7 @@ This folder contains documentation for accessibility improvements to Discourse, 
 #### Modifiers
 - `frontend/discourse/app/modifiers/toolbar-navigation.js` - Toolbar keyboard navigation
 - `frontend/discourse/app/modifiers/grid-navigation.js` - Grid keyboard navigation
+- `frontend/discourse/app/modifiers/post-stream-navigation.js` - Post stream grid keyboard navigation
 
 #### Components
 - `frontend/discourse/app/components/d-navigation.gjs` - Main navigation wrapper
@@ -40,6 +46,10 @@ This folder contains documentation for accessibility improvements to Discourse, 
 - `frontend/discourse/app/components/categories-only.gjs` - Category list grid
 - `frontend/discourse/app/components/parent-category-row.gjs` - Category grid row
 - `frontend/discourse/app/components/discourse-root.js` - Application root with role="application"
+- `frontend/discourse/app/components/post-stream.gjs` - Post stream grid container
+- `frontend/discourse/app/components/post.gjs` - Post row with gridcells
+- `frontend/discourse/app/components/post/cooked-html.gjs` - Post content with dynamic document role
+- `frontend/discourse/app/components/post/menu.gjs` - Post actions toolbar
 
 #### Instance Initializers
 - `frontend/discourse/app/instance-initializers/navigation-focus-restoration.js` - Focus restoration after route transitions
@@ -49,6 +59,7 @@ This folder contains documentation for accessibility improvements to Discourse, 
 
 #### Styles
 - `app/assets/stylesheets/common/base/_topic-list.scss` - Focus styles for grid rows
+- `app/assets/stylesheets/common/base/topic-post.scss` - Focus styles for post rows
 
 #### i18n
 - `config/locales/client.en.yml` - Screen reader strings
@@ -57,6 +68,9 @@ This folder contains documentation for accessibility improvements to Discourse, 
 
 | Commit | Description |
 |--------|-------------|
+| `b14576b549` | A11Y: Screen readers can now navigate posts with left/right arrow keys |
+| `8a05c58263` | A11Y: Fix NVDA reading post content when navigating with Arrow Right/Left |
+| `a98d18dbf7` | A11Y: Enable full post content reading during keyboard navigation |
 | `4560cd4486` | A11Y: Fix grid focus persistence and add poster names to row labels |
 | `ed53e6cad8` | A11Y: Improve grid and toolbar keyboard navigation |
 | `870a684424` | A11Y: Enhance grid navigation with Left/Right arrows and row labels |
