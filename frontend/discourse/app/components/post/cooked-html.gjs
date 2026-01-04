@@ -152,6 +152,12 @@ export default class PostCookedHtml extends Component {
     return this.isStreamElement ? "document" : null;
   }
 
+  get tabindex() {
+    // Stream elements need tabindex="-1" to receive programmatic focus
+    // This allows arrow key navigation to focus the cooked content directly
+    return this.isStreamElement ? "-1" : null;
+  }
+
   get cooked() {
     if (this.isIgnored) {
       return i18n("post.ignored");
@@ -192,6 +198,7 @@ export default class PostCookedHtml extends Component {
     <DecoratedHtml
       @className={{this.className}}
       @role={{this.role}}
+      @tabindex={{this.tabindex}}
       @decorate={{this.decorate}}
       @decorateArgs={{lazyHash
         highlightTerm=this.highlightTerm

@@ -47,6 +47,22 @@
   }
 }
 
+// Document mode focus styles for cooked content
+// When Arrow Right navigates to .cooked[role="document"], it needs visible focus
+.topic-post .cooked[role="document"] {
+  &:focus {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+
+  &:focus-visible {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+}
+
 #main-outlet > .regular {
   background: var(--d-content-background);
 }

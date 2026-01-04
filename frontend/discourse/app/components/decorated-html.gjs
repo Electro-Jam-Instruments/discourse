@@ -174,6 +174,9 @@ export default class DecoratedHtml extends Component {
     if (this.args.role) {
       cookedDiv.setAttribute("role", this.args.role);
     }
+    if (this.args.tabindex !== undefined) {
+      cookedDiv.setAttribute("tabindex", this.args.tabindex);
+    }
     return cookedDiv;
   }
 

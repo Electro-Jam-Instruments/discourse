@@ -238,29 +238,6 @@ export default class Post extends Component {
     return parts.join(", ");
   }
 
-  /**
-   * Aria-label for the body gridcell
-   * Includes full post content for screen readers
-   */
-  get bodyCellAriaLabel() {
-    const post = this.args.post;
-
-    // Try to get text from excerpt or cooked content
-    let content = post.excerpt;
-    if (!content && post.cooked) {
-      // Strip HTML to get plain text
-      const div = document.createElement("div");
-      div.innerHTML = post.cooked;
-      content = div.textContent?.trim();
-    }
-
-    if (content) {
-      return i18n("post.sr_content_cell") + ": " + content;
-    }
-
-    return i18n("post.sr_content_cell");
-  }
-
   get repliesShown() {
     return this.filteredRepliesView
       ? this.filteredRepliesShown
@@ -629,7 +606,7 @@ export default class Post extends Component {
                     @decoratorState={{this.decoratorState}}
                     @keyboardSelected={{@keyboardSelected}}
                   />
-                  <div class="post__body topic-body clearfix" role="gridcell" tabindex="-1" aria-label={{this.bodyCellAriaLabel}}>
+                  <div class="post__body topic-body clearfix" role="gridcell">
                     <PluginOutlet
                       @name="post-metadata"
                       @outletArgs={{postOutletArgs}}

@@ -258,6 +258,7 @@ export default class PostStream extends Component {
       class="post-stream"
       role="grid"
       aria-label={{i18n "post_stream.aria_label"}}
+      aria-rowcount={{@topic.posts_count}}
       {{this.viewportTracker.setup
         currentPostChanged=@currentPostChanged
         currentPostScrolled=@currentPostScrolled

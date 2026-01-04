@@ -129,15 +129,45 @@ export default class PostStreamNavigationModifier extends Modifier {
 
   /**
    * Get all focusable elements within a specific row
-   * Includes the cells (avatar, body) and toolbar buttons
+   * Includes the avatar cell, content area, and toolbar buttons
+   *
+   * For regular posts: focuses on .cooked[role="document"] instead of the body gridcell
+   * because NVDA has known issues reading aria-label on gridcell elements.
+   *
+   * For small actions: focuses on the .small-action-desc gridcell since it has simple
+   * text content that NVDA can read.
    */
   getFocusablesInRow(row) {
     if (!row) {
       return [];
     }
 
-    // Get gridcells first, then toolbar buttons
-    const cells = Array.from(row.querySelectorAll('[role="gridcell"]'));
+    const focusables = [];
+
+    // Avatar cell (simple gridcell - NVDA reads this fine)
+    const avatarCell = row.querySelector(
+      '.topic-avatar[role="gridcell"], .topic-avatar [role="gridcell"]'
+    );
+    if (avatarCell) {
+      focusables.push(avatarCell);
+    }
+
+    // For regular posts: cooked content with document role
+    // This is where the post content lives - NVDA will read it properly
+    const cookedContent = row.querySelector('.cooked[role="document"]');
+    if (cookedContent) {
+      focusables.push(cookedContent);
+    } else {
+      // For small actions: the description cell (simple text content)
+      const smallActionDesc = row.querySelector(
+        '.small-action-desc[role="gridcell"]'
+      );
+      if (smallActionDesc) {
+        focusables.push(smallActionDesc);
+      }
+    }
+
+    // Toolbar buttons (regular posts have these in .actions toolbar)
     const toolbar = row.querySelector(this.options.toolbarSelector);
     const toolbarButtons = toolbar
       ? Array.from(
@@ -145,9 +175,12 @@ export default class PostStreamNavigationModifier extends Modifier {
         )
       : [];
 
-    // Return cells followed by toolbar buttons
-    // This allows: Avatar -> Body -> Like -> Share -> Bookmark -> Reply -> ...
-    return [...cells, ...toolbarButtons];
+    // Small action buttons (edit, delete, recover)
+    const smallActionButtons = row.querySelectorAll(
+      ".small-action-buttons button:not([disabled])"
+    );
+
+    return [...focusables, ...toolbarButtons, ...Array.from(smallActionButtons)];
   }
 
   /**
@@ -425,8 +458,8 @@ export default class PostStreamNavigationModifier extends Modifier {
   /**
    * Activate the currently focused element
    * If focus is on row itself (activeFocusableIndex === -1), enter document mode
-   * If focus is on body cell, enter document mode
-   * Otherwise click the focused element
+   * If focus is on the document element, enter document mode
+   * Otherwise click the focused element (toolbar buttons, avatar cell)
    */
   activateCurrentFocusable() {
     const row = this.rows[this.activeRowIndex];
@@ -434,20 +467,17 @@ export default class PostStreamNavigationModifier extends Modifier {
       return;
     }
 
-    // If a specific focusable element is focused (toolbar button), click it
+    // If a specific focusable element is focused
     if (this.activeFocusableIndex >= 0) {
       const focusables = this.currentRowFocusables;
       if (this.activeFocusableIndex < focusables.length) {
         const element = focusables[this.activeFocusableIndex];
-        // If it's a cell, enter document mode
-        if (element.getAttribute("role") === "gridcell") {
-          const bodyCell = element.classList.contains("topic-body");
-          if (bodyCell) {
-            this.enterDocumentMode(row);
-            return;
-          }
+        // If it's the document element (cooked content), enter document mode
+        if (element.getAttribute("role") === "document") {
+          this.enterDocumentMode(row);
+          return;
         }
-        // Otherwise click the element
+        // Otherwise click the element (toolbar buttons, avatar cell)
         element.click();
         return;
       }
