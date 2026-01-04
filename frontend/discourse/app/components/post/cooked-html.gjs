@@ -155,9 +155,16 @@ export default class PostCookedHtml extends Component {
   }
 
   get tabindex() {
-    // Stream elements need tabindex="-1" to receive programmatic focus
-    // This allows arrow key navigation to focus the cooked content directly
-    return this.isStreamElement ? "-1" : null;
+    // Stream elements no longer need tabindex - the parent gridcell is focusable
+    // The .cooked content is referenced via aria-describedby from the gridcell
+    return null;
+  }
+
+  /**
+   * Unique ID for the cooked element, used by aria-describedby on parent gridcell
+   */
+  get cookedId() {
+    return this.isStreamElement ? `post-content-${this.args.post.id}` : null;
   }
 
   get cooked() {
@@ -199,6 +206,7 @@ export default class PostCookedHtml extends Component {
   <template>
     <DecoratedHtml
       @className={{this.className}}
+      @id={{this.cookedId}}
       @role={{this.role}}
       @tabindex={{this.tabindex}}
       @decorate={{this.decorate}}

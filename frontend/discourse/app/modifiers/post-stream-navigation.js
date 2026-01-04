@@ -153,11 +153,14 @@ export default class PostStreamNavigationModifier extends Modifier {
       focusables.push(avatarCell);
     }
 
-    // For regular posts: cooked content (role="document" is added dynamically on Ctrl+Enter)
-    // This is where the post content lives
-    const cookedContent = row.querySelector(this.options.cookedSelector);
-    if (cookedContent) {
-      focusables.push(cookedContent);
+    // For regular posts: the post body gridcell (contains .cooked content)
+    // The gridcell has aria-describedby pointing to .cooked, so NVDA reads content
+    // without entering char-by-char navigation mode
+    const postBodyCell = row.querySelector(
+      '.post__body[role="gridcell"], .topic-body[role="gridcell"]'
+    );
+    if (postBodyCell) {
+      focusables.push(postBodyCell);
     } else {
       // For small actions: the description cell (simple text content)
       const smallActionDesc = row.querySelector(
@@ -459,7 +462,7 @@ export default class PostStreamNavigationModifier extends Modifier {
   /**
    * Activate the currently focused element
    * If focus is on row itself (activeFocusableIndex === -1), enter document mode
-   * If focus is on the cooked content, enter document mode
+   * If focus is on the post body gridcell, enter document mode
    * Otherwise click the focused element (toolbar buttons, avatar cell)
    */
   activateCurrentFocusable() {
@@ -473,8 +476,11 @@ export default class PostStreamNavigationModifier extends Modifier {
       const focusables = this.currentRowFocusables;
       if (this.activeFocusableIndex < focusables.length) {
         const element = focusables[this.activeFocusableIndex];
-        // If it's the cooked content, enter document mode
-        if (element.classList.contains("cooked")) {
+        // If it's the post body gridcell, enter document mode
+        if (
+          element.classList.contains("post__body") ||
+          element.classList.contains("topic-body")
+        ) {
           this.enterDocumentMode(row);
           return;
         }

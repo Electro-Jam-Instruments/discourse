@@ -238,6 +238,14 @@ export default class Post extends Component {
     return parts.join(", ");
   }
 
+  /**
+   * ID of the post content element for aria-describedby
+   * Used by the gridcell to reference the .cooked content
+   */
+  get postContentId() {
+    return `post-content-${this.args.post.id}`;
+  }
+
   get repliesShown() {
     return this.filteredRepliesView
       ? this.filteredRepliesShown
@@ -606,7 +614,12 @@ export default class Post extends Component {
                     @decoratorState={{this.decoratorState}}
                     @keyboardSelected={{@keyboardSelected}}
                   />
-                  <div class="post__body topic-body clearfix" role="gridcell">
+                  <div
+                    class="post__body topic-body clearfix"
+                    role="gridcell"
+                    tabindex="-1"
+                    aria-describedby={{this.postContentId}}
+                  >
                     <PluginOutlet
                       @name="post-metadata"
                       @outletArgs={{postOutletArgs}}
