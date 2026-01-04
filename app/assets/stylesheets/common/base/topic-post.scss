@@ -1,5 +1,52 @@
 @use "lib/viewport";
 
+// Focus styles for post-stream grid navigation
+// Enables visible focus ring when navigating posts with keyboard (arrow keys)
+// Uses same CSS variables as topic-list for consistent theming
+.topic-post[role="row"] {
+  &:focus {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+
+  &:focus-visible {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+}
+
+// Focus styles for gridcells within posts (avatar, body)
+.topic-post [role="gridcell"] {
+  &:focus {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+
+  &:focus-visible {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+}
+
+// Small action posts also need focus styles
+.small-action[role="row"] {
+  &:focus {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+
+  &:focus-visible {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+}
+
 #main-outlet > .regular {
   background: var(--d-content-background);
 }

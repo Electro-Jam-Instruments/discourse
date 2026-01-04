@@ -554,6 +554,7 @@ With grid role, screen reader users can:
 | `components/decorated-html.gjs` | Added support for `@role` argument |
 | `modifiers/post-stream-navigation.js` | **NEW** - Full keyboard navigation modifier |
 | `config/locales/client.en.yml` | Added i18n strings for grid accessibility |
+| `stylesheets/common/base/topic-post.scss` | Added focus outline styles for `.topic-post[role="row"]` and gridcells |
 
 **New i18n Keys:**
 - `post_stream.aria_label`: "Post stream"
@@ -563,6 +564,8 @@ With grid role, screen reader users can:
 - `post.sr_wiki`: "wiki"
 - `post.sr_reply_count`: "%{count} reply(ies)"
 - `post.sr_post_actions`: "Post actions"
+- `post.sr_avatar_cell`: "Avatar for %{username}"
+- `post.sr_content_cell`: "Post content"
 
 **Keyboard Navigation Implemented:**
 - Arrow Up/Down: Move between posts

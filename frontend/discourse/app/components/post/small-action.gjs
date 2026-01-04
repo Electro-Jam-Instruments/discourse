@@ -149,11 +149,29 @@ export default class PostSmallAction extends Component {
     return this.args.post.action_code_who;
   }
 
+  /**
+   * Username for avatar cell aria-label
+   * Falls back to "System" when action_code_who is undefined
+   */
+  get avatarCellUsername() {
+    return this.args.post.action_code_who || i18n("post.sr_system_action");
+  }
+
+  /**
+   * Aria-label for the content cell
+   * Uses the action description as the preview
+   */
+  get contentCellAriaLabel() {
+    // Use the plain text a11y heading as the preview
+    return i18n("post.sr_content_cell") + ": " + this.a11yHeadingText;
+  }
+
   <template>
     <div
       ...attributes
       role="row"
       tabindex="-1"
+      aria-rowindex={{@post.post_number}}
       aria-label={{this.a11yHeadingText}}
       {{! The component is wrapped in a `div` and sets the same `id` below in the `article` tag,
           we need to only set it in the `div` when the post is cloaked.
@@ -180,10 +198,10 @@ export default class PostSmallAction extends Component {
           data-topic-id={{@post.topicId}}
           data-user-id={{@post.user_id}}
         >
-          <div class="topic-avatar" role="gridcell" tabindex="-1">
+          <div class="topic-avatar" role="gridcell" tabindex="-1" aria-label={{i18n "post.sr_avatar_cell" username=this.avatarCellUsername}}>
             {{icon this.icon}}
           </div>
-          <div class="small-action-desc" role="gridcell" tabindex="-1">
+          <div class="small-action-desc" role="gridcell" tabindex="-1" aria-label={{this.contentCellAriaLabel}}>
             <div class="small-action-contents">
               <UserAvatar
                 @ariaHidden={{false}}

@@ -119,10 +119,12 @@ export default class PostStreamNavigationModifier extends Modifier {
   }
 
   /**
-   * Get all post rows
+   * Get all post rows (excludes cloaked/virtualized posts)
    */
   get rows() {
-    return Array.from(this.element.querySelectorAll(this.options.rowSelector));
+    return Array.from(
+      this.element.querySelectorAll(this.options.rowSelector)
+    ).filter((row) => !row.closest(".post-stream--cloaked"));
   }
 
   /**

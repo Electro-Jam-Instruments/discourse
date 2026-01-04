@@ -208,13 +208,16 @@ export default class Post extends Component {
       parts.push(i18n("post.sr_wiki"));
     }
 
-    // 7. Message preview (first ~100 chars)
-    if (post.excerpt) {
-      const preview =
-        post.excerpt.length > 100
-          ? post.excerpt.substring(0, 100) + "..."
-          : post.excerpt;
-      parts.push(preview);
+    // 7. Full message content (no truncation for screen readers)
+    let content = post.excerpt;
+    if (!content && post.cooked) {
+      // Strip HTML to get plain text
+      const div = document.createElement("div");
+      div.innerHTML = post.cooked;
+      content = div.textContent?.trim();
+    }
+    if (content) {
+      parts.push(content);
     }
 
     // 8. Age
@@ -233,6 +236,29 @@ export default class Post extends Component {
     }
 
     return parts.join(", ");
+  }
+
+  /**
+   * Aria-label for the body gridcell
+   * Includes full post content for screen readers
+   */
+  get bodyCellAriaLabel() {
+    const post = this.args.post;
+
+    // Try to get text from excerpt or cooked content
+    let content = post.excerpt;
+    if (!content && post.cooked) {
+      // Strip HTML to get plain text
+      const div = document.createElement("div");
+      div.innerHTML = post.cooked;
+      content = div.textContent?.trim();
+    }
+
+    if (content) {
+      return i18n("post.sr_content_cell") + ": " + content;
+    }
+
+    return i18n("post.sr_content_cell");
   }
 
   get repliesShown() {
@@ -483,6 +509,7 @@ export default class Post extends Component {
       ...attributes
       role="row"
       tabindex="-1"
+      aria-rowindex={{@post.post_number}}
       aria-label={{this.postRowAriaLabel}}
       class={{unless
         @cloaked
@@ -597,11 +624,12 @@ export default class Post extends Component {
                   <PostAvatar
                     role="gridcell"
                     tabindex="-1"
+                    aria-label={{i18n "post.sr_avatar_cell" username=@post.username}}
                     @post={{@post}}
                     @decoratorState={{this.decoratorState}}
                     @keyboardSelected={{@keyboardSelected}}
                   />
-                  <div class="post__body topic-body clearfix" role="gridcell" tabindex="-1">
+                  <div class="post__body topic-body clearfix" role="gridcell" tabindex="-1" aria-label={{this.bodyCellAriaLabel}}>
                     <PluginOutlet
                       @name="post-metadata"
                       @outletArgs={{postOutletArgs}}

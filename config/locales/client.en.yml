@@ -4216,6 +4216,9 @@ en:
         one: "%{count} reply"
         other: "%{count} replies"
       sr_post_actions: "Post actions"
+      sr_avatar_cell: "Avatar for %{username}"
+      sr_content_cell: "Post content"
+      sr_system_action: "System"
       link_clicked:
         one: "link clicked %{count} time"
         other: "link clicked %{count} times"
