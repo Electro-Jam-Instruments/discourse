@@ -148,8 +148,10 @@ export default class PostCookedHtml extends Component {
   }
 
   get role() {
-    // Stream elements get role="document" for screen reader document mode navigation
-    return this.isStreamElement ? "document" : null;
+    // Role is NOT set by default - the post-stream-navigation modifier
+    // dynamically adds role="document" only when user enters document mode (Ctrl+Enter)
+    // This prevents NVDA from treating content as a document during normal navigation
+    return null;
   }
 
   get tabindex() {

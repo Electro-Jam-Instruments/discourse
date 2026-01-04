@@ -47,9 +47,10 @@
   }
 }
 
-// Document mode focus styles for cooked content
-// When Arrow Right navigates to .cooked[role="document"], it needs visible focus
-.topic-post .cooked[role="document"] {
+// Focus styles for cooked content
+// When Arrow Right navigates to .cooked, it needs visible focus
+// role="document" is added dynamically only when entering document mode (Ctrl+Enter)
+.topic-post .cooked {
   &:focus {
     outline: var(--d-grid-focus-outline-width) solid
       var(--d-grid-focus-outline-color);

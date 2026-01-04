@@ -39,7 +39,8 @@ export default class PostStreamNavigationModifier extends Modifier {
     focusableSelector:
       'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
     toolbarSelector: '.actions[role="toolbar"]',
-    documentSelector: '.cooked[role="document"]',
+    // Selector for cooked content - does NOT require role="document" since that's added dynamically
+    cookedSelector: '.cooked',
     pageSize: 5,
     wrap: false,
   };
@@ -152,9 +153,9 @@ export default class PostStreamNavigationModifier extends Modifier {
       focusables.push(avatarCell);
     }
 
-    // For regular posts: cooked content with document role
-    // This is where the post content lives - NVDA will read it properly
-    const cookedContent = row.querySelector('.cooked[role="document"]');
+    // For regular posts: cooked content (role="document" is added dynamically on Ctrl+Enter)
+    // This is where the post content lives
+    const cookedContent = row.querySelector(this.options.cookedSelector);
     if (cookedContent) {
       focusables.push(cookedContent);
     } else {
@@ -458,7 +459,7 @@ export default class PostStreamNavigationModifier extends Modifier {
   /**
    * Activate the currently focused element
    * If focus is on row itself (activeFocusableIndex === -1), enter document mode
-   * If focus is on the document element, enter document mode
+   * If focus is on the cooked content, enter document mode
    * Otherwise click the focused element (toolbar buttons, avatar cell)
    */
   activateCurrentFocusable() {
@@ -472,8 +473,8 @@ export default class PostStreamNavigationModifier extends Modifier {
       const focusables = this.currentRowFocusables;
       if (this.activeFocusableIndex < focusables.length) {
         const element = focusables[this.activeFocusableIndex];
-        // If it's the document element (cooked content), enter document mode
-        if (element.getAttribute("role") === "document") {
+        // If it's the cooked content, enter document mode
+        if (element.classList.contains("cooked")) {
           this.enterDocumentMode(row);
           return;
         }
@@ -500,27 +501,33 @@ export default class PostStreamNavigationModifier extends Modifier {
 
   /**
    * Enter document mode - focus moves to .cooked content
+   * Adds role="document" to enable NVDA browse mode for reading post content
    * Allows screen reader virtual cursor navigation within post content
    */
   enterDocumentMode(row) {
-    const documentElement = row.querySelector(this.options.documentSelector);
-    if (documentElement) {
+    const cookedElement = row.querySelector(this.options.cookedSelector);
+    if (cookedElement) {
       this.inDocumentMode = true;
-      documentElement.setAttribute("tabindex", "0");
-      documentElement.focus();
+      // Add role="document" to enable NVDA browse mode
+      cookedElement.setAttribute("role", "document");
+      cookedElement.setAttribute("tabindex", "0");
+      cookedElement.focus();
     }
   }
 
   /**
    * Exit document mode - return focus to the row
+   * Removes role="document" to return to normal grid navigation
    */
   exitDocumentMode() {
     const row = this.rows[this.activeRowIndex];
     if (row) {
       this.inDocumentMode = false;
-      const documentElement = row.querySelector(this.options.documentSelector);
-      if (documentElement) {
-        documentElement.setAttribute("tabindex", "-1");
+      const cookedElement = row.querySelector(this.options.cookedSelector);
+      if (cookedElement) {
+        // Remove role="document" to exit NVDA browse mode
+        cookedElement.removeAttribute("role");
+        cookedElement.setAttribute("tabindex", "-1");
       }
       this.activeFocusableIndex = -1;
       row.focus();
