@@ -14,9 +14,9 @@ import {
  *
  * Keyboard Support:
  * - Arrow Up/Down: Move between posts
- * - Arrow Left/Right: Move between focusable elements within current row
- *   - When at leftmost position, focuses entire row (highlights full rectangle)
- *   - Continues into toolbar buttons when reaching actions area
+ * - Arrow Left/Right: Move between interactive elements within current row
+ *   - Row -> Avatar -> Like -> Share -> Bookmark -> Reply -> etc.
+ *   - Post content is NOT in arrow key flow (use Ctrl+Enter to read)
  * - Ctrl+Enter: Enter document mode for reading post content
  * - Enter: Activate current focused element (clicks buttons)
  * - Home: First post (Ctrl+Home: first focusable in row)
@@ -130,13 +130,13 @@ export default class PostStreamNavigationModifier extends Modifier {
 
   /**
    * Get all focusable elements within a specific row
-   * Includes the avatar cell, content area, and toolbar buttons
+   * Includes the avatar cell and toolbar buttons only
    *
-   * For regular posts: focuses on .cooked[role="document"] instead of the body gridcell
-   * because NVDA has known issues reading aria-label on gridcell elements.
+   * Note: Post content is NOT included in arrow key navigation.
+   * Users can press Ctrl+Enter to enter document mode for reading content.
+   * This avoids NVDA issues with aria-label on gridcells containing interactive elements.
    *
-   * For small actions: focuses on the .small-action-desc gridcell since it has simple
-   * text content that NVDA can read.
+   * For small actions: the description cell is included since it has simple text content.
    */
   getFocusablesInRow(row) {
     if (!row) {
@@ -153,16 +153,10 @@ export default class PostStreamNavigationModifier extends Modifier {
       focusables.push(avatarCell);
     }
 
-    // For regular posts: the post body gridcell (contains .cooked content)
-    // The gridcell has aria-describedby pointing to .cooked, so NVDA reads content
-    // without entering char-by-char navigation mode
-    const postBodyCell = row.querySelector(
-      '.post__body[role="gridcell"], .topic-body[role="gridcell"]'
-    );
-    if (postBodyCell) {
-      focusables.push(postBodyCell);
-    } else {
-      // For small actions: the description cell (simple text content)
+    // For small actions only: the description cell (simple text content)
+    // Regular post content is accessed via Ctrl+Enter document mode instead
+    const isSmallAction = row.classList.contains("small-action");
+    if (isSmallAction) {
       const smallActionDesc = row.querySelector(
         '.small-action-desc[role="gridcell"]'
       );

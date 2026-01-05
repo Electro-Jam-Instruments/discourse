@@ -566,61 +566,39 @@ With grid role, screen reader users can:
 |--------|---------|
 | `b14576b549` | Remove static role="document", add dynamically on Ctrl+Enter, remove on Escape |
 
-### Phase 1.2: Fix NVDA Char-by-Char Navigation - COMPLETED (2026-01-04)
+### Phase 1.2: Simplified Navigation - COMPLETED (2026-01-04)
 
-**Problem:** When Arrow Right focuses `.cooked` directly, NVDA enters char-by-char text navigation mode instead of reading the full content.
+**Problem:** NVDA doesn't announce `aria-label` on gridcells containing interactive elements. The post body gridcell contains the toolbar buttons, so even with `aria-label` set correctly, NVDA ignores it and focuses the first button instead.
 
-**Solution Evolution:**
+**Investigation:**
 1. First tried `aria-describedby` - NVDA didn't auto-read
-2. Then tried `aria-labelledby` - doesn't work with complex HTML div content (accessibility tree shows no label)
-3. Final solution: Use `aria-label` with computed plain text extracted from post content at render time
+2. Then tried `aria-labelledby` - doesn't work with complex HTML div content
+3. Then tried `aria-label` with computed text - NVDA still ignores because gridcell has interactive children
+4. Research confirmed: NVDA shifts focus to child elements in gridcells, announcing child's name instead of parent's aria-label
+
+**Solution:** Simplified navigation to skip post content in arrow key flow. Post content is accessed via Ctrl+Enter document mode only.
 
 | Commit | Changes |
 |--------|---------|
-| `08e5225d51` | Focus gridcell instead of .cooked directly |
-| `9271a80579` | Use aria-labelledby instead of aria-describedby (didn't work with complex HTML) |
-| `c37d121b4d` | Use aria-label with computed text (final working solution) |
+| Multiple | Various attempts with aria-describedby, aria-labelledby, aria-label |
+| Latest | Remove post body from arrow navigation, keep Ctrl+Enter for content access |
 
 **Files Modified:**
 
 | File | Changes |
 |------|---------|
-| `components/post/cooked-html.gjs` | Added `cookedId` getter, passes `@id` to DecoratedHtml |
-| `components/post.gjs` | Added `postContentId` getter, `postContentLabel` getter (extracts plain text), gridcell uses `aria-label` |
-| `modifiers/post-stream-navigation.js` | Focus `.post__body[role="gridcell"]` instead of `.cooked` |
-
-**New DOM Structure:**
-```html
-<div class="post__body topic-body" role="gridcell" tabindex="-1" aria-label="Plain text content extracted from post...">
-  ...
-  <div class="cooked" id="post-content-123">
-    <!-- Post content (complex HTML) -->
-  </div>
-  ...
-</div>
-```
-
-**Key Implementation Detail:**
-The `postContentLabel` getter extracts plain text:
-```javascript
-get postContentLabel() {
-  const post = this.args.post;
-  let content = post.excerpt;
-  if (!content && post.cooked) {
-    const div = document.createElement("div");
-    div.innerHTML = post.cooked;
-    content = div.textContent?.trim();
-  }
-  return content || "";
-}
-```
+| `modifiers/post-stream-navigation.js` | Arrow Left/Right now skips post body gridcell, goes directly to interactive elements |
+| `components/post.gjs` | Removed aria-label and tabindex from post body gridcell |
 
 **Keyboard Behavior:**
-- Arrow Right: Focuses gridcell, NVDA reads content via aria-label
-- Ctrl+Enter: Enters document mode (adds role="document" to .cooked, focuses it)
+- Arrow Right: Row -> Avatar -> Like -> Share -> Bookmark -> Reply (skips content)
+- Ctrl+Enter: Enters document mode (adds role="document" to .cooked, focuses it for reading)
 - Escape: Exits document mode (removes role="document", returns focus to row)
 
-**New i18n Keys:**
+**Rationale:**
+This approach provides consistent, predictable navigation where Left/Right always moves through interactive elements. Users who want to read post content use Ctrl+Enter to enter document mode, which enables full NVDA browse mode navigation within the post.
+
+**i18n Keys:**
 - `post_stream.aria_label`: "Post stream"
 - `post.sr_replying_to`: "replying to %{username}"
 - `post.sr_like_count`: "%{count} like(s)"
@@ -629,11 +607,10 @@ get postContentLabel() {
 - `post.sr_reply_count`: "%{count} reply(ies)"
 - `post.sr_post_actions`: "Post actions"
 - `post.sr_avatar_cell`: "Avatar for %{username}"
-- `post.sr_content_cell`: "Post content"
 
-**Keyboard Navigation Implemented:**
+**Keyboard Navigation:**
 - Arrow Up/Down: Move between posts
-- Arrow Left/Right: Move through cells and toolbar buttons
+- Arrow Left/Right: Move through avatar and toolbar buttons (skips content)
 - Ctrl+Enter: Enter document mode for reading post content
 - Escape: Exit document mode
 - Home/End: First/last post

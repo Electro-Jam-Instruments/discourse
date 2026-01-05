@@ -238,30 +238,6 @@ export default class Post extends Component {
     return parts.join(", ");
   }
 
-  /**
-   * ID of the post content element for aria-describedby
-   * Used by the gridcell to reference the .cooked content
-   */
-  get postContentId() {
-    return `post-content-${this.args.post.id}`;
-  }
-
-  /**
-   * Plain text content for the post body gridcell aria-label
-   * Extracts text from cooked HTML for screen reader announcement
-   */
-  get postContentLabel() {
-    const post = this.args.post;
-    let content = post.excerpt;
-    if (!content && post.cooked) {
-      // Strip HTML to get plain text
-      const div = document.createElement("div");
-      div.innerHTML = post.cooked;
-      content = div.textContent?.trim();
-    }
-    return content || "";
-  }
-
   get repliesShown() {
     return this.filteredRepliesView
       ? this.filteredRepliesShown
@@ -633,8 +609,6 @@ export default class Post extends Component {
                   <div
                     class="post__body topic-body clearfix"
                     role="gridcell"
-                    tabindex="-1"
-                    aria-label={{this.postContentLabel}}
                   >
                     <PluginOutlet
                       @name="post-metadata"
