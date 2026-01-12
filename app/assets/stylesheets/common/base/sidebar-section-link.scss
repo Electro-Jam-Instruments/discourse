@@ -43,7 +43,6 @@
     &:hover {
       background: var(--d-sidebar-highlight-background);
       color: var(--d-sidebar-highlight-color);
-      outline: none;
 
       .prefix-text {
         background: var(--d-sidebar-highlight-prefix-background);
@@ -52,6 +51,12 @@
       .sidebar-section-link-suffix.icon.unread svg {
         color: var(--d-sidebar-highlight-suffix-color);
       }
+    }
+
+    // Keyboard focus ring for accessibility (tree navigation)
+    &:focus-visible {
+      outline: 2px solid var(--tertiary);
+      outline-offset: -2px;
     }
 
     &--active,

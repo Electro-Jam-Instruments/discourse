@@ -237,6 +237,7 @@ export default class SidebarSection extends Component {
           <ul
             id={{this.sidebarSectionContentId}}
             class="sidebar-section-content"
+            role="group"
           >
             {{yield}}
           </ul>

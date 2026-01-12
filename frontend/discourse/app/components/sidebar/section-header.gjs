@@ -6,14 +6,16 @@ const SidebarSectionHeader = <template>
       @title="sidebar.toggle_section"
       @action={{@toggleSectionDisplay}}
       @forwardEvent={{true}}
+      role="treeitem"
       aria-controls={{@sidebarSectionContentId}}
       aria-expanded={{if @isExpanded "true" "false"}}
+      aria-selected="false"
       class="sidebar-section-header sidebar-section-header-collapsable btn-transparent"
     >
       {{yield}}
     </DButton>
   {{else}}
-    <span class="sidebar-section-header">
+    <span class="sidebar-section-header" role="treeitem" aria-selected="false">
       {{yield}}
     </span>
   {{/if}}

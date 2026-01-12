@@ -11,10 +11,12 @@ This folder contains documentation for accessibility improvements to Discourse, 
 | [02-topic-grid.md](02-topic-grid.md) | Topic list grid implementation with keyboard navigation |
 | [03-category-grid.md](03-category-grid.md) | Category list grid implementation with keyboard navigation |
 | [04-topic-thread.md](04-topic-thread.md) | Post stream grid implementation for reading topics |
+| [05-accessibility-backlog.md](05-accessibility-backlog.md) | **Backlog** - Pending accessibility tasks |
 | [06-empty-states.md](06-empty-states.md) | Empty state accessibility |
 | [07-global-theme-accessibility.md](07-global-theme-accessibility.md) | Global theme accessibility |
 | [07-latest-sidebar.md](07-latest-sidebar.md) | Latest sidebar accessibility |
 | [08-per-user-theme-preferences.md](08-per-user-theme-preferences.md) | Per-user theme preferences |
+| [09-sidebar-navigation.md](09-sidebar-navigation.md) | Sidebar tree navigation with single tab stop |
 
 ## Implementation Overview
 
@@ -84,5 +86,6 @@ This folder contains documentation for accessibility improvements to Discourse, 
 
 - [WAI-ARIA Toolbar Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/toolbar/)
 - [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/)
+- [WAI-ARIA Tree Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/treeview/)
 - [Fluent UI DataGrid](https://react.fluentui.dev/?path=/docs/components-datagrid--docs)
 - [Roving Tabindex](https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/#kbd_roving_tabindex)

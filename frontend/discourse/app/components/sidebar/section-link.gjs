@@ -104,6 +104,24 @@ export default class SectionLink extends Component {
     return classNames.join(" ");
   }
 
+  /**
+   * Check if this link is the currently selected/active link
+   * Used for aria-selected in tree pattern
+   */
+  get isSelected() {
+    if (this.args.href && this.args.href === this.args.exactUrlMatch?.value) {
+      return true;
+    }
+    if (
+      this.args.href &&
+      typeof this.args.currentWhen === "boolean" &&
+      this.args.currentWhen
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   get target() {
     return this.currentUser?.user_option?.external_links_in_new_tab &&
       this.isExternal
@@ -204,6 +222,8 @@ export default class SectionLink extends Component {
             title={{@title}}
             data-link-name={{@linkName}}
             class={{this.linkClass}}
+            role="treeitem"
+            aria-selected={{if this.isSelected "true" "false"}}
           >
             <SectionLinkPrefix
               @prefixType={{@prefixType}}
@@ -226,6 +246,8 @@ export default class SectionLink extends Component {
             title={{@title}}
             data-link-name={{@linkName}}
             class={{this.linkClass}}
+            role="treeitem"
+            aria-selected={{if this.isSelected "true" "false"}}
           >
             <SectionLinkPrefix
               @prefixType={{@prefixType}}

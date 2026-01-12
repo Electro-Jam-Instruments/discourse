@@ -1,5 +1,7 @@
 import Component from "@glimmer/component";
 import { service } from "@ember/service";
+import sidebarTreeNavigation from "discourse/modifiers/sidebar-tree-navigation";
+import { i18n } from "discourse-i18n";
 import ApiSections from "../api-sections";
 import CategoriesSection from "./categories-section";
 import CustomSections from "./custom-sections";
@@ -9,7 +11,12 @@ export default class SidebarUserSections extends Component {
   @service currentUser;
 
   <template>
-    <div class="sidebar-sections">
+    <nav
+      role="tree"
+      aria-label={{i18n "sidebar.aria_label"}}
+      class="sidebar-sections"
+      {{sidebarTreeNavigation}}
+    >
       <CustomSections
         @collapsable={{@collapsableSections}}
         @toggleNavigationMenu={{@toggleNavigationMenu}}
@@ -24,6 +31,6 @@ export default class SidebarUserSections extends Component {
       {{#unless @hideApiSections}}
         <ApiSections @collapsable={{@collapsableSections}} />
       {{/unless}}
-    </div>
+    </nav>
   </template>
 }

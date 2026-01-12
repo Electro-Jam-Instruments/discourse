@@ -148,6 +148,17 @@ export default class Item extends Component {
       parts.push(i18n("sr_tags", { tags: topic.tags.join(", ") }));
     }
 
+    // Topic excerpt (for pinned topics or when available)
+    if (topic.excerpt) {
+      // Strip HTML tags and decode entities for clean text
+      const div = document.createElement("div");
+      div.innerHTML = topic.excerpt;
+      const excerptText = div.textContent?.trim();
+      if (excerptText) {
+        parts.push(excerptText);
+      }
+    }
+
     // Posters (featured users)
     if (topic.featuredUsers?.length > 0) {
       const usernames = topic.featuredUsers
