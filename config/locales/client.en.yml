@@ -4194,6 +4194,12 @@ en:
 
     post_stream:
       aria_label: "Post stream"
+      header_row:
+        title: "Topic: %{title}"
+        category: "Category: %{category}"
+        tags:
+          one: "%{count} tag"
+          other: "%{count} tags"
 
     post:
       accessible_heading: "post by %{username} %{date}"

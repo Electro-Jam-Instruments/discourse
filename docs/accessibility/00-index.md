@@ -19,6 +19,8 @@ This folder contains documentation for accessibility improvements to Discourse, 
 | [09-sidebar-navigation.md](09-sidebar-navigation.md) | Sidebar tree navigation with single tab stop |
 | [10-navigation-controls-toolbar.md](10-navigation-controls-toolbar.md) | Topic actions toolbar (Dismiss, New Topic, etc.) |
 | [11-filter-focus-management.md](11-filter-focus-management.md) | Focus management after filter selection |
+| [12-focus-history-restoration.md](12-focus-history-restoration.md) | Focus restoration on browser back/forward |
+| [13-topic-header-row.md](13-topic-header-row.md) | Topic header row for post stream grid |
 
 ## Implementation Overview
 
@@ -51,6 +53,7 @@ This folder contains documentation for accessibility improvements to Discourse, 
 - `frontend/discourse/app/components/parent-category-row.gjs` - Category grid row
 - `frontend/discourse/app/components/discourse-root.js` - Application root with role="application"
 - `frontend/discourse/app/components/post-stream.gjs` - Post stream grid container
+- `frontend/discourse/app/components/post-stream/header-row.gjs` - Topic header row for post grid
 - `frontend/discourse/app/components/post.gjs` - Post row with gridcells
 - `frontend/discourse/app/components/post/cooked-html.gjs` - Post content with dynamic document role
 - `frontend/discourse/app/components/post/menu.gjs` - Post actions toolbar
@@ -85,6 +88,8 @@ This folder contains documentation for accessibility improvements to Discourse, 
 | `8270b7eb86` | A11Y: Add tablist pattern to navigation and restore focus after tab selection |
 | `694187b6fd` | A11Y: Implement sidebar tree navigation with single tab stop |
 | `7b706ba416` | A11Y: Convert navigation controls to toolbar with arrow key navigation |
+| `cc69f8d202` | A11Y: Move focus to first topic row after keyboard filter selection |
+| (pending) | A11Y: Add topic header row to post stream grid navigation |
 
 ## References
 

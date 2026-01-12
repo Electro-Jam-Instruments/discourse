@@ -244,6 +244,15 @@ export default class Post extends Component {
       : this.repliesBelow.length > 0;
   }
 
+  /**
+   * Adjusted aria-rowindex accounting for the topic header row.
+   * Header row is aria-rowindex="1", so posts start at 2.
+   * post_number 1 (OP) becomes aria-rowindex 2.
+   */
+  get ariaRowIndex() {
+    return this.args.post.post_number + 1;
+  }
+
   get shouldShowTopicMap() {
     if (this.args.post.post_number !== 1) {
       return false;
@@ -486,7 +495,7 @@ export default class Post extends Component {
       ...attributes
       role="row"
       tabindex="-1"
-      aria-rowindex={{@post.post_number}}
+      aria-rowindex={{this.ariaRowIndex}}
       aria-label={{this.postRowAriaLabel}}
       class={{unless
         @cloaked

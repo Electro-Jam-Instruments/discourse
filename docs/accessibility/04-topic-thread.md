@@ -598,6 +598,28 @@ With grid role, screen reader users can:
 **Rationale:**
 This approach provides consistent, predictable navigation where Left/Right always moves through interactive elements. Users who want to read post content use Ctrl+Enter to enter document mode, which enables full NVDA browse mode navigation within the post.
 
+### Topic Header Row - COMPLETED (2026-01-12)
+
+**Problem:** The topic title/metadata at the top of post threads was not part of the grid navigation. Users couldn't arrow up to it from the first post.
+
+**Solution:** Added topic header as the first row in the post stream grid (aria-rowindex="1").
+
+| File | Changes |
+|------|---------|
+| `components/post-stream/header-row.gjs` | **NEW** - Topic header row component |
+| `components/post-stream.gjs` | Added header row component, updated aria-rowcount |
+| `components/post.gjs` | Adjusted aria-rowindex to account for header (+1) |
+| `modifiers/post-stream-navigation.js` | Updated rowSelector to include header row |
+| `config/locales/client.en.yml` | Added i18n strings for header row |
+| `stylesheets/common/base/topic-post.scss` | Added focus styles for header row |
+
+**Keyboard Behavior:**
+- Arrow Up from first post focuses the topic header row
+- Arrow Left/Right navigates category link and tag links within header
+- Screen reader announces: "Topic: [title], Category: [category], [tag count] tags"
+
+**GitHub Issue:** [#6](https://github.com/Electro-Jam-Instruments/discourse/issues/6) (awaiting deployment verification)
+
 **i18n Keys:**
 - `post_stream.aria_label`: "Post stream"
 - `post.sr_replying_to`: "replying to %{username}"

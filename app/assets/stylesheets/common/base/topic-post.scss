@@ -47,6 +47,48 @@
   }
 }
 
+// Topic header row in post stream grid
+// First row in grid, allows keyboard navigation to topic title/category/tags
+.topic-header-row[role="row"] {
+  padding: 0.5em 0;
+
+  &:focus {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+
+  &:focus-visible {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+
+  .topic-header-row__content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+  }
+
+  .topic-header-row__title {
+    font-size: var(--font-up-3);
+    margin: 0;
+    font-weight: normal;
+  }
+
+  .topic-header-row__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5em;
+  }
+
+  .topic-header-row__tags {
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
 // Focus styles for cooked content
 // When Arrow Right navigates to .cooked, it needs visible focus
 // role="document" is added dynamically only when entering document mode (Ctrl+Enter)

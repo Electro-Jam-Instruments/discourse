@@ -35,7 +35,8 @@ export default class PostStreamNavigationModifier extends Modifier {
   activeFocusableIndex = -1; // -1 means the row itself is focused (full highlight)
   inDocumentMode = false;
   options = {
-    rowSelector: '.topic-post[role="row"]',
+    // Row selector includes topic header row and post rows
+    rowSelector: '.topic-header-row[role="row"], .topic-post[role="row"]',
     focusableSelector:
       'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
     toolbarSelector: '.actions[role="toolbar"]',
@@ -144,6 +145,22 @@ export default class PostStreamNavigationModifier extends Modifier {
     }
 
     const focusables = [];
+
+    // Topic header row has category/tag links instead of avatar/toolbar
+    const isHeaderRow = row.classList.contains("topic-header-row");
+    if (isHeaderRow) {
+      // Category link
+      const categoryLink = row.querySelector(".badge-category__wrapper a[href]");
+      if (categoryLink) {
+        focusables.push(categoryLink);
+      }
+
+      // Tag links
+      const tagLinks = row.querySelectorAll(".discourse-tags a.discourse-tag");
+      focusables.push(...Array.from(tagLinks));
+
+      return focusables;
+    }
 
     // Avatar cell (simple gridcell - NVDA reads this fine)
     const avatarCell = row.querySelector(

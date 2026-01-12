@@ -23,6 +23,7 @@ import PostPlaceholder from "./post/placeholder";
 import PostSmallAction from "./post/small-action";
 import PostTimeGap from "./post/time-gap";
 import PostVisitedLine from "./post/visited-line";
+import PostStreamHeaderRow from "./post-stream/header-row";
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
@@ -111,6 +112,14 @@ export default class PostStream extends Component {
     }
 
     return result;
+  }
+
+  /**
+   * Total row count for aria-rowcount including the topic header row
+   * Header row = 1, posts start at aria-rowindex 2
+   */
+  get totalRowCount() {
+    return (this.args.topic?.posts_count || 0) + 1;
   }
 
   get shouldShowFilteredNotice() {
@@ -258,7 +267,7 @@ export default class PostStream extends Component {
       class="post-stream"
       role="grid"
       aria-label={{i18n "post_stream.aria_label"}}
-      aria-rowcount={{@topic.posts_count}}
+      aria-rowcount={{this.totalRowCount}}
       {{this.viewportTracker.setup
         currentPostChanged=@currentPostChanged
         currentPostScrolled=@currentPostScrolled
@@ -280,6 +289,8 @@ export default class PostStream extends Component {
           @postStream={{@postStream}}
         />
       {{/if}}
+
+      <PostStreamHeaderRow @topic={{@topic}} />
 
       {{#each this.postTuples key="post.id" as |tuple index|}}
         {{#let
