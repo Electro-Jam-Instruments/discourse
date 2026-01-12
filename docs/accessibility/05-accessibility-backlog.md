@@ -103,6 +103,39 @@ This document tracks pending accessibility improvements for Discourse.
 
 ---
 
+### 7. Dismiss New Button Focus Management
+**Status:** Needs Research
+**Priority:** Medium
+**GitHub Issue:** [#4](https://github.com/Electro-Jam-Instruments/discourse/issues/4)
+
+**Problem:** When a user activates the "Dismiss New" button to dismiss new topics, it's unclear where focus should move after the operation completes.
+
+**Questions to Research:**
+1. After dismissing topics, should focus move to:
+   - The first remaining topic in the list?
+   - An empty state message (if no topics remain)?
+   - Stay on the Dismiss button (if it remains visible)?
+   - Move to another element?
+
+2. What happens to the Dismiss button itself after activation?
+   - Does it disappear?
+   - Does it become disabled?
+   - Does it remain active?
+
+3. What is the expected user workflow after dismissing topics?
+
+**Context:** This is part of ongoing accessibility work to improve keyboard navigation and screen reader support. Related to focus management improvements for topic filter selection.
+
+**Acceptance Criteria:**
+- [ ] Document current behavior of Dismiss New button
+- [ ] Research WAI-ARIA best practices for this pattern
+- [ ] Propose focus management strategy
+- [ ] Implement the chosen approach
+
+**UI Location:** Topic actions toolbar when viewing New filter with new topics
+
+---
+
 ## Completed Tasks
 
 - Phase 1: 2-Cell Grid Pattern for Posts (2026-01-02)

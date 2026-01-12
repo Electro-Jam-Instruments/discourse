@@ -18,6 +18,7 @@ This folder contains documentation for accessibility improvements to Discourse, 
 | [08-per-user-theme-preferences.md](08-per-user-theme-preferences.md) | Per-user theme preferences |
 | [09-sidebar-navigation.md](09-sidebar-navigation.md) | Sidebar tree navigation with single tab stop |
 | [10-navigation-controls-toolbar.md](10-navigation-controls-toolbar.md) | Topic actions toolbar (Dismiss, New Topic, etc.) |
+| [11-filter-focus-management.md](11-filter-focus-management.md) | Focus management after filter selection |
 
 ## Implementation Overview
 
@@ -82,6 +83,8 @@ This folder contains documentation for accessibility improvements to Discourse, 
 | `870a684424` | A11Y: Enhance grid navigation with Left/Right arrows and row labels |
 | `1becb758ed` | A11Y: Implement WAI-ARIA grid pattern for topic list |
 | `8270b7eb86` | A11Y: Add tablist pattern to navigation and restore focus after tab selection |
+| `694187b6fd` | A11Y: Implement sidebar tree navigation with single tab stop |
+| `7b706ba416` | A11Y: Convert navigation controls to toolbar with arrow key navigation |
 
 ## References
 

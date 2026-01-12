@@ -1,7 +1,10 @@
 /* eslint-disable ember/no-classic-components */
 import { tracked } from "@glimmer/tracking";
 import Component from "@ember/component";
+import { on } from "@ember/modifier";
+import { action } from "@ember/object";
 import { dependentKeyCompat } from "@ember/object/compat";
+import { service } from "@ember/service";
 import {
   attributeBindings,
   classNameBindings,
@@ -20,6 +23,8 @@ import { filterTypeForMode } from "discourse/lib/filter-mode";
 )
 @attributeBindings("content.title:title", "role")
 export default class NavigationItem extends Component {
+  @service filterFocus;
+
   role = "presentation";
   @tracked filterMode;
 
@@ -99,12 +104,27 @@ export default class NavigationItem extends Component {
     this.set("activeClass", this.active ? "active" : "");
   }
 
+  /**
+   * Handle keyboard activation (Enter/Space on link).
+   * Marks the activation as keyboard-triggered so focus can move to topic list.
+   * Click events with detail=0 are from keyboard activation (Enter/Space).
+   */
+  @action
+  handleClick(event) {
+    // event.detail === 0 means click was triggered by keyboard (Enter/Space)
+    // event.detail > 0 means it was a real mouse click
+    if (event.detail === 0) {
+      this.filterFocus.markKeyboardActivation();
+    }
+  }
+
   <template>
     <a
       href={{this.hrefLink}}
       class={{this.activeClass}}
       role="tab"
       aria-selected={{if this.active "true" "false"}}
+      {{on "click" this.handleClick}}
     >
       {{#if this.hasIcon}}
         <span class={{this.content.name}}></span>
