@@ -17,6 +17,7 @@ This folder contains documentation for accessibility improvements to Discourse, 
 | [07-latest-sidebar.md](07-latest-sidebar.md) | Latest sidebar accessibility |
 | [08-per-user-theme-preferences.md](08-per-user-theme-preferences.md) | Per-user theme preferences |
 | [09-sidebar-navigation.md](09-sidebar-navigation.md) | Sidebar tree navigation with single tab stop |
+| [10-navigation-controls-toolbar.md](10-navigation-controls-toolbar.md) | Topic actions toolbar (Dismiss, New Topic, etc.) |
 
 ## Implementation Overview
 

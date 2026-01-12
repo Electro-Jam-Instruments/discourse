@@ -4915,6 +4915,7 @@ en:
 
     navigation:
       toolbar_label: "Topic filters"
+      actions_toolbar_label: "Topic actions"
 
     filters:
       with_topics: "%{filter} topics"

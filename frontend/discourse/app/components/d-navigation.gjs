@@ -237,7 +237,13 @@ export default class DNavigation extends Component {
       {{/unless}}
     </div>
 
-    <div class="navigation-controls">
+    <div
+      class="navigation-controls"
+      role="toolbar"
+      aria-label={{i18n "navigation.actions_toolbar_label"}}
+      aria-orientation="horizontal"
+      {{toolbarNavigation itemSelector="button, .btn, a.btn, .select-kit-header"}}
+    >
       {{#if this.showBulkSelectInNavControls}}
         <BulkSelectToggle @bulkSelectHelper={{@bulkSelectHelper}} />
       {{/if}}
