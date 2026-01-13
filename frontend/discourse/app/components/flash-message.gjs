@@ -13,7 +13,12 @@ export default class FlashMessage extends Component {
 
   <template>
     {{#if @flash}}
-      <div class={{concatClass "alert" this.flashClass}} ...attributes>
+      <div
+        class={{concatClass "alert" this.flashClass}}
+        role="alert"
+        aria-live="assertive"
+        ...attributes
+      >
         {{~@flash~}}
       </div>
     {{/if}}
