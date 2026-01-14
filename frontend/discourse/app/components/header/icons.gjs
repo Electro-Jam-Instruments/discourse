@@ -2,11 +2,13 @@ import Component from "@glimmer/component";
 import { fn } from "@ember/helper";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
+import { i18n } from "discourse-i18n";
 import InterfaceColorSelector from "discourse/components/interface-color-selector";
 import LanguageSwitcher from "discourse/components/language-switcher";
 import { ALL_PAGES_EXCLUDED_ROUTES } from "discourse/components/welcome-banner";
 import DAG from "discourse/lib/dag";
 import getURL from "discourse/lib/get-url";
+import toolbarNavigation from "discourse/modifiers/toolbar-navigation";
 import { eq } from "discourse/truth-helpers";
 import Dropdown from "./dropdown";
 import UserDropdown from "./user-dropdown";
@@ -109,7 +111,12 @@ export default class Icons extends Component {
   }
 
   <template>
-    <ul class="icons d-header-icons">
+    <ul
+      class="icons d-header-icons"
+      role="toolbar"
+      aria-label={{i18n "header.toolbar_label"}}
+      {{toolbarNavigation itemSelector="button, a"}}
+    >
       {{#each (headerIcons.resolve) as |entry|}}
         {{#if (eq entry.key "search")}}
           {{#if this.showSearchButton}}

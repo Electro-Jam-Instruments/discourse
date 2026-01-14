@@ -13,6 +13,7 @@ import {
   getCollapsedSidebarSectionKey,
   getSidebarSectionContentId,
 } from "discourse/lib/sidebar/helpers";
+import toolbarNavigation from "discourse/modifiers/toolbar-navigation";
 import DropdownSelectBox from "discourse/select-kit/components/dropdown-select-box";
 import { i18n } from "discourse-i18n";
 import SectionHeader from "./section-header";
@@ -173,7 +174,12 @@ export default class SidebarSection extends Component {
         ...attributes
       >
         {{#unless @hideSectionHeader}}
-          <div class="sidebar-section-header-wrapper sidebar-row">
+          <div
+            class="sidebar-section-header-wrapper sidebar-row"
+            role="toolbar"
+            aria-label={{@headerLinkText}}
+            {{toolbarNavigation itemSelector="button"}}
+          >
             <SectionHeader
               @collapsable={{@collapsable}}
               @sidebarSectionContentId={{this.sidebarSectionContentId}}
@@ -212,6 +218,7 @@ export default class SidebarSection extends Component {
                   {{on "click" headerAction.action}}
                   type="button"
                   title={{headerAction.title}}
+                  aria-label={{headerAction.title}}
                   class="sidebar-section-header-button btn-icon btn-flat"
                 >
                   {{icon @headerActionsIcon}}
