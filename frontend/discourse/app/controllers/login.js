@@ -51,6 +51,20 @@ export default class LoginPageController extends Controller {
   @tracked flash;
   @tracked flashType;
 
+  /**
+   * Set flash message, ensuring screen readers re-announce even if same message.
+   * If the new message matches the current flash, briefly clears it first to
+   * trigger a DOM change that screen readers will detect and announce.
+   */
+  setFlash(message, type = "error") {
+    if (this.flash === message) {
+      // Same message - clear first to force screen reader re-announcement
+      this.flash = " ";
+    }
+    this.flash = message;
+    this.flashType = type;
+  }
+
   @setting("enable_local_logins") canLoginLocal;
   @setting("enable_local_logins_via_email") canLoginLocalWithEmail;
 
@@ -194,8 +208,7 @@ export default class LoginPageController extends Controller {
       return;
     }
     if (isEmpty(this.loginName) || isEmpty(this.loginPassword)) {
-      this.flash = i18n("login.blank_username_or_password");
-      this.flashType = "error";
+      this.setFlash(i18n("login.blank_username_or_password"));
       return;
     }
 
@@ -214,8 +227,6 @@ export default class LoginPageController extends Controller {
       });
       if (result?.error) {
         this.loggingIn = false;
-        this.flash = null;
-        this.flashType = "error";
 
         if (
           (result.security_key_enabled || result.totp_enabled) &&
@@ -244,13 +255,15 @@ export default class LoginPageController extends Controller {
         } else if (result.reason === "suspended") {
           this.dialog.alert(result.error);
         } else if (result.reason === "expired") {
-          this.flash = htmlSafe(
-            i18n("login.password_expired", {
-              reset_url: getURL("/password-reset"),
-            })
+          this.setFlash(
+            htmlSafe(
+              i18n("login.password_expired", {
+                reset_url: getURL("/password-reset"),
+              })
+            )
           );
         } else {
-          this.flash = result.error;
+          this.setFlash(result.error);
         }
       } else {
         this.loggedIn = true;
@@ -286,18 +299,17 @@ export default class LoginPageController extends Controller {
     } catch (e) {
       // Failed to login
       this.loggingIn = false;
-      this.flashType = "error";
       if (e.jqXHR?.status === 429) {
-        this.flash = i18n("login.rate_limit");
+        this.setFlash(i18n("login.rate_limit"));
       } else if (
         e.jqXHR?.status === 503 &&
         e.jqXHR?.responseJSON?.error_type === "read_only"
       ) {
-        this.flash = i18n("read_only_mode.login_disabled");
+        this.setFlash(i18n("read_only_mode.login_disabled"));
       } else if (!areCookiesEnabled()) {
-        this.flash = i18n("login.cookies_error");
+        this.setFlash(i18n("login.cookies_error"));
       } else {
-        this.flash = i18n("login.error");
+        this.setFlash(i18n("login.error"));
       }
     }
   }
