@@ -5,6 +5,9 @@
 
     &:focus-within {
       background: var(--d-sidebar-highlight-background);
+      // Full-row focus ring when any element in the header toolbar is focused
+      outline: 2px solid var(--tertiary);
+      outline-offset: -2px;
     }
 
     .sidebar-section-header-button {
@@ -43,8 +46,9 @@
         margin: 0;
       }
 
+      // Remove individual focus outline - wrapper handles it now
       &:focus {
-        outline: 2px solid var(--tertiary);
+        outline: none;
       }
     }
   }
@@ -74,12 +78,13 @@
 
       &:focus {
         background: transparent;
+        // Remove individual focus outline - wrapper handles full-row focus
+        outline: none;
       }
 
-      // Keyboard focus ring for accessibility (tree navigation)
+      // Focus-visible also handled by wrapper now
       &:focus-visible {
-        outline: 2px solid var(--tertiary);
-        outline-offset: -2px;
+        outline: none;
       }
     }
   }

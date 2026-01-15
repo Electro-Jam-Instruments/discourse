@@ -14,8 +14,8 @@ import {
  *
  * Keyboard Support:
  * - Arrow Up/Down: Move between visible tree items (with wrapping)
- * - Arrow Right: Expand collapsed section
- * - Arrow Left: Collapse expanded section, or move to parent section header
+ * - Arrow Right: Expand collapsed section (when not in nested toolbar)
+ * - Arrow Left: Collapse expanded section, or move to parent section header (when not in nested toolbar)
  * - Enter/Space: Activate link, toggle section expand/collapse, or open popup
  * - Home: First visible tree item
  * - End: Last visible tree item
@@ -25,6 +25,12 @@ import {
  * - Single tab stop for entire tree (roving tabindex)
  * - Tab enters tree at selected item (aria-selected="true") or first item
  * - Internal focusable elements have tabindex="-1"
+ *
+ * Nested Toolbar Support:
+ * - Section headers may contain a nested toolbar (collapse button + edit button)
+ * - When focus is inside a toolbar, left/right arrows are passed through
+ *   to allow the toolbar navigation to handle them
+ * - This enables keyboard users to navigate between the collapse and edit buttons
  */
 export default class SidebarTreeNavigationModifier extends Modifier {
   element = null;
@@ -181,6 +187,10 @@ export default class SidebarTreeNavigationModifier extends Modifier {
     const { key } = event;
     let handled = false;
 
+    // Check if focus is inside a nested toolbar (section header with edit button)
+    // If so, let the toolbar handle left/right arrows to navigate between buttons
+    const inToolbar = event.target.closest('[role="toolbar"]');
+
     switch (key) {
       case "ArrowDown":
         this.focusNextItem();
@@ -193,13 +203,20 @@ export default class SidebarTreeNavigationModifier extends Modifier {
         break;
 
       case "ArrowRight":
-        this.expandOrDoNothing();
-        handled = true;
+        // If in a toolbar, let the toolbar handle left/right navigation
+        // between buttons (e.g., collapse button and edit button)
+        if (!inToolbar) {
+          this.expandOrDoNothing();
+          handled = true;
+        }
         break;
 
       case "ArrowLeft":
-        this.collapseOrMoveToParent();
-        handled = true;
+        // If in a toolbar, let the toolbar handle left/right navigation
+        if (!inToolbar) {
+          this.collapseOrMoveToParent();
+          handled = true;
+        }
         break;
 
       case "Home":
