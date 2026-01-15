@@ -71,28 +71,42 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     // Preserve focus if currently focused element is in the grid
     const focusedElement = document.activeElement;
+    let focusInCloakedPost = false;
+
     if (focusedElement && this.element.contains(focusedElement)) {
-      const rows = this.rows;
-      for (let i = 0; i < rows.length; i++) {
-        if (rows[i] === focusedElement || rows[i].contains(focusedElement)) {
-          this.activeRowIndex = i;
-          if (rows[i] === focusedElement) {
-            this.activeFocusableIndex = -1;
-          } else {
-            const focusables = this.getFocusablesInRow(rows[i]);
-            const idx = focusables.indexOf(focusedElement);
-            if (idx !== -1) {
-              this.activeFocusableIndex = idx;
+      // Check if focus is inside a cloaked (virtualized) post
+      // Cloaked posts are filtered from rows, so we need to handle this separately
+      const cloakedContainer = focusedElement.closest(".post-stream--cloaked");
+      if (cloakedContainer) {
+        // Focus is in a cloaked post - don't update activeRowIndex
+        // This prevents focus jumping when posts get virtualized during scroll
+        focusInCloakedPost = true;
+      } else {
+        const rows = this.rows;
+        for (let i = 0; i < rows.length; i++) {
+          if (rows[i] === focusedElement || rows[i].contains(focusedElement)) {
+            this.activeRowIndex = i;
+            if (rows[i] === focusedElement) {
+              this.activeFocusableIndex = -1;
+            } else {
+              const focusables = this.getFocusablesInRow(rows[i]);
+              const idx = focusables.indexOf(focusedElement);
+              if (idx !== -1) {
+                this.activeFocusableIndex = idx;
+              }
             }
+            break;
           }
-          break;
         }
       }
     }
 
-    // Ensure activeRowIndex is valid
+    // Ensure activeRowIndex is valid, but only if focus is not in a cloaked post
+    // If focus is in a cloaked post, we preserve the old activeRowIndex to avoid
+    // focus jumping when the user presses arrow keys
     const rows = this.rows;
     if (
+      !focusInCloakedPost &&
       rows.length > 0 &&
       (this.activeRowIndex < 0 || this.activeRowIndex >= rows.length)
     ) {
@@ -331,8 +345,30 @@ export default class PostStreamNavigationModifier extends Modifier {
     }
   }
 
+  /**
+   * Normalize activeRowIndex if it's out of bounds.
+   * This can happen when posts get cloaked/uncloaked due to virtualization.
+   * Returns the normalized index.
+   */
+  normalizeActiveIndex() {
+    const rows = this.rows;
+    if (rows.length === 0) {
+      return 0;
+    }
+    if (this.activeRowIndex < 0) {
+      this.activeRowIndex = 0;
+    } else if (this.activeRowIndex >= rows.length) {
+      // Clamp to last visible row - better than jumping to 0
+      this.activeRowIndex = rows.length - 1;
+    }
+    return this.activeRowIndex;
+  }
+
   focusNextRow() {
     const rows = this.rows;
+    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
+    this.normalizeActiveIndex();
+
     const newIndex = getNextIndex(
       rows,
       this.activeRowIndex,
@@ -346,6 +382,9 @@ export default class PostStreamNavigationModifier extends Modifier {
 
   focusPreviousRow() {
     const rows = this.rows;
+    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
+    this.normalizeActiveIndex();
+
     const newIndex = getPreviousIndex(
       rows,
       this.activeRowIndex,
@@ -365,6 +404,9 @@ export default class PostStreamNavigationModifier extends Modifier {
   }
 
   focusRowByOffset(offset) {
+    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
+    this.normalizeActiveIndex();
+
     const newIndex = Math.max(
       0,
       Math.min(this.rows.length - 1, this.activeRowIndex + offset)
@@ -390,6 +432,9 @@ export default class PostStreamNavigationModifier extends Modifier {
    * Continues through cells and toolbar buttons
    */
   focusNextFocusableInRow() {
+    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
+    this.normalizeActiveIndex();
+
     const focusables = this.currentRowFocusables;
     if (focusables.length === 0) {
       return;
@@ -422,6 +467,9 @@ export default class PostStreamNavigationModifier extends Modifier {
    * If at first focusable (index 0), moves back to row focus (-1)
    */
   focusPreviousFocusableInRow() {
+    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
+    this.normalizeActiveIndex();
+
     const focusables = this.currentRowFocusables;
     if (focusables.length === 0) {
       return;
@@ -434,8 +482,11 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     // If at first focusable, go back to row focus
     if (this.activeFocusableIndex === 0) {
-      this.activeFocusableIndex = -1;
-      this.rows[this.activeRowIndex].focus();
+      const rows = this.rows;
+      if (rows.length > 0 && this.activeRowIndex < rows.length) {
+        this.activeFocusableIndex = -1;
+        rows[this.activeRowIndex].focus();
+      }
       return;
     }
 
@@ -455,14 +506,21 @@ export default class PostStreamNavigationModifier extends Modifier {
    * Focus first focusable element in current row (row focus for full highlight)
    */
   focusFirstFocusableInRow() {
-    this.activeFocusableIndex = -1;
-    this.rows[this.activeRowIndex].focus();
+    this.normalizeActiveIndex();
+    const rows = this.rows;
+    if (rows.length > 0 && this.activeRowIndex < rows.length) {
+      this.activeFocusableIndex = -1;
+      rows[this.activeRowIndex].focus();
+    }
   }
 
   /**
    * Focus last focusable element in current row (last toolbar button)
    */
   focusLastFocusableInRow() {
+    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
+    this.normalizeActiveIndex();
+
     const focusables = this.currentRowFocusables;
     if (focusables.length > 0) {
       this.activeFocusableIndex = focusables.length - 1;
@@ -477,6 +535,9 @@ export default class PostStreamNavigationModifier extends Modifier {
    * Otherwise click the focused element (toolbar buttons, avatar cell)
    */
   activateCurrentFocusable() {
+    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
+    this.normalizeActiveIndex();
+
     const row = this.rows[this.activeRowIndex];
     if (!row) {
       return;
@@ -510,6 +571,9 @@ export default class PostStreamNavigationModifier extends Modifier {
    * Called by Ctrl+Enter keyboard shortcut
    */
   enterDocumentModeForCurrentRow() {
+    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
+    this.normalizeActiveIndex();
+
     const row = this.rows[this.activeRowIndex];
     if (row) {
       this.enterDocumentMode(row);
@@ -537,6 +601,9 @@ export default class PostStreamNavigationModifier extends Modifier {
    * Removes role="document" to return to normal grid navigation
    */
   exitDocumentMode() {
+    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
+    this.normalizeActiveIndex();
+
     const row = this.rows[this.activeRowIndex];
     if (row) {
       this.inDocumentMode = false;
