@@ -104,6 +104,18 @@ When making changes, update `/docs` to track:
 1. **What was the desired experience** - The goal or problem being solved
 2. **What we did to enable it** - The implementation approach
 
+## Bug Filing
+
+**ALWAYS file bugs on our fork**, not upstream:
+- Use: `gh issue create --repo Electro-Jam-Instruments/discourse`
+- Never file on `discourse/discourse` (upstream has issues disabled anyway)
+- Optionally create a local doc in `docs/bugs/` for detailed tracking
+
+Example:
+```bash
+gh issue create --repo Electro-Jam-Instruments/discourse --title "A11Y: Bug title" --body "Description..."
+```
+
 ## Accessibility Work
 
 For accessibility implementation details, see @docs/accessibility/00-index.md
