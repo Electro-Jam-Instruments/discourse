@@ -4253,6 +4253,7 @@ en:
         one: "%{count} like"
         other: "%{count} likes"
       sr_edited: "edited"
+      sr_unread: "unread"
       sr_wiki: "wiki"
       sr_reply_count:
         one: "%{count} reply"

@@ -173,7 +173,13 @@ export default class Post extends Component {
    */
   get postRowAriaLabel() {
     const post = this.args.post;
+    const topic = post.topic;
     const parts = [];
+
+    // 0. Unread status (if applicable)
+    if (topic?.last_read_post_number && post.post_number > topic.last_read_post_number) {
+      parts.push(i18n("post.sr_unread"));
+    }
 
     // 1. Author
     parts.push(post.username);

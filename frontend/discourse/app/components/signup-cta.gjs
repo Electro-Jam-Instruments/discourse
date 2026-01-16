@@ -31,11 +31,16 @@ export default class SignupCta extends Component {
   }
 
   <template>
-    <div class="signup-cta alert alert-info">
+    <div
+      class="signup-cta alert alert-info"
+      role="region"
+      aria-labelledby="signup-cta-heading"
+      tabindex="0"
+    >
       {{#if this.session.hideSignupCta}}
-        <h3>{{i18n "signup_cta.hidden_for_session"}}</h3>
+        <h3 id="signup-cta-heading">{{i18n "signup_cta.hidden_for_session"}}</h3>
       {{else}}
-        <h3>{{replaceEmoji (htmlSafe (i18n "signup_cta.intro"))}}</h3>
+        <h3 id="signup-cta-heading">{{replaceEmoji (htmlSafe (i18n "signup_cta.intro"))}}</h3>
         <p>{{replaceEmoji (htmlSafe (i18n "signup_cta.value_prop"))}}</p>
 
         <div class="buttons">

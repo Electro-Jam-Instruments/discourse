@@ -8,6 +8,7 @@ import concatClass from "discourse/helpers/concat-class";
 import icon from "discourse/helpers/d-icon";
 import { bind } from "discourse/lib/decorators";
 import onResize from "discourse/modifiers/on-resize";
+import tablistNavigation from "discourse/modifiers/tablist-navigation";
 
 export default class HorizontalOverflowNav extends Component {
   @service site;
@@ -162,6 +163,8 @@ export default class HorizontalOverflowNav extends Component {
         {{on "scroll" this.onScroll}}
         {{didInsert this.scrollToActive}}
         {{on "mousedown" this.scrollDrag}}
+        {{tablistNavigation}}
+        role="tablist"
         class="nav-pills action-list {{@className}}"
         ...attributes
       >
