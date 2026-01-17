@@ -35,7 +35,9 @@ export default class PostStreamNavigationModifier extends Modifier {
   @service focusHistory;
 
   element = null;
-  activeRowIndex = 0;
+  // Track active row by post number (stable across cloaking) rather than array index
+  // Uses "header" for the topic header row, or a post number for post rows
+  activeRowId = "header";
   activeFocusableIndex = -1; // -1 means the row itself is focused (full highlight)
   inDocumentMode = false;
   initialFocusComplete = false; // Track if we've done the initial auto-focus
@@ -68,7 +70,7 @@ export default class PostStreamNavigationModifier extends Modifier {
       this.element.addEventListener("keydown", this.handleKeydown);
       this.element.addEventListener("focusin", this.handleFocusIn);
 
-      this.activeRowIndex = 0;
+      this.activeRowId = "header";
       this.activeFocusableIndex = -1;
     }
 
@@ -83,14 +85,14 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Cloaked posts are filtered from rows, so we need to handle this separately
       const cloakedContainer = focusedElement.closest(".post-stream--cloaked");
       if (cloakedContainer) {
-        // Focus is in a cloaked post - don't update activeRowIndex
+        // Focus is in a cloaked post - don't update activeRowId
         // This prevents focus jumping when posts get virtualized during scroll
         focusInCloakedPost = true;
       } else {
         const rows = this.rows;
         for (let i = 0; i < rows.length; i++) {
           if (rows[i] === focusedElement || rows[i].contains(focusedElement)) {
-            this.activeRowIndex = i;
+            this.activeRowId = this.getRowId(rows[i]);
             if (rows[i] === focusedElement) {
               this.activeFocusableIndex = -1;
             } else {
@@ -106,17 +108,8 @@ export default class PostStreamNavigationModifier extends Modifier {
       }
     }
 
-    // Ensure activeRowIndex is valid, but only if focus is not in a cloaked post
-    // If focus is in a cloaked post, we preserve the old activeRowIndex to avoid
-    // focus jumping when the user presses arrow keys
-    const rows = this.rows;
-    if (
-      !focusInCloakedPost &&
-      rows.length > 0 &&
-      (this.activeRowIndex < 0 || this.activeRowIndex >= rows.length)
-    ) {
-      this.activeRowIndex = 0;
-    }
+    // activeRowId is validated automatically via the activeRowIndex getter
+    // which finds the closest visible row if the tracked row is cloaked
 
     this.updateTabindices();
     this.setInternalTabindices();
@@ -161,25 +154,19 @@ export default class PostStreamNavigationModifier extends Modifier {
     // If lastReadPostNumber is null/0, focus first post (skip header row at index 0)
     const targetPostNumber = (lastReadPostNumber || 0) + 1;
 
-    // Find row with matching post number (data-post-number attribute)
-    // Header row at index 0 doesn't have a post number
-    let targetIndex = -1;
-    for (let i = 0; i < rows.length; i++) {
-      const postNumber = parseInt(rows[i].dataset.postNumber, 10);
-      if (postNumber === targetPostNumber) {
-        targetIndex = i;
-        break;
-      }
-    }
+    // Try to find row by post number directly using activeRowId
+    const targetRowId = String(targetPostNumber);
+    const targetIndex = this.findRowIndexById(targetRowId);
 
-    // If target post not found (all read or post not loaded), focus first content row
-    // First content row is at index 1 (index 0 is header row)
-    if (targetIndex === -1) {
-      targetIndex = rows.length > 1 ? 1 : 0;
+    if (targetIndex !== -1) {
+      // Found the target post
+      this.focusRow(targetIndex);
+    } else {
+      // Target post not found (all read or post not loaded), focus first content row
+      // First content row is at index 1 (index 0 is header row)
+      const fallbackIndex = rows.length > 1 ? 1 : 0;
+      this.focusRow(fallbackIndex);
     }
-
-    // Focus the target row
-    this.focusRow(targetIndex);
   }
 
   /**
@@ -206,6 +193,89 @@ export default class PostStreamNavigationModifier extends Modifier {
     return Array.from(
       this.element.querySelectorAll(this.options.rowSelector)
     ).filter((row) => !row.closest(".post-stream--cloaked"));
+  }
+
+  /**
+   * Get the row ID for a given row element.
+   * Returns "header" for the topic header row, or the post number as string for post rows.
+   */
+  getRowId(row) {
+    if (!row) {
+      return null;
+    }
+    if (row.classList.contains("topic-header-row")) {
+      return "header";
+    }
+    // Post rows have data-post-number attribute
+    const postNumber = row.dataset.postNumber;
+    return postNumber || null;
+  }
+
+  /**
+   * Find the index of a row by its ID in the current rows array.
+   * Returns -1 if not found (e.g., row is cloaked).
+   */
+  findRowIndexById(rowId) {
+    if (!rowId) {
+      return -1;
+    }
+    const rows = this.rows;
+    for (let i = 0; i < rows.length; i++) {
+      if (this.getRowId(rows[i]) === rowId) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Get the current active row index based on activeRowId.
+   * If the row is not visible (cloaked), returns the closest visible row index.
+   */
+  get activeRowIndex() {
+    const index = this.findRowIndexById(this.activeRowId);
+    if (index !== -1) {
+      return index;
+    }
+    // Row not found (cloaked) - find closest visible row
+    // Parse the row ID to get post number
+    if (this.activeRowId === "header") {
+      // Header should always be visible, but fallback to 0
+      return 0;
+    }
+    const targetPostNumber = parseInt(this.activeRowId, 10);
+    if (isNaN(targetPostNumber)) {
+      return 0;
+    }
+    // Find the closest post by number
+    const rows = this.rows;
+    let closestIndex = 0;
+    let closestDistance = Infinity;
+    for (let i = 0; i < rows.length; i++) {
+      const rowId = this.getRowId(rows[i]);
+      if (rowId === "header") {
+        continue;
+      }
+      const postNumber = parseInt(rowId, 10);
+      if (!isNaN(postNumber)) {
+        const distance = Math.abs(postNumber - targetPostNumber);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = i;
+        }
+      }
+    }
+    return closestIndex;
+  }
+
+  /**
+   * Set the active row by index, updating activeRowId.
+   */
+  setActiveRowByIndex(index) {
+    const rows = this.rows;
+    if (index >= 0 && index < rows.length) {
+      this.activeRowId = this.getRowId(rows[index]);
+    }
   }
 
   /**
@@ -393,74 +463,52 @@ export default class PostStreamNavigationModifier extends Modifier {
     const row = event.target.closest(this.options.rowSelector);
 
     if (row) {
-      const rowIndex = this.rows.indexOf(row);
-      if (rowIndex !== -1) {
-        if (rowIndex !== this.activeRowIndex) {
-          this.activeRowIndex = rowIndex;
-          this.updateTabindices();
-        }
+      // Track by row ID (post number) not index
+      const newRowId = this.getRowId(row);
+      if (newRowId && newRowId !== this.activeRowId) {
+        this.activeRowId = newRowId;
+        this.updateTabindices();
+      }
 
-        // If focus is on the row itself, set focusableIndex to -1 (row focus)
-        if (event.target === row) {
-          this.activeFocusableIndex = -1;
-        } else {
-          // Track which focusable element has focus within the row
-          const focusables = this.getFocusablesInRow(row);
-          const focusableIndex = focusables.indexOf(event.target);
-          if (focusableIndex !== -1) {
-            this.activeFocusableIndex = focusableIndex;
-          }
+      // If focus is on the row itself, set focusableIndex to -1 (row focus)
+      if (event.target === row) {
+        this.activeFocusableIndex = -1;
+      } else {
+        // Track which focusable element has focus within the row
+        const focusables = this.getFocusablesInRow(row);
+        const focusableIndex = focusables.indexOf(event.target);
+        if (focusableIndex !== -1) {
+          this.activeFocusableIndex = focusableIndex;
         }
       }
     }
   }
 
-  /**
-   * Normalize activeRowIndex if it's out of bounds.
-   * This can happen when posts get cloaked/uncloaked due to virtualization.
-   * Returns the normalized index.
-   */
-  normalizeActiveIndex() {
-    const rows = this.rows;
-    if (rows.length === 0) {
-      return 0;
-    }
-    if (this.activeRowIndex < 0) {
-      this.activeRowIndex = 0;
-    } else if (this.activeRowIndex >= rows.length) {
-      // Clamp to last visible row - better than jumping to 0
-      this.activeRowIndex = rows.length - 1;
-    }
-    return this.activeRowIndex;
-  }
-
   focusNextRow() {
     const rows = this.rows;
-    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
-    this.normalizeActiveIndex();
+    if (rows.length === 0) {
+      return;
+    }
+    // Get current index (activeRowIndex getter handles cloaked rows)
+    const currentIndex = this.activeRowIndex;
 
-    const newIndex = getNextIndex(
-      rows,
-      this.activeRowIndex,
-      this.options.wrap
-    );
+    const newIndex = getNextIndex(rows, currentIndex, this.options.wrap);
 
-    if (newIndex !== this.activeRowIndex) {
+    if (newIndex !== currentIndex) {
       this.focusRow(newIndex);
     }
   }
 
   focusPreviousRow() {
     const rows = this.rows;
-    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
-    this.normalizeActiveIndex();
+    if (rows.length === 0) {
+      return;
+    }
+    // Get current index (activeRowIndex getter handles cloaked rows)
+    const currentIndex = this.activeRowIndex;
 
-    const newIndex = getPreviousIndex(
-      rows,
-      this.activeRowIndex,
-      this.options.wrap
-    );
-    if (newIndex !== this.activeRowIndex) {
+    const newIndex = getPreviousIndex(rows, currentIndex, this.options.wrap);
+    if (newIndex !== currentIndex) {
       this.focusRow(newIndex);
     }
   }
@@ -474,25 +522,27 @@ export default class PostStreamNavigationModifier extends Modifier {
   }
 
   focusRowByOffset(offset) {
-    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
-    this.normalizeActiveIndex();
+    const rows = this.rows;
+    if (rows.length === 0) {
+      return;
+    }
+    // Get current index (activeRowIndex getter handles cloaked rows)
+    const currentIndex = this.activeRowIndex;
 
-    const newIndex = Math.max(
-      0,
-      Math.min(this.rows.length - 1, this.activeRowIndex + offset)
-    );
+    const newIndex = Math.max(0, Math.min(rows.length - 1, currentIndex + offset));
     this.focusRow(newIndex);
   }
 
   focusRow(index) {
     const rows = this.rows;
     if (index >= 0 && index < rows.length) {
-      this.activeRowIndex = index;
+      const row = rows[index];
+      // Track by row ID (post number) not index
+      this.activeRowId = this.getRowId(row);
       this.activeFocusableIndex = -1; // Row itself is focused
       this.inDocumentMode = false;
       this.updateTabindices();
 
-      const row = rows[index];
       row.focus();
 
       // Scroll row into view, respecting scroll-margin-top CSS for header clearance
@@ -507,9 +557,6 @@ export default class PostStreamNavigationModifier extends Modifier {
    * Continues through cells and toolbar buttons
    */
   focusNextFocusableInRow() {
-    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
-    this.normalizeActiveIndex();
-
     const focusables = this.currentRowFocusables;
     if (focusables.length === 0) {
       return;
@@ -542,9 +589,6 @@ export default class PostStreamNavigationModifier extends Modifier {
    * If at first focusable (index 0), moves back to row focus (-1)
    */
   focusPreviousFocusableInRow() {
-    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
-    this.normalizeActiveIndex();
-
     const focusables = this.currentRowFocusables;
     if (focusables.length === 0) {
       return;
@@ -558,9 +602,10 @@ export default class PostStreamNavigationModifier extends Modifier {
     // If at first focusable, go back to row focus
     if (this.activeFocusableIndex === 0) {
       const rows = this.rows;
-      if (rows.length > 0 && this.activeRowIndex < rows.length) {
+      const currentIndex = this.activeRowIndex;
+      if (rows.length > 0 && currentIndex < rows.length) {
         this.activeFocusableIndex = -1;
-        rows[this.activeRowIndex].focus();
+        rows[currentIndex].focus();
       }
       return;
     }
@@ -581,11 +626,11 @@ export default class PostStreamNavigationModifier extends Modifier {
    * Focus first focusable element in current row (row focus for full highlight)
    */
   focusFirstFocusableInRow() {
-    this.normalizeActiveIndex();
     const rows = this.rows;
-    if (rows.length > 0 && this.activeRowIndex < rows.length) {
+    const currentIndex = this.activeRowIndex;
+    if (rows.length > 0 && currentIndex < rows.length) {
       this.activeFocusableIndex = -1;
-      rows[this.activeRowIndex].focus();
+      rows[currentIndex].focus();
     }
   }
 
@@ -593,9 +638,6 @@ export default class PostStreamNavigationModifier extends Modifier {
    * Focus last focusable element in current row (last toolbar button)
    */
   focusLastFocusableInRow() {
-    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
-    this.normalizeActiveIndex();
-
     const focusables = this.currentRowFocusables;
     if (focusables.length > 0) {
       this.activeFocusableIndex = focusables.length - 1;
@@ -610,10 +652,9 @@ export default class PostStreamNavigationModifier extends Modifier {
    * Otherwise click the focused element (toolbar buttons, avatar cell)
    */
   activateCurrentFocusable() {
-    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
-    this.normalizeActiveIndex();
-
-    const row = this.rows[this.activeRowIndex];
+    const rows = this.rows;
+    const currentIndex = this.activeRowIndex;
+    const row = rows[currentIndex];
     if (!row) {
       return;
     }
@@ -646,10 +687,9 @@ export default class PostStreamNavigationModifier extends Modifier {
    * Called by Ctrl+Enter keyboard shortcut
    */
   enterDocumentModeForCurrentRow() {
-    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
-    this.normalizeActiveIndex();
-
-    const row = this.rows[this.activeRowIndex];
+    const rows = this.rows;
+    const currentIndex = this.activeRowIndex;
+    const row = rows[currentIndex];
     if (row) {
       this.enterDocumentMode(row);
     }
@@ -676,10 +716,9 @@ export default class PostStreamNavigationModifier extends Modifier {
    * Removes role="document" to return to normal grid navigation
    */
   exitDocumentMode() {
-    // Normalize in case posts were cloaked and activeRowIndex is out of bounds
-    this.normalizeActiveIndex();
-
-    const row = this.rows[this.activeRowIndex];
+    const rows = this.rows;
+    const currentIndex = this.activeRowIndex;
+    const row = rows[currentIndex];
     if (row) {
       this.inDocumentMode = false;
       const cookedElement = row.querySelector(this.options.cookedSelector);
