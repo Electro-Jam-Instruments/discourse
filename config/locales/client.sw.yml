@@ -346,6 +346,8 @@ sw:
         reviewable_post:
           title: "Ujumbe"
           noun: "ujumbe"
+        reviewable_ai_post:
+          noun: "ujumbe"
       user_label: "Mtumiaji"
       notes:
         delete: "Futa"
@@ -451,8 +453,6 @@ sw:
             password: "Nywila"
           settings:
             title: "Mpangilio"
-          mailboxes:
-            disabled: "Imezuiwa"
         membership:
           title: Uanachama
           access: Ufikivu
@@ -2413,6 +2413,9 @@ sw:
           enabled: "Imeruhusiwa"
           disabled: "Imezuiwa"
           impact_type_other: "Nyingine"
+          impact_role_admins: "Viongozi"
+          impact_role_moderators: "Wasimamizi"
+          impact_role_staff: "Wasaidizi"
       config:
         developer:
           title: "Mtengenezaji"

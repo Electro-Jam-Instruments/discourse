@@ -29,9 +29,6 @@ uk:
         spam: "Позначити як спам і приховати повідомлення"
         spam_silence: "Позначити як спам, приховати публікацію та вимкнути користувача"
     scriptables:
-      llm_tool_triage:
-        title: Сортування постів за допомогою інструмента штучного інтелекту
-        description: "Сортування постів за допомогою спеціальної логіки в інструменті штучного інтелекту"
       llm_persona_triage:
         title: Сортування постів за допомогою ШІ Persona
         description: "Відповідайте на дописи, використовуючи певну персону ШІ"
@@ -506,6 +503,7 @@ uk:
         github_search_files: "Пошук файлів на GitHub"
         github_search_code: "Пошук коду на GitHub"
         github_file_content: "Вміст файлу GitHub"
+        github_diff: "GitHub diff"
         random_picker: "Випадковий вибір"
         categories: "Список категорій"
         flag_post: "Поскаржитися"
@@ -534,6 +532,7 @@ uk:
         github_search_code: "Пошук коду в репозиторії GitHub"
         github_search_files: "Пошук файлів у репозиторії GitHub"
         github_file_content: "Отримати вміст файлів з репозиторію GitHub"
+        github_diff: "Отримати запит на злиття GitHub або зафіксувати різницю"
         random_picker: "Виберіть випадкове число або випадковий елемент списку"
         categories: "Список усіх категорій для публічного перегляду на форумі"
         flag_post: "Позначити поточну публікацію для перевірки персоналом"
@@ -563,7 +562,7 @@ uk:
         github_diff: "<a href='%{url}'>%{repo} %{ref}</a>"
         github_file_content: "Отриманий вміст %{file_paths} з %{repo_name}@%{branch}"
         random_picker: "Вибір із %{options}, вибрано: %{result}"
-        flag_post: "Позначення допису %{post_id} (вердикт: %{verdict})"
+        flag_post: "Позначення допису %{post_id} (flag_post: %{flag_post})"
         read: "Читання: <a href='%{url}'>%{title}</a>"
         time: "Час у %{timezone} %{time}"
         summarize: "Підсумок <a href='%{url}'>%{title}</a>"

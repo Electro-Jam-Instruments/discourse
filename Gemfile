@@ -64,7 +64,7 @@ gem "fastimage"
 gem "aws-sdk-s3", require: false
 gem "aws-sdk-sns", require: false
 gem "aws-sdk-mediaconvert", require: false
-gem "excon", require: false
+gem "excon"
 gem "unf", require: false
 
 gem "email_reply_trimmer"
@@ -114,7 +114,6 @@ gem "addressable"
 gem "json_schemer"
 
 gem "net-smtp", require: false
-gem "net-imap", require: false
 gem "net-pop", require: false
 gem "digest", require: false
 

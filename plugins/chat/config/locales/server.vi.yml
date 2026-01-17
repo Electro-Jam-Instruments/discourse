@@ -21,8 +21,6 @@ vi:
           title: "Tạm ngưng người dùng"
         agree_and_silence:
           title: "Người dùng im lặng"
-        disagree:
-          title: "Không đồng ý"
     channel:
       dm_title:
         single_user: "%{username}"
@@ -30,6 +28,9 @@ vi:
           other: "%{comma_separated_usernames} và %{count} khác"
     mention_warning:
       dismiss: "bỏ qua"
+    bookmarkable:
+      notification_title_channel: "tin nhắn trong %{channel_name}"
+      notification_title_direct_message: "tin nhắn với %{channel_name}"
     onebox:
       thread_title_connector: "trong"
   discourse_push_notifications:
@@ -40,7 +41,7 @@ vi:
     notify_user:
       chat_pm_body: "%{link}\n\n%{message}"
     notify_moderators:
-      chat_pm_title: 'Tin nhắn trò chuyện trong "%{channel_name}" yêu cầu sự chú ý của nhân viên'
+      chat_pm_title: 'Tin nhắn trò chuyện trong "%{channel_name}" yêu cầu BQT chú ý'
       chat_pm_body: "%{link}\n\n%{message}"
   user_notifications:
     chat_summary:
@@ -48,3 +49,4 @@ vi:
   unsubscribe:
     chat_summary:
       never: Không bao giờ
+      when_away: Khi vắng mặt
