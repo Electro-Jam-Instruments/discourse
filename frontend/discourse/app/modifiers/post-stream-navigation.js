@@ -492,7 +492,12 @@ export default class PostStreamNavigationModifier extends Modifier {
       this.inDocumentMode = false;
       this.updateTabindices();
 
-      rows[index].focus();
+      const row = rows[index];
+      row.focus();
+
+      // Scroll row into view, respecting scroll-margin-top CSS for header clearance
+      // Use 'nearest' to avoid unnecessary scrolling when row is already visible
+      row.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
   }
 

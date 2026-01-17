@@ -4,6 +4,10 @@
 // Enables visible focus ring when navigating posts with keyboard (arrow keys)
 // Uses same CSS variables as topic-list for consistent theming
 .topic-post[role="row"] {
+  // Ensure focused rows scroll into view below the sticky header
+  // Uses --header-offset CSS variable which accounts for header height
+  scroll-margin-top: calc(var(--header-offset) + 1em);
+
   &:focus {
     outline: var(--d-grid-focus-outline-width) solid
       var(--d-grid-focus-outline-color);
@@ -34,6 +38,9 @@
 
 // Small action posts also need focus styles
 .small-action[role="row"] {
+  // Ensure focused rows scroll into view below the sticky header
+  scroll-margin-top: calc(var(--header-offset) + 1em);
+
   &:focus {
     outline: var(--d-grid-focus-outline-width) solid
       var(--d-grid-focus-outline-color);
@@ -51,6 +58,8 @@
 // First row in grid, allows keyboard navigation to topic title/category/tags
 .topic-header-row[role="row"] {
   padding: 0.5em 0;
+  // Ensure focused rows scroll into view below the sticky header
+  scroll-margin-top: calc(var(--header-offset) + 1em);
 
   &:focus {
     outline: var(--d-grid-focus-outline-width) solid
