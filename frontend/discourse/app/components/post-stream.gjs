@@ -290,7 +290,11 @@ export default class PostStream extends Component {
         />
       {{/if}}
 
-      <PostStreamHeaderRow @topic={{@topic}} />
+      <PostStreamHeaderRow
+        @topic={{@topic}}
+        @editFirstPost={{@editFirstPost}}
+        @onTitleClick={{@onTitleClick}}
+      />
 
       {{#each this.postTuples key="post.id" as |tuple index|}}
         {{#let

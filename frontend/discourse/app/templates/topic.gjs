@@ -23,14 +23,12 @@ import SharedDraftControls from "discourse/components/shared-draft-controls";
 import SignupCta from "discourse/components/signup-cta";
 import SlowModeInfo from "discourse/components/slow-mode-info";
 import TopicAdminMenu from "discourse/components/topic-admin-menu";
-import TopicCategory from "discourse/components/topic-category";
 import TopicFooterButtons from "discourse/components/topic-footer-buttons";
 import TopicLocalizedContentToggle from "discourse/components/topic-localized-content-toggle";
 import TopicMap from "discourse/components/topic-map/index";
 import TopicNavigation from "discourse/components/topic-navigation";
 import TopicProgress from "discourse/components/topic-progress";
 import TopicSkipLinks from "discourse/components/topic-skip-links";
-import TopicStatus from "discourse/components/topic-status";
 import TopicTimeline from "discourse/components/topic-timeline";
 import TopicTimerInfo from "discourse/components/topic-timer-info";
 import TopicTitle from "discourse/components/topic-title";
@@ -45,7 +43,6 @@ import CategoryChooser from "discourse/select-kit/components/category-chooser";
 import MiniTagChooser from "discourse/select-kit/components/mini-tag-chooser";
 import { and, eq } from "discourse/truth-helpers";
 import { i18n } from "discourse-i18n";
-import booleanString from "../helpers/boolean-string";
 
 export default <template>
   {{#let @controller.model.postStream as |postStream|}}
@@ -194,60 +191,6 @@ export default <template>
                 {{/if}}
               </div>
             </div>
-
-          {{else}}
-            <h1
-              data-topic-id={{@controller.model.id}}
-              {{! Prevent duplicating the topic title heading on screen readers when the header is displaying the title
-                in the header }}
-              aria-hidden={{booleanString @controller.titleIsVisibleOnHeader}}
-            >
-              {{#unless @controller.model.is_warning}}
-                {{#if @controller.canSendPms}}
-                  <PrivateMessageGlyph
-                    @shouldShow={{@controller.model.isPrivateMessage}}
-                    @href={{@controller.pmPath}}
-                    @title="topic_statuses.personal_message.title"
-                    @ariaLabel="user.messages.inbox"
-                  />
-                {{else}}
-                  <PrivateMessageGlyph
-                    @shouldShow={{@controller.model.isPrivateMessage}}
-                  />
-                {{/if}}
-              {{/unless}}
-
-              {{#if @controller.model.details.loaded}}
-                <TopicStatus @topic={{@controller.model}} />
-                <a
-                  href={{@controller.model.url}}
-                  {{on "click" @controller.handleTitleClick}}
-                  class="fancy-title"
-                >
-                  {{htmlSafe @controller.model.fancyTitle~}}
-                  {{~#if @controller.model.details.can_edit~}}
-                    <span class="edit-topic__wrapper">
-                      {{icon "pencil" class="edit-topic"}}
-                    </span>
-                  {{~/if}}
-                </a>
-              {{/if}}
-
-              <PluginOutlet
-                @name="topic-title-suffix"
-                @outletArgs={{lazyHash model=@controller.model}}
-              />
-            </h1>
-
-            <PluginOutlet
-              @name="topic-category-wrapper"
-              @outletArgs={{lazyHash topic=@controller.model}}
-            >
-              <TopicCategory
-                @topic={{@controller.model}}
-                class="topic-category"
-              />
-            </PluginOutlet>
 
           {{/if}}
         </TopicTitle>
@@ -480,6 +423,8 @@ export default <template>
                     @controller.queryParams
                   }}
                   @topic={{@controller.model}}
+                  @editFirstPost={{@controller.editFirstPost}}
+                  @onTitleClick={{@controller.handleTitleClick}}
                 />
               {{/unless}}
             </div>

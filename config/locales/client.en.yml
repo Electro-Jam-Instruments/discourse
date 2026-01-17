@@ -4202,6 +4202,7 @@ en:
         tags:
           one: "%{count} tag"
           other: "%{count} tags"
+        can_edit: "press Enter to edit"
 
     post:
       accessible_heading: "post by %{username} %{date}"
