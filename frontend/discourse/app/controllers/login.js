@@ -1,6 +1,7 @@
 import { tracked } from "@glimmer/tracking";
 import Controller, { inject as controller } from "@ember/controller";
 import { action } from "@ember/object";
+import { next } from "@ember/runloop";
 import { service } from "@ember/service";
 import { htmlSafe } from "@ember/template";
 import { isEmpty } from "@ember/utils";
@@ -55,14 +56,24 @@ export default class LoginPageController extends Controller {
    * Set flash message, ensuring screen readers re-announce even if same message.
    * If the new message matches the current flash, briefly clears it first to
    * trigger a DOM change that screen readers will detect and announce.
+   *
+   * Uses `next()` to schedule the actual message on the next runloop tick,
+   * allowing Ember to process the clear and then the new message as separate
+   * render cycles - which is required for ARIA live regions to announce.
    */
   setFlash(message, type = "error") {
     if (this.flash === message) {
       // Same message - clear first to force screen reader re-announcement
-      this.flash = " ";
+      // Must use next() so Ember sees two separate render cycles
+      this.flash = null;
+      this.flashType = type;
+      next(() => {
+        this.flash = message;
+      });
+    } else {
+      this.flash = message;
+      this.flashType = type;
     }
-    this.flash = message;
-    this.flashType = type;
   }
 
   @setting("enable_local_logins") canLoginLocal;
