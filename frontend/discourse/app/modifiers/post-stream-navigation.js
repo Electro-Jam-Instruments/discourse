@@ -7,6 +7,7 @@ import {
   getPreviousIndex,
   updateRovingTabindex,
 } from "discourse/lib/keyboard-navigation-utils";
+import { preventCloaking } from "discourse/modifiers/post-stream-viewport-tracker";
 
 /**
  * Post stream navigation modifier implementing WAI-ARIA grid pattern
@@ -41,6 +42,8 @@ export default class PostStreamNavigationModifier extends Modifier {
   activeFocusableIndex = -1; // -1 means the row itself is focused (full highlight)
   inDocumentMode = false;
   initialFocusComplete = false; // Track if we've done the initial auto-focus
+  // Track the post ID that has cloaking prevented (to allow cloaking when focus moves)
+  _preventedCloakingPostId = null;
   options = {
     // Row selector includes topic header row and post rows
     rowSelector: '.topic-header-row[role="row"], .topic-post[role="row"]',
@@ -468,6 +471,9 @@ export default class PostStreamNavigationModifier extends Modifier {
       if (newRowId && newRowId !== this.activeRowId) {
         this.activeRowId = newRowId;
         this.updateTabindices();
+        // Update cloaking prevention when focus moves to a new row
+        // (e.g., via mouse click or Tab key)
+        this.updateCloakingPrevention(row);
       }
 
       // If focus is on the row itself, set focusableIndex to -1 (row focus)
@@ -543,11 +549,50 @@ export default class PostStreamNavigationModifier extends Modifier {
       this.inDocumentMode = false;
       this.updateTabindices();
 
+      // Manage cloaking prevention - prevent cloaking on the new row,
+      // allow cloaking on the previous row. This prevents focus loss
+      // during rapid arrow key navigation.
+      this.updateCloakingPrevention(row);
+
       row.focus();
 
       // Custom scroll logic to respect sticky header
       // scrollIntoView with block: "nearest" doesn't reliably honor scroll-margin-top
       this.scrollRowIntoView(row);
+    }
+  }
+
+  /**
+   * Update cloaking prevention for keyboard navigation.
+   * Prevents cloaking on the currently focused post to avoid focus loss
+   * during rapid arrow key navigation.
+   * @param {HTMLElement} row - The row element being focused
+   */
+  updateCloakingPrevention(row) {
+    // Get the post ID from the row element (posts have data-post-id attribute)
+    const newPostId = row.dataset?.postId;
+
+    // Clear previous prevention if we're moving to a different post
+    if (this._preventedCloakingPostId && this._preventedCloakingPostId !== newPostId) {
+      preventCloaking(parseInt(this._preventedCloakingPostId, 10), false);
+      this._preventedCloakingPostId = null;
+    }
+
+    // Prevent cloaking on the new post (if it's a post row, not header row)
+    if (newPostId && newPostId !== this._preventedCloakingPostId) {
+      preventCloaking(parseInt(newPostId, 10), true);
+      this._preventedCloakingPostId = newPostId;
+    }
+  }
+
+  /**
+   * Clear all cloaking prevention set by this modifier.
+   * Called during cleanup.
+   */
+  clearCloakingPrevention() {
+    if (this._preventedCloakingPostId) {
+      preventCloaking(parseInt(this._preventedCloakingPostId, 10), false);
+      this._preventedCloakingPostId = null;
     }
   }
 
@@ -768,5 +813,7 @@ export default class PostStreamNavigationModifier extends Modifier {
       this.element.removeEventListener("keydown", this.handleKeydown);
       this.element.removeEventListener("focusin", this.handleFocusIn);
     }
+    // Clear any cloaking prevention when navigating away
+    this.clearCloakingPrevention();
   }
 }
