@@ -3976,6 +3976,7 @@ en:
 
       footer_buttons:
         region_label: "Topic actions"
+        actions_toolbar: "Topic action buttons"
 
       share:
         title: "Share Topic"

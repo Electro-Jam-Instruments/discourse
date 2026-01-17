@@ -22,6 +22,7 @@ import { NotificationLevels } from "discourse/lib/notification-levels";
 import { getTopicFooterButtons } from "discourse/lib/register-topic-footer-button";
 import { getTopicFooterDropdowns } from "discourse/lib/register-topic-footer-dropdown";
 import TopicBookmarkManager from "discourse/lib/topic-bookmark-manager";
+import toolbarNavigation from "discourse/modifiers/toolbar-navigation";
 import DropdownSelectBox from "discourse/select-kit/components/dropdown-select-box";
 import TopicNotificationsButton from "discourse/select-kit/components/topic-notifications-button";
 import { eq, gt } from "discourse/truth-helpers";
@@ -117,7 +118,12 @@ export default class TopicFooterButtons extends Component {
 
   <template>
     <div class="topic-footer-main-buttons">
-      <div class="topic-footer-main-buttons__actions">
+      <div
+        class="topic-footer-main-buttons__actions"
+        role="toolbar"
+        aria-label={{i18n "topic.footer_buttons.actions_toolbar"}}
+        {{toolbarNavigation}}
+      >
         <TopicAdminMenu
           @topic={{this.topic}}
           @toggleMultiSelect={{this.toggleMultiSelect}}
