@@ -1,4 +1,5 @@
 import { registerDestructor } from "@ember/destroyable";
+import { service } from "@ember/service";
 import Modifier from "ember-modifier";
 import {
   getNextIndex,
@@ -25,11 +26,18 @@ import {
  * - Single tab stop for entire grid (roving tabindex)
  * - Tab enters grid at first data row
  * - Internal focusable elements have tabindex="-1"
+ *
+ * Auto-Focus:
+ * - On initial page load, if user navigated via keyboard, auto-focuses first data row
+ * - Uses focusHistory service to detect keyboard mode
  */
 export default class GridNavigationModifier extends Modifier {
+  @service focusHistory;
+
   element = null;
   activeRowIndex = 0;
   activeFocusableIndex = -1; // -1 means the row itself is focused (full highlight)
+  initialFocusComplete = false; // Track if we've done the initial auto-focus
   options = {
     headerRowSelector: 'thead tr[role="row"]',
     dataRowSelector: 'tbody tr[role="row"]',
@@ -95,6 +103,32 @@ export default class GridNavigationModifier extends Modifier {
 
     this.updateTabindices();
     this.setInternalTabindices();
+
+    // Auto-focus first data row on initial page load if user navigated via keyboard
+    if (!this.initialFocusComplete && this.focusHistory.keyboardMode) {
+      this.scheduleInitialFocus();
+    }
+  }
+
+  /**
+   * Schedule initial focus to first data row.
+   * Uses requestAnimationFrame to ensure DOM is ready after render.
+   */
+  scheduleInitialFocus() {
+    this.initialFocusComplete = true;
+
+    requestAnimationFrame(() => {
+      const rows = this.rows;
+      if (rows.length === 0) {
+        return;
+      }
+
+      // Focus first data row (index 1 if header exists, index 0 otherwise)
+      const hasHeader = this.element.querySelector(this.options.headerRowSelector);
+      const targetIndex = hasHeader && rows.length > 1 ? 1 : 0;
+
+      this.focusRow(targetIndex);
+    });
   }
 
   /**
