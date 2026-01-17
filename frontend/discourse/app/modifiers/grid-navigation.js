@@ -156,8 +156,13 @@ export default class GridNavigationModifier extends Modifier {
   }
 
   handleKeydown(event) {
-    const { key, ctrlKey, metaKey } = event;
+    const { key, ctrlKey, metaKey, altKey } = event;
     const modifier = ctrlKey || metaKey;
+
+    // Allow Alt+Arrow for browser navigation (Alt+Left = back, Alt+Right = forward)
+    if (altKey) {
+      return;
+    }
 
     let handled = false;
 

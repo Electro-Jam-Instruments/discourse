@@ -286,8 +286,13 @@ export default class PostStreamNavigationModifier extends Modifier {
   }
 
   handleKeydown(event) {
-    const { key, ctrlKey, metaKey } = event;
+    const { key, ctrlKey, metaKey, altKey } = event;
     const modifier = ctrlKey || metaKey;
+
+    // Allow Alt+Arrow for browser navigation (Alt+Left = back, Alt+Right = forward)
+    if (altKey) {
+      return;
+    }
 
     // Handle Escape to exit document mode
     if (key === "Escape" && this.inDocumentMode) {
