@@ -132,15 +132,25 @@ export default class Item extends Component {
     // Topic title (required)
     parts.push(topic.title);
 
-    // Status indicators
+    // Status indicators (matching icons shown in topic-status.gjs)
+    if (topic.bookmarked) {
+      parts.push(i18n("topic_statuses.bookmarked.title"));
+    }
+    if (topic.closed && topic.archived) {
+      parts.push(i18n("topic_statuses.locked_and_archived.title"));
+    } else if (topic.closed) {
+      parts.push(i18n("topic_statuses.locked.title"));
+    } else if (topic.archived) {
+      parts.push(i18n("topic_statuses.archived.title"));
+    }
+    if (topic.is_warning) {
+      parts.push(i18n("topic_statuses.warning.title"));
+    }
     if (topic.pinned) {
       parts.push(i18n("topic_statuses.pinned.title"));
     }
-    if (topic.closed) {
-      parts.push(i18n("topic_statuses.closed.title"));
-    }
-    if (topic.archived) {
-      parts.push(i18n("topic_statuses.archived.title"));
+    if (topic.invisible) {
+      parts.push(i18n("topic_statuses.unlisted.title"));
     }
 
     // Category

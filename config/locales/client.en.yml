@@ -4817,14 +4817,19 @@ en:
 
     topic_statuses:
       warning:
+        title: "Warning"
         help: "This is an official warning."
       bookmarked:
+        title: "Bookmarked"
         help: "You bookmarked this topic"
       locked:
+        title: "Closed"
         help: "This topic is closed; it no longer accepts new replies"
       archived:
+        title: "Archived"
         help: "This topic is archived; it is frozen and cannot be changed"
       locked_and_archived:
+        title: "Closed and Archived"
         help: "This topic is closed and archived; it no longer accepts new replies and cannot be changed"
       unpinned:
         title: "Unpinned"
@@ -4838,6 +4843,7 @@ en:
       hot:
         title: "Hot"
       unlisted:
+        title: "Unlisted"
         help: "This topic is unlisted; it will not be displayed in topic lists, and can only be accessed via a direct link. %{unlistedReason}"
       personal_message:
         title: "This topic is a personal message"
