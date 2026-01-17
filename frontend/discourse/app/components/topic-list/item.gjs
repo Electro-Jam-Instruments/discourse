@@ -121,6 +121,14 @@ export default class Item extends Component {
     const topic = this.args.topic;
     const parts = [];
 
+    // New/unread status FIRST so screen reader users know immediately
+    if (topic.unseen) {
+      parts.push(i18n("filters.new.lower_title"));
+    }
+    if (topic.unread_posts > 0) {
+      parts.push(i18n("sr_unread_posts", { count: topic.unread_posts }));
+    }
+
     // Topic title (required)
     parts.push(topic.title);
 
@@ -133,9 +141,6 @@ export default class Item extends Component {
     }
     if (topic.archived) {
       parts.push(i18n("topic_statuses.archived.title"));
-    }
-    if (topic.unseen) {
-      parts.push(i18n("filters.new.lower_title"));
     }
 
     // Category

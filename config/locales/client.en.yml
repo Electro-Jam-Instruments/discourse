@@ -4867,6 +4867,9 @@ en:
       other: "%{count} views"
     sr_posters: "by %{posters}"
     sr_activity: "last activity %{time}"
+    sr_unread_posts:
+      one: "%{count} unread post"
+      other: "%{count} unread posts"
 
     # Screen reader strings for category list
     sr_category_list_caption: "Category list with keyboard navigation"
