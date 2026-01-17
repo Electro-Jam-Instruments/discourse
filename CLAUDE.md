@@ -104,17 +104,41 @@ When making changes, update `/docs` to track:
 1. **What was the desired experience** - The goal or problem being solved
 2. **What we did to enable it** - The implementation approach
 
-## Bug Filing
+## GitHub Issues - CRITICAL
 
-**ALWAYS file bugs on our fork**, not upstream:
-- Use: `gh issue create --repo Electro-Jam-Instruments/discourse`
-- Never file on `discourse/discourse` (upstream has issues disabled anyway)
-- Optionally create a local doc in `docs/bugs/` for detailed tracking
-
-Example:
-```bash
-gh issue create --repo Electro-Jam-Instruments/discourse --title "A11Y: Bug title" --body "Description..."
+**ALWAYS use our fork for ALL issue operations:**
 ```
+Electro-Jam-Instruments/discourse
+```
+
+**NEVER attempt to access upstream `discourse/discourse` issues** - they have issues disabled and it wastes time.
+
+### Commands to use:
+```bash
+# List issues
+gh issue list --repo Electro-Jam-Instruments/discourse --state open
+
+# Create issue
+gh issue create --repo Electro-Jam-Instruments/discourse --title "[A11Y] Title" --body "Description"
+
+# View issue
+gh issue view 28 --repo Electro-Jam-Instruments/discourse
+
+# Close issue
+gh issue close 28 --repo Electro-Jam-Instruments/discourse --comment "Fixed in commit xyz"
+
+# Edit issue title
+gh issue edit 28 --repo Electro-Jam-Instruments/discourse --title "[Needs Testing] A11Y: New title"
+```
+
+### Issue Title Conventions:
+- `[A11Y]` - Accessibility issue prefix
+- `[Needs Testing]` - Work done, needs verification
+- `[Research]` - Investigation needed before implementation
+
+### Local Tracking:
+- Detailed bug tracking: `docs/bugs/accessibility-issues.md`
+- Upstream contribution plan: `docs/upstream-contribution-plan.md`
 
 ## Accessibility Work
 
