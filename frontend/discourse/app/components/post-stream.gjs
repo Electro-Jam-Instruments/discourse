@@ -276,7 +276,7 @@ export default class PostStream extends Component {
         setCloakingBoundaries=this.setCloakingBoundaries
         topicId=@topic.id
       }}
-      {{PostStreamNavigation}}
+      {{PostStreamNavigation lastReadPostNumber=@lastReadPostNumber}}
     >
       {{#if (and (not @postStream.loadingAbove) @postStream.canPrependMore)}}
         <PostLoadMoreAccessible

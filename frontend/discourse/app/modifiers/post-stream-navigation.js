@@ -1,4 +1,6 @@
 import { registerDestructor } from "@ember/destroyable";
+import { schedule } from "@ember/runloop";
+import { service } from "@ember/service";
 import Modifier from "ember-modifier";
 import {
   getNextIndex,
@@ -30,10 +32,13 @@ import {
  * - Internal focusable elements have tabindex="-1"
  */
 export default class PostStreamNavigationModifier extends Modifier {
+  @service focusHistory;
+
   element = null;
   activeRowIndex = 0;
   activeFocusableIndex = -1; // -1 means the row itself is focused (full highlight)
   inDocumentMode = false;
+  initialFocusComplete = false; // Track if we've done the initial auto-focus
   options = {
     // Row selector includes topic header row and post rows
     rowSelector: '.topic-header-row[role="row"], .topic-post[role="row"]',
@@ -115,6 +120,66 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     this.updateTabindices();
     this.setInternalTabindices();
+
+    // Auto-focus first unread post on initial load if user navigated via keyboard
+    if (!this.initialFocusComplete && this.focusHistory.keyboardMode) {
+      this.scheduleInitialFocus(named.lastReadPostNumber);
+    }
+  }
+
+  /**
+   * Schedule auto-focus on first unread post after rendering completes.
+   * This is called once when the post stream first loads if user is in keyboard mode.
+   *
+   * @param {number|null} lastReadPostNumber - The last read post number from topic model
+   */
+  scheduleInitialFocus(lastReadPostNumber) {
+    this.initialFocusComplete = true;
+
+    schedule("afterRender", () => {
+      // Use requestAnimationFrame to ensure DOM is fully painted
+      requestAnimationFrame(() => {
+        this.focusFirstUnreadPost(lastReadPostNumber);
+      });
+    });
+  }
+
+  /**
+   * Focus the first unread post in the stream.
+   * If all posts are read, focus the first content post (skipping header row).
+   * If no posts available, does nothing.
+   *
+   * @param {number|null} lastReadPostNumber - The last read post number
+   */
+  focusFirstUnreadPost(lastReadPostNumber) {
+    const rows = this.rows;
+    if (rows.length === 0) {
+      return;
+    }
+
+    // Find the first unread post: lastReadPostNumber + 1
+    // If lastReadPostNumber is null/0, focus first post (skip header row at index 0)
+    const targetPostNumber = (lastReadPostNumber || 0) + 1;
+
+    // Find row with matching post number (data-post-number attribute)
+    // Header row at index 0 doesn't have a post number
+    let targetIndex = -1;
+    for (let i = 0; i < rows.length; i++) {
+      const postNumber = parseInt(rows[i].dataset.postNumber, 10);
+      if (postNumber === targetPostNumber) {
+        targetIndex = i;
+        break;
+      }
+    }
+
+    // If target post not found (all read or post not loaded), focus first content row
+    // First content row is at index 1 (index 0 is header row)
+    if (targetIndex === -1) {
+      targetIndex = rows.length > 1 ? 1 : 0;
+    }
+
+    // Focus the target row
+    this.focusRow(targetIndex);
   }
 
   /**
