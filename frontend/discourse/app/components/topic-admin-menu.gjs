@@ -9,6 +9,7 @@ import concatClass from "discourse/helpers/concat-class";
 import icon from "discourse/helpers/d-icon";
 import getURL from "discourse/lib/get-url";
 import { and, not, or } from "discourse/truth-helpers";
+import { i18n } from "discourse-i18n";
 
 export default class TopicAdminMenu extends Component {
   @service adminTopicMenuButtons;
@@ -90,6 +91,7 @@ export default class TopicAdminMenu extends Component {
         @modalForMobile={{true}}
         @autofocus={{true}}
         @triggerClass="btn-default btn-icon toggle-admin-menu {{@buttonClasses}}"
+        @title={{i18n "topic_admin_menu"}}
       >
         <:trigger>
           {{icon "wrench"}}
