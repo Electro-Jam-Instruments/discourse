@@ -545,10 +545,36 @@ export default class PostStreamNavigationModifier extends Modifier {
 
       row.focus();
 
-      // Scroll row into view, respecting scroll-margin-top CSS for header clearance
-      // Use 'nearest' to avoid unnecessary scrolling when row is already visible
-      row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      // Custom scroll logic to respect sticky header
+      // scrollIntoView with block: "nearest" doesn't reliably honor scroll-margin-top
+      this.scrollRowIntoView(row);
     }
+  }
+
+  /**
+   * Scroll a row into view, accounting for the sticky header.
+   * Uses scroll-margin-top CSS value to determine header clearance.
+   * @param {HTMLElement} row - The row element to scroll into view
+   */
+  scrollRowIntoView(row) {
+    const rowRect = row.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+
+    // Get the scroll-margin-top from CSS (includes header offset)
+    const computedStyle = window.getComputedStyle(row);
+    const scrollMarginTop = parseFloat(computedStyle.scrollMarginTop) || 0;
+
+    // Check if row is above the visible area (accounting for sticky header)
+    if (rowRect.top < scrollMarginTop) {
+      // Scroll up so row is just below the sticky header
+      const scrollY = window.scrollY + rowRect.top - scrollMarginTop;
+      window.scrollTo({ top: scrollY, behavior: "smooth" });
+    } else if (rowRect.bottom > viewportHeight) {
+      // Row is below visible area - scroll down to show it
+      const scrollY = window.scrollY + rowRect.bottom - viewportHeight + 20;
+      window.scrollTo({ top: scrollY, behavior: "smooth" });
+    }
+    // Otherwise row is already fully visible - no scroll needed
   }
 
   /**
