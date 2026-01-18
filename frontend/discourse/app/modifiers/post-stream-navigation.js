@@ -79,40 +79,16 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     this.options = { ...this.options, ...named };
 
-    // Preserve focus if currently focused element is in the grid
-    const focusedElement = document.activeElement;
-    let focusInCloakedPost = false;
-
-    if (focusedElement && this.element.contains(focusedElement)) {
-      // Check if focus is inside a cloaked (virtualized) post
-      // Cloaked posts are filtered from rows, so we need to handle this separately
-      const cloakedContainer = focusedElement.closest(".post-stream--cloaked");
-      if (cloakedContainer) {
-        // Focus is in a cloaked post - don't update activeRowId
-        // This prevents focus jumping when posts get virtualized during scroll
-        focusInCloakedPost = true;
-      } else {
-        const rows = this.rows;
-        for (let i = 0; i < rows.length; i++) {
-          if (rows[i] === focusedElement || rows[i].contains(focusedElement)) {
-            this.activeRowId = this.getRowId(rows[i]);
-            if (rows[i] === focusedElement) {
-              this.activeFocusableIndex = -1;
-            } else {
-              const focusables = this.getFocusablesInRow(rows[i]);
-              const idx = focusables.indexOf(focusedElement);
-              if (idx !== -1) {
-                this.activeFocusableIndex = idx;
-              }
-            }
-            break;
-          }
-        }
-      }
-    }
-
-    // activeRowId is validated automatically via the activeRowIndex getter
-    // which finds the closest visible row if the tracked row is cloaked
+    // IMPORTANT: We intentionally do NOT read DOM focus state to update activeRowId here.
+    // This method runs on EVERY Ember re-render (including cloaking boundary changes).
+    // Reading document.activeElement during re-renders creates race conditions where
+    // activeRowId gets corrupted, causing focus to jump unexpectedly.
+    //
+    // activeRowId is managed exclusively by:
+    // 1. focusRow() - keyboard navigation (sets state BEFORE calling focus())
+    // 2. handleFocusIn() - user clicks/tabs into grid (event-driven, reliable)
+    //
+    // The activeRowIndex getter handles cloaked rows by finding the closest visible row.
 
     this.updateTabindices();
     this.setInternalTabindices();
