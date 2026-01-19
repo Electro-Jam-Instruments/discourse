@@ -82,6 +82,9 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     this.options = { ...this.options, ...named };
 
+    // DEBUG: Log modify() calls to see if they're interfering with navigation
+    console.log(`[A11Y-NAV] modify(): activeRowId=${this.activeRowId}, initialFocusComplete=${this.initialFocusComplete}, keyboardMode=${this.focusHistory.keyboardMode}`);
+
     // IMPORTANT: We intentionally do NOT read DOM focus state to update activeRowId here.
     // This method runs on EVERY Ember re-render (including cloaking boundary changes).
     // Reading document.activeElement during re-renders creates race conditions where
@@ -98,6 +101,7 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     // Auto-focus first unread post on initial load if user navigated via keyboard
     if (!this.initialFocusComplete && this.focusHistory.keyboardMode) {
+      console.log(`[A11Y-NAV] modify(): SCHEDULING INITIAL FOCUS`);
       this.scheduleInitialFocus(named.lastReadPostNumber);
     }
   }
@@ -129,6 +133,7 @@ export default class PostStreamNavigationModifier extends Modifier {
   focusFirstUnreadPost(lastReadPostNumber) {
     const rows = this.rows;
     if (rows.length === 0) {
+      console.log(`[A11Y-NAV] focusFirstUnreadPost: NO ROWS, aborting`);
       return;
     }
 
@@ -140,6 +145,8 @@ export default class PostStreamNavigationModifier extends Modifier {
     const targetRowId = String(targetPostNumber);
     const targetIndex = this.findRowIndexById(targetRowId);
 
+    console.log(`[A11Y-NAV] focusFirstUnreadPost: lastRead=${lastReadPostNumber}, targetPost=${targetPostNumber}, targetIndex=${targetIndex}, rows.length=${rows.length}`);
+
     if (targetIndex !== -1) {
       // Found the target post
       this.focusRow(targetIndex);
@@ -147,6 +154,7 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Target post not found (all read or post not loaded), focus first content row
       // First content row is at index 1 (index 0 is header row)
       const fallbackIndex = rows.length > 1 ? 1 : 0;
+      console.log(`[A11Y-NAV] focusFirstUnreadPost: target not found, using fallbackIndex=${fallbackIndex}`);
       this.focusRow(fallbackIndex);
     }
   }
