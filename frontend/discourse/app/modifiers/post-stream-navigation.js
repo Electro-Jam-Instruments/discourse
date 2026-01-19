@@ -44,6 +44,9 @@ export default class PostStreamNavigationModifier extends Modifier {
   initialFocusComplete = false; // Track if we've done the initial auto-focus
   // Track the post ID that has cloaking prevented (to allow cloaking when focus moves)
   _preventedCloakingPostId = null;
+  // Track last navigation direction for directional fallback when target row is cloaked
+  // -1 = navigating up/backward, 1 = navigating down/forward, 0 = no direction preference
+  _lastNavigationDirection = 0;
   options = {
     // Row selector includes topic header row and post rows
     rowSelector: '.topic-header-row[role="row"], .topic-post[role="row"]',
@@ -209,14 +212,20 @@ export default class PostStreamNavigationModifier extends Modifier {
 
   /**
    * Get the current active row index based on activeRowId.
-   * If the row is not visible (cloaked), returns the closest visible row index.
+   * If the row is not visible (cloaked), uses directional fallback based on
+   * the last navigation direction to find the appropriate visible row.
+   *
+   * This prevents focus jumping issues when cloaking changes during delays
+   * between keystrokes - e.g., if navigating UP and target post is cloaked,
+   * we find the first visible post BEFORE the target (not "closest" which
+   * might be a post after the target).
    */
   get activeRowIndex() {
     const index = this.findRowIndexById(this.activeRowId);
     if (index !== -1) {
       return index;
     }
-    // Row not found (cloaked) - find closest visible row
+    // Row not found (cloaked) - use directional fallback
     // Parse the row ID to get post number
     if (this.activeRowId === "header") {
       // Header should always be visible, but fallback to 0
@@ -226,8 +235,51 @@ export default class PostStreamNavigationModifier extends Modifier {
     if (isNaN(targetPostNumber)) {
       return 0;
     }
-    // Find the closest post by number
+
     const rows = this.rows;
+    const direction = this._lastNavigationDirection;
+
+    // Directional fallback: find the first visible row in the navigation direction
+    // This prevents focus jumping when cloaking changes during keystroke delays
+    if (direction < 0) {
+      // Navigating UP - find the first visible post BEFORE or AT the target
+      // (with lower or equal post number)
+      let bestIndex = 0;
+      let bestPostNumber = -Infinity;
+      for (let i = 0; i < rows.length; i++) {
+        const rowId = this.getRowId(rows[i]);
+        if (rowId === "header") {
+          continue;
+        }
+        const postNumber = parseInt(rowId, 10);
+        if (!isNaN(postNumber) && postNumber <= targetPostNumber && postNumber > bestPostNumber) {
+          bestPostNumber = postNumber;
+          bestIndex = i;
+        }
+      }
+      // If no post found before target, use first visible post
+      return bestPostNumber > -Infinity ? bestIndex : 0;
+    } else if (direction > 0) {
+      // Navigating DOWN - find the first visible post AFTER or AT the target
+      // (with higher or equal post number)
+      let bestIndex = rows.length - 1;
+      let bestPostNumber = Infinity;
+      for (let i = 0; i < rows.length; i++) {
+        const rowId = this.getRowId(rows[i]);
+        if (rowId === "header") {
+          continue;
+        }
+        const postNumber = parseInt(rowId, 10);
+        if (!isNaN(postNumber) && postNumber >= targetPostNumber && postNumber < bestPostNumber) {
+          bestPostNumber = postNumber;
+          bestIndex = i;
+        }
+      }
+      // If no post found after target, use last visible post
+      return bestPostNumber < Infinity ? bestIndex : rows.length - 1;
+    }
+
+    // No direction preference (e.g., initial load, mouse click) - use closest
     let closestIndex = 0;
     let closestDistance = Infinity;
     for (let i = 0; i < rows.length; i++) {
@@ -446,6 +498,9 @@ export default class PostStreamNavigationModifier extends Modifier {
       const newRowId = this.getRowId(row);
       if (newRowId && newRowId !== this.activeRowId) {
         this.activeRowId = newRowId;
+        // Reset navigation direction when focus comes from mouse/Tab (not arrow keys)
+        // This prevents stale direction from affecting fallback logic during re-renders
+        this._lastNavigationDirection = 0;
         this.updateTabindices();
         // Update cloaking prevention when focus moves to a new row
         // (e.g., via mouse click or Tab key)
@@ -471,13 +526,26 @@ export default class PostStreamNavigationModifier extends Modifier {
     if (rows.length === 0) {
       return;
     }
-    // Get current index (activeRowIndex getter handles cloaked rows)
+    // Set navigation direction BEFORE getting activeRowIndex
+    // This ensures the directional fallback uses the correct direction
+    this._lastNavigationDirection = 1; // Down/forward
+
+    // Check if current activeRowId is visible BEFORE getting activeRowIndex
+    // When the target is cloaked, the directional fallback already gives us
+    // the best visible post in our navigation direction - don't navigate further
+    const targetIsCloaked = this.findRowIndexById(this.activeRowId) === -1;
     const currentIndex = this.activeRowIndex;
 
-    const newIndex = getNextIndex(rows, currentIndex, this.options.wrap);
-
-    if (newIndex !== currentIndex) {
-      this.focusRow(newIndex);
+    if (targetIsCloaked) {
+      // Fallback already gave us the best visible post in our direction
+      // Focus it directly without additional navigation step
+      this.focusRow(currentIndex);
+    } else {
+      // Normal case: navigate from current position
+      const newIndex = getNextIndex(rows, currentIndex, this.options.wrap);
+      if (newIndex !== currentIndex) {
+        this.focusRow(newIndex);
+      }
     }
   }
 
@@ -486,20 +554,38 @@ export default class PostStreamNavigationModifier extends Modifier {
     if (rows.length === 0) {
       return;
     }
-    // Get current index (activeRowIndex getter handles cloaked rows)
+    // Set navigation direction BEFORE getting activeRowIndex
+    // This ensures the directional fallback uses the correct direction
+    this._lastNavigationDirection = -1; // Up/backward
+
+    // Check if current activeRowId is visible BEFORE getting activeRowIndex
+    // When the target is cloaked, the directional fallback already gives us
+    // the best visible post in our navigation direction - don't navigate further
+    const targetIsCloaked = this.findRowIndexById(this.activeRowId) === -1;
     const currentIndex = this.activeRowIndex;
 
-    const newIndex = getPreviousIndex(rows, currentIndex, this.options.wrap);
-    if (newIndex !== currentIndex) {
-      this.focusRow(newIndex);
+    if (targetIsCloaked) {
+      // Fallback already gave us the best visible post in our direction
+      // Focus it directly without additional navigation step
+      this.focusRow(currentIndex);
+    } else {
+      // Normal case: navigate from current position
+      const newIndex = getPreviousIndex(rows, currentIndex, this.options.wrap);
+      if (newIndex !== currentIndex) {
+        this.focusRow(newIndex);
+      }
     }
   }
 
   focusFirstRow() {
+    // Reset direction - no directional preference for explicit first/last navigation
+    this._lastNavigationDirection = 0;
     this.focusRow(0);
   }
 
   focusLastRow() {
+    // Reset direction - no directional preference for explicit first/last navigation
+    this._lastNavigationDirection = 0;
     this.focusRow(this.rows.length - 1);
   }
 
@@ -508,11 +594,22 @@ export default class PostStreamNavigationModifier extends Modifier {
     if (rows.length === 0) {
       return;
     }
-    // Get current index (activeRowIndex getter handles cloaked rows)
+    // Set navigation direction BEFORE getting activeRowIndex
+    this._lastNavigationDirection = offset > 0 ? 1 : offset < 0 ? -1 : 0;
+
+    // Check if current activeRowId is visible BEFORE getting activeRowIndex
+    const targetIsCloaked = this.findRowIndexById(this.activeRowId) === -1;
     const currentIndex = this.activeRowIndex;
 
-    const newIndex = Math.max(0, Math.min(rows.length - 1, currentIndex + offset));
-    this.focusRow(newIndex);
+    if (targetIsCloaked) {
+      // Fallback already gave us the best visible post in our direction
+      // Focus it directly without additional offset
+      this.focusRow(currentIndex);
+    } else {
+      // Normal case: apply offset from current position
+      const newIndex = Math.max(0, Math.min(rows.length - 1, currentIndex + offset));
+      this.focusRow(newIndex);
+    }
   }
 
   focusRow(index) {
