@@ -131,6 +131,13 @@ export default class PostStreamNavigationModifier extends Modifier {
    * @param {number|null} lastReadPostNumber - The last read post number
    */
   focusFirstUnreadPost(lastReadPostNumber) {
+    // GUARD: Don't auto-focus if user has already started navigating
+    // This prevents the scheduled callback from stealing focus mid-navigation
+    if (this.activeRowId !== "header") {
+      console.log(`[A11Y-NAV] focusFirstUnreadPost: ABORTED - user already navigated to ${this.activeRowId}`);
+      return;
+    }
+
     const rows = this.rows;
     if (rows.length === 0) {
       console.log(`[A11Y-NAV] focusFirstUnreadPost: NO ROWS, aborting`);
@@ -543,6 +550,8 @@ export default class PostStreamNavigationModifier extends Modifier {
   }
 
   focusNextRow() {
+    // CRITICAL: Capture rows array ONCE and pass it through to avoid
+    // cloaking changes causing index mismatches between calls
     const rows = this.rows;
     if (rows.length === 0) {
       return;
@@ -564,18 +573,20 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Fallback already gave us the best visible post in our direction
       // Focus it directly without additional navigation step
       console.log(`[A11Y-NAV] focusNextRow: CLOAKED - focusing fallback index ${currentIndex}`);
-      this.focusRow(currentIndex);
+      this.focusRowWithArray(rows, currentIndex);
     } else {
       // Normal case: navigate from current position
       const newIndex = getNextIndex(rows, currentIndex, this.options.wrap);
       console.log(`[A11Y-NAV] focusNextRow: NORMAL - ${currentIndex} → ${newIndex}`);
       if (newIndex !== currentIndex) {
-        this.focusRow(newIndex);
+        this.focusRowWithArray(rows, newIndex);
       }
     }
   }
 
   focusPreviousRow() {
+    // CRITICAL: Capture rows array ONCE and pass it through to avoid
+    // cloaking changes causing index mismatches between calls
     const rows = this.rows;
     if (rows.length === 0) {
       return;
@@ -597,13 +608,13 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Fallback already gave us the best visible post in our direction
       // Focus it directly without additional navigation step
       console.log(`[A11Y-NAV] focusPreviousRow: CLOAKED - focusing fallback index ${currentIndex}`);
-      this.focusRow(currentIndex);
+      this.focusRowWithArray(rows, currentIndex);
     } else {
       // Normal case: navigate from current position
       const newIndex = getPreviousIndex(rows, currentIndex, this.options.wrap);
       console.log(`[A11Y-NAV] focusPreviousRow: NORMAL - ${currentIndex} → ${newIndex}`);
       if (newIndex !== currentIndex) {
-        this.focusRow(newIndex);
+        this.focusRowWithArray(rows, newIndex);
       }
     }
   }
@@ -621,6 +632,8 @@ export default class PostStreamNavigationModifier extends Modifier {
   }
 
   focusRowByOffset(offset) {
+    // CRITICAL: Capture rows array ONCE and pass it through to avoid
+    // cloaking changes causing index mismatches between calls
     const rows = this.rows;
     if (rows.length === 0) {
       return;
@@ -635,22 +648,27 @@ export default class PostStreamNavigationModifier extends Modifier {
     if (targetIsCloaked) {
       // Fallback already gave us the best visible post in our direction
       // Focus it directly without additional offset
-      this.focusRow(currentIndex);
+      this.focusRowWithArray(rows, currentIndex);
     } else {
       // Normal case: apply offset from current position
       const newIndex = Math.max(0, Math.min(rows.length - 1, currentIndex + offset));
-      this.focusRow(newIndex);
+      this.focusRowWithArray(rows, newIndex);
     }
   }
 
-  focusRow(index) {
-    const rows = this.rows;
+  /**
+   * Focus a row by index, using a pre-captured rows array.
+   * This prevents cloaking changes from causing index mismatches.
+   * @param {HTMLElement[]} rows - The rows array captured at navigation start
+   * @param {number} index - The index to focus
+   */
+  focusRowWithArray(rows, index) {
     if (index >= 0 && index < rows.length) {
       const row = rows[index];
       // Track by row ID (post number) not index
       const newRowId = this.getRowId(row);
       // DEBUG: Log focusRow
-      console.log(`[A11Y-NAV] focusRow: index=${index}, newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`);
+      console.log(`[A11Y-NAV] focusRowWithArray: index=${index}, newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`);
       this.activeRowId = newRowId;
       this.activeFocusableIndex = -1; // Row itself is focused
       this.inDocumentMode = false;
@@ -667,8 +685,16 @@ export default class PostStreamNavigationModifier extends Modifier {
       // scrollIntoView with block: "nearest" doesn't reliably honor scroll-margin-top
       this.scrollRowIntoView(row);
     } else {
-      console.log(`[A11Y-NAV] focusRow: INVALID index=${index}, rows.length=${rows.length}`);
+      console.log(`[A11Y-NAV] focusRowWithArray: INVALID index=${index}, rows.length=${rows.length}`);
     }
+  }
+
+  /**
+   * Focus a row by index (re-queries rows from DOM).
+   * Use focusRowWithArray when you already have a rows array to avoid race conditions.
+   */
+  focusRow(index) {
+    this.focusRowWithArray(this.rows, index);
   }
 
   /**
