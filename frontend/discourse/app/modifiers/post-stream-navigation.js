@@ -229,15 +229,21 @@ export default class PostStreamNavigationModifier extends Modifier {
     // Parse the row ID to get post number
     if (this.activeRowId === "header") {
       // Header should always be visible, but fallback to 0
+      console.log(`[A11Y-NAV] activeRowIndex: header cloaked? returning 0`);
       return 0;
     }
     const targetPostNumber = parseInt(this.activeRowId, 10);
     if (isNaN(targetPostNumber)) {
+      console.log(`[A11Y-NAV] activeRowIndex: invalid activeRowId=${this.activeRowId}, returning 0`);
       return 0;
     }
 
     const rows = this.rows;
     const direction = this._lastNavigationDirection;
+
+    // DEBUG: Log visible row IDs
+    const rowIds = rows.map((r) => this.getRowId(r));
+    console.log(`[A11Y-NAV] activeRowIndex: FALLBACK target=${targetPostNumber}, direction=${direction}, visibleRows=[${rowIds.join(",")}]`);
 
     // Directional fallback: find the first visible row in the navigation direction
     // This prevents focus jumping when cloaking changes during keystroke delays
@@ -258,7 +264,9 @@ export default class PostStreamNavigationModifier extends Modifier {
         }
       }
       // If no post found before target, use first visible post
-      return bestPostNumber > -Infinity ? bestIndex : 0;
+      const result = bestPostNumber > -Infinity ? bestIndex : 0;
+      console.log(`[A11Y-NAV] activeRowIndex: UP fallback -> index ${result} (post ${bestPostNumber})`);
+      return result;
     } else if (direction > 0) {
       // Navigating DOWN - find the first visible post AFTER or AT the target
       // (with higher or equal post number)
@@ -276,7 +284,9 @@ export default class PostStreamNavigationModifier extends Modifier {
         }
       }
       // If no post found after target, use last visible post
-      return bestPostNumber < Infinity ? bestIndex : rows.length - 1;
+      const result = bestPostNumber < Infinity ? bestIndex : rows.length - 1;
+      console.log(`[A11Y-NAV] activeRowIndex: DOWN fallback -> index ${result} (post ${bestPostNumber})`);
+      return result;
     }
 
     // No direction preference (e.g., initial load, mouse click) - use closest
@@ -296,6 +306,7 @@ export default class PostStreamNavigationModifier extends Modifier {
         }
       }
     }
+    console.log(`[A11Y-NAV] activeRowIndex: CLOSEST fallback -> index ${closestIndex}`);
     return closestIndex;
   }
 
@@ -497,6 +508,8 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Track by row ID (post number) not index
       const newRowId = this.getRowId(row);
       if (newRowId && newRowId !== this.activeRowId) {
+        // DEBUG: Log when handleFocusIn changes state (potential bug source)
+        console.log(`[A11Y-NAV] handleFocusIn: ${this.activeRowId} → ${newRowId}, direction was ${this._lastNavigationDirection}, resetting to 0`);
         this.activeRowId = newRowId;
         // Reset navigation direction when focus comes from mouse/Tab (not arrow keys)
         // This prevents stale direction from affecting fallback logic during re-renders
@@ -536,13 +549,18 @@ export default class PostStreamNavigationModifier extends Modifier {
     const targetIsCloaked = this.findRowIndexById(this.activeRowId) === -1;
     const currentIndex = this.activeRowIndex;
 
+    // DEBUG: Log navigation
+    console.log(`[A11Y-NAV] focusNextRow: activeRowId=${this.activeRowId}, cloaked=${targetIsCloaked}, currentIndex=${currentIndex}, rows.length=${rows.length}`);
+
     if (targetIsCloaked) {
       // Fallback already gave us the best visible post in our direction
       // Focus it directly without additional navigation step
+      console.log(`[A11Y-NAV] focusNextRow: CLOAKED - focusing fallback index ${currentIndex}`);
       this.focusRow(currentIndex);
     } else {
       // Normal case: navigate from current position
       const newIndex = getNextIndex(rows, currentIndex, this.options.wrap);
+      console.log(`[A11Y-NAV] focusNextRow: NORMAL - ${currentIndex} → ${newIndex}`);
       if (newIndex !== currentIndex) {
         this.focusRow(newIndex);
       }
@@ -564,13 +582,18 @@ export default class PostStreamNavigationModifier extends Modifier {
     const targetIsCloaked = this.findRowIndexById(this.activeRowId) === -1;
     const currentIndex = this.activeRowIndex;
 
+    // DEBUG: Log navigation
+    console.log(`[A11Y-NAV] focusPreviousRow: activeRowId=${this.activeRowId}, cloaked=${targetIsCloaked}, currentIndex=${currentIndex}, rows.length=${rows.length}`);
+
     if (targetIsCloaked) {
       // Fallback already gave us the best visible post in our direction
       // Focus it directly without additional navigation step
+      console.log(`[A11Y-NAV] focusPreviousRow: CLOAKED - focusing fallback index ${currentIndex}`);
       this.focusRow(currentIndex);
     } else {
       // Normal case: navigate from current position
       const newIndex = getPreviousIndex(rows, currentIndex, this.options.wrap);
+      console.log(`[A11Y-NAV] focusPreviousRow: NORMAL - ${currentIndex} → ${newIndex}`);
       if (newIndex !== currentIndex) {
         this.focusRow(newIndex);
       }
@@ -617,7 +640,10 @@ export default class PostStreamNavigationModifier extends Modifier {
     if (index >= 0 && index < rows.length) {
       const row = rows[index];
       // Track by row ID (post number) not index
-      this.activeRowId = this.getRowId(row);
+      const newRowId = this.getRowId(row);
+      // DEBUG: Log focusRow
+      console.log(`[A11Y-NAV] focusRow: index=${index}, newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`);
+      this.activeRowId = newRowId;
       this.activeFocusableIndex = -1; // Row itself is focused
       this.inDocumentMode = false;
       this.updateTabindices();
@@ -632,6 +658,8 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Custom scroll logic to respect sticky header
       // scrollIntoView with block: "nearest" doesn't reliably honor scroll-margin-top
       this.scrollRowIntoView(row);
+    } else {
+      console.log(`[A11Y-NAV] focusRow: INVALID index=${index}, rows.length=${rows.length}`);
     }
   }
 
