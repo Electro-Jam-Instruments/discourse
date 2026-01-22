@@ -47,9 +47,8 @@ export default class PostStreamNavigationModifier extends Modifier {
   // Track last navigation direction for directional fallback when target row is cloaked
   // -1 = navigating up/backward, 1 = navigating down/forward, 0 = no direction preference
   _lastNavigationDirection = 0;
-  // Flag to prevent updateTabindices from running during active navigation
-  // This prevents modify() interference when cloaking changes mid-navigation
-  _isNavigating = false;
+  // Navigation direction for directional proxy finding when target is cloaked
+  // No timeout needed - post-number navigation is immune to race conditions
   options = {
     // Row selector includes topic header row and post rows
     rowSelector: '.topic-header-row[role="row"], .topic-post[role="row"]',
@@ -83,42 +82,30 @@ export default class PostStreamNavigationModifier extends Modifier {
 
       this.activeRowId = "header";
       this.activeFocusableIndex = -1;
+
+      // CRITICAL FIX: Only set up tabindices ONCE during initial setup
+      // Do NOT update tabindices on every re-render - this was the root cause
+      // of focus jumping. Tabindices are now only updated by:
+      // 1. focusRowWithArray() - keyboard navigation
+      // 2. handleFocusIn() - user clicks/tabs into grid
+      console.log(`[A11Y-NAV] modify(): SETUP - running initial tabindex setup`);
+      this.updateTabindices();
+      this.setInternalTabindices();
     }
 
     this.options = { ...this.options, ...named };
 
-    // IMPORTANT: We intentionally do NOT read DOM focus state to update activeRowId here.
+    // IMPORTANT: We intentionally do NOT update tabindices on re-renders.
     // This method runs on EVERY Ember re-render (including cloaking boundary changes).
-    // Reading document.activeElement during re-renders creates race conditions where
-    // activeRowId gets corrupted, causing focus to jump unexpectedly.
+    // Updating tabindices during re-renders creates race conditions with:
+    // - IntersectionObserver callbacks (macrotasks after microtask clears flag)
+    // - Scroll animation (~300ms window after navigation)
+    // - Ember render cycles from tracked property changes
     //
-    // activeRowId is managed exclusively by:
-    // 1. focusRow() - keyboard navigation (sets state BEFORE calling focus())
+    // Tabindices are now managed exclusively by:
+    // 1. focusRowWithArray() - keyboard navigation (sets state BEFORE calling focus())
     // 2. handleFocusIn() - user clicks/tabs into grid (event-driven, reliable)
-
-    // GUARD 1: Skip tabindex updates during active navigation
-    if (this._isNavigating) {
-      console.log(`[A11Y-NAV] modify(): SKIPPED - navigation in progress`);
-      return;
-    }
-
-    // GUARD 2: Skip tabindex updates if the active row is cloaked
-    // When the focused post is scrolled out of view and cloaked, we should NOT
-    // update tabindices because:
-    // 1. The fallback logic would set tabindex="0" on a different post
-    // 2. This creates focus jumping when the user hasn't navigated
-    // 3. The tabindex will be correctly set when user navigates or row becomes visible
-    const rows = this.rows;
-    const activeRowVisible = this.findRowIndexByIdWithArray(rows, this.activeRowId) !== -1;
-
-    if (!activeRowVisible && this.activeRowId !== "header" && this.initialFocusComplete) {
-      console.log(`[A11Y-NAV] modify(): SKIPPED - activeRowId=${this.activeRowId} is cloaked, not updating tabindices`);
-      return;
-    }
-
-    console.log(`[A11Y-NAV] modify(): activeRowId=${this.activeRowId}, visible=${activeRowVisible}, running tabindex updates`);
-    this.updateTabindices();
-    this.setInternalTabindices();
+    // 3. Initial setup (above) - first time modifier is attached
 
     // Auto-focus first unread post on initial load if user navigated via keyboard
     if (!this.initialFocusComplete && this.focusHistory.keyboardMode) {
@@ -254,6 +241,93 @@ export default class PostStreamNavigationModifier extends Modifier {
    */
   findRowIndexById(rowId) {
     return this.findRowIndexByIdWithArray(this.rows, rowId);
+  }
+
+  /**
+   * Find a row element by post number in the given rows array.
+   * Returns the row element or null if not found (cloaked).
+   * This is the preferred method for post-number based navigation.
+   * @param {HTMLElement[]} rows - Pre-captured rows array
+   * @param {string} postNumber - Post number as string, or "header"
+   * @returns {HTMLElement|null}
+   */
+  findRowByPostNumber(rows, postNumber) {
+    if (postNumber === "header") {
+      return rows.find(r => r.classList.contains('topic-header-row')) || null;
+    }
+    return rows.find(r => r.dataset.postNumber === postNumber) || null;
+  }
+
+  /**
+   * Find the best proxy row when target post is cloaked.
+   * Returns the first visible row in the navigation direction.
+   * @param {HTMLElement[]} rows - Pre-captured rows array
+   * @param {string} targetPostNumber - Target post number as string
+   * @param {number} direction - 1 for down/forward, -1 for up/backward
+   * @returns {HTMLElement|null}
+   */
+  findProxyRow(rows, targetPostNumber, direction) {
+    if (targetPostNumber === "header") {
+      // Header cloaked is unusual, return first row
+      return rows[0] || null;
+    }
+
+    const target = parseInt(targetPostNumber, 10);
+    if (isNaN(target)) {
+      return rows[0] || null;
+    }
+
+    let best = null;
+    let bestDistance = Infinity;
+
+    for (const row of rows) {
+      const pn = parseInt(row.dataset.postNumber, 10);
+      if (isNaN(pn)) continue;
+
+      if (direction > 0 && pn >= target) {
+        // Going DOWN - find first post >= target
+        const dist = pn - target;
+        if (dist < bestDistance) {
+          bestDistance = dist;
+          best = row;
+        }
+      } else if (direction < 0 && pn <= target) {
+        // Going UP - find first post <= target
+        const dist = target - pn;
+        if (dist < bestDistance) {
+          bestDistance = dist;
+          best = row;
+        }
+      }
+    }
+
+    // If no row found in direction, return first/last based on direction
+    if (!best && rows.length > 0) {
+      best = direction > 0 ? rows[rows.length - 1] : rows[0];
+    }
+
+    return best;
+  }
+
+  /**
+   * Focus a row element directly (post-number based navigation).
+   * This is the core focus method - all navigation should use this.
+   * @param {HTMLElement} row - The row element to focus
+   */
+  focusRowByElement(row) {
+    if (!row) return;
+
+    const newRowId = this.getRowId(row);
+    console.log(`[A11Y-NAV] focusRowByElement: newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`);
+
+    this.activeRowId = newRowId;
+    this.activeFocusableIndex = -1;
+    this.inDocumentMode = false;
+    this.updateTabindices();
+    this.updateCloakingPrevention(row);
+
+    row.focus();
+    this.scrollRowIntoView(row);
   }
 
   /**
@@ -597,149 +671,116 @@ export default class PostStreamNavigationModifier extends Modifier {
    * This can happen when a focused element is removed from DOM (cloaked)
    * and browser moves focus to <body>.
    *
-   * IMPORTANT: We only recover focus if the user was actively navigating
-   * (using keyboard). If focus is lost due to passive cloaking (scrolling),
-   * we do NOT auto-recover because:
+   * We do NOT auto-recover focus because:
    * 1. The user may have scrolled away intentionally
    * 2. Auto-recovery creates a focus jumping loop
-   * 3. Focus will be properly set when user navigates back with arrow keys
+   * 3. Focus will be properly set when user navigates with arrow keys
+   * 4. User can Tab back into the grid at any time
    */
   handleFocusOut(event) {
-    // If focus is moving outside the grid (relatedTarget is null or outside)
-    // schedule a check to see if focus went to body (element removal)
+    // Just log for debugging - don't auto-recover
     if (!event.relatedTarget || !this.element.contains(event.relatedTarget)) {
-      // Use requestAnimationFrame to wait for focus to settle
-      requestAnimationFrame(() => {
-        // Only recover if focus went to body AND we're in the middle of navigation
-        // This prevents recovery loops during passive scrolling
-        if (this._isNavigating &&
-            (document.activeElement === document.body || document.activeElement === document.documentElement)) {
-          console.log(`[A11Y-NAV] handleFocusOut: Focus lost DURING NAVIGATION, attempting recovery to activeRowId=${this.activeRowId}`);
-
-          // Try to find and focus the last known row
-          const rows = this.rows;
-          if (rows.length > 0) {
-            const targetIndex = this.getActiveRowIndex(rows);
-            if (targetIndex >= 0 && targetIndex < rows.length) {
-              console.log(`[A11Y-NAV] handleFocusOut: Recovering focus to index ${targetIndex}`);
-              this.focusRowWithArray(rows, targetIndex);
-            }
-          }
-        } else if (document.activeElement === document.body || document.activeElement === document.documentElement) {
-          // Focus lost to body but NOT during navigation - don't recover
-          // This happens during passive scrolling when the focused element is cloaked
-          console.log(`[A11Y-NAV] handleFocusOut: Focus lost to body (passive cloaking), NOT recovering - user can navigate with arrows`);
-        } else {
-          console.log(`[A11Y-NAV] handleFocusOut: Focus left grid to ${document.activeElement?.tagName}, not recovering`);
-        }
-      });
+      console.log(`[A11Y-NAV] handleFocusOut: Focus left grid, activeRowId=${this.activeRowId}`);
     }
   }
 
   focusNextRow() {
-    // CRITICAL: Capture rows array ONCE and pass it through ALL methods
-    // to avoid cloaking changes causing index mismatches between calls
+    // PURE POST-NUMBER NAVIGATION - no index conversion, immune to race conditions
     const rows = this.rows;
-    if (rows.length === 0) {
-      return;
-    }
-    // Set navigation direction BEFORE getting activeRowIndex
-    // This ensures the directional fallback uses the correct direction
+    if (rows.length === 0) return;
+
     this._lastNavigationDirection = 1; // Down/forward
 
-    // Check if current activeRowId is visible using the SAME rows array
-    // When the target is cloaked, the directional fallback already gives us
-    // the best visible post in our navigation direction - don't navigate further
-    const targetIsCloaked = this.findRowIndexByIdWithArray(rows, this.activeRowId) === -1;
-    const currentIndex = this.getActiveRowIndex(rows);
+    // Find current row BY POST NUMBER directly
+    const currentRow = this.findRowByPostNumber(rows, this.activeRowId);
 
-    // DEBUG: Log navigation
-    console.log(`[A11Y-NAV] focusNextRow: activeRowId=${this.activeRowId}, cloaked=${targetIsCloaked}, currentIndex=${currentIndex}, rows.length=${rows.length}`);
-
-    if (targetIsCloaked) {
-      // Fallback already gave us the best visible post in our direction
-      // Focus it directly without additional navigation step
-      console.log(`[A11Y-NAV] focusNextRow: CLOAKED - focusing fallback index ${currentIndex}`);
-      this.focusRowWithArray(rows, currentIndex);
+    if (currentRow) {
+      // Current row is visible - get next in array
+      const currentIndex = rows.indexOf(currentRow);
+      const nextIndex = currentIndex + 1;
+      console.log(`[A11Y-NAV] focusNextRow: VISIBLE - index ${currentIndex} → ${nextIndex}`);
+      if (nextIndex < rows.length) {
+        this.focusRowByElement(rows[nextIndex]);
+      }
+      // else: at end, don't wrap
     } else {
-      // Normal case: navigate from current position
-      const newIndex = getNextIndex(rows, currentIndex, this.options.wrap);
-      console.log(`[A11Y-NAV] focusNextRow: NORMAL - ${currentIndex} → ${newIndex}`);
-      if (newIndex !== currentIndex) {
-        this.focusRowWithArray(rows, newIndex);
+      // Current row is cloaked - find proxy in navigation direction
+      console.log(`[A11Y-NAV] focusNextRow: CLOAKED - finding proxy for ${this.activeRowId}`);
+      const proxy = this.findProxyRow(rows, this.activeRowId, 1);
+      if (proxy) {
+        this.focusRowByElement(proxy);
       }
     }
   }
 
   focusPreviousRow() {
-    // CRITICAL: Capture rows array ONCE and pass it through ALL methods
-    // to avoid cloaking changes causing index mismatches between calls
+    // PURE POST-NUMBER NAVIGATION - no index conversion, immune to race conditions
     const rows = this.rows;
-    if (rows.length === 0) {
-      return;
-    }
-    // Set navigation direction BEFORE getting activeRowIndex
-    // This ensures the directional fallback uses the correct direction
+    if (rows.length === 0) return;
+
     this._lastNavigationDirection = -1; // Up/backward
 
-    // Check if current activeRowId is visible using the SAME rows array
-    // When the target is cloaked, the directional fallback already gives us
-    // the best visible post in our navigation direction - don't navigate further
-    const targetIsCloaked = this.findRowIndexByIdWithArray(rows, this.activeRowId) === -1;
-    const currentIndex = this.getActiveRowIndex(rows);
+    // Find current row BY POST NUMBER directly
+    const currentRow = this.findRowByPostNumber(rows, this.activeRowId);
 
-    // DEBUG: Log navigation
-    console.log(`[A11Y-NAV] focusPreviousRow: activeRowId=${this.activeRowId}, cloaked=${targetIsCloaked}, currentIndex=${currentIndex}, rows.length=${rows.length}`);
-
-    if (targetIsCloaked) {
-      // Fallback already gave us the best visible post in our direction
-      // Focus it directly without additional navigation step
-      console.log(`[A11Y-NAV] focusPreviousRow: CLOAKED - focusing fallback index ${currentIndex}`);
-      this.focusRowWithArray(rows, currentIndex);
+    if (currentRow) {
+      // Current row is visible - get previous in array
+      const currentIndex = rows.indexOf(currentRow);
+      const prevIndex = currentIndex - 1;
+      console.log(`[A11Y-NAV] focusPreviousRow: VISIBLE - index ${currentIndex} → ${prevIndex}`);
+      if (prevIndex >= 0) {
+        this.focusRowByElement(rows[prevIndex]);
+      }
+      // else: at start, don't wrap
     } else {
-      // Normal case: navigate from current position
-      const newIndex = getPreviousIndex(rows, currentIndex, this.options.wrap);
-      console.log(`[A11Y-NAV] focusPreviousRow: NORMAL - ${currentIndex} → ${newIndex}`);
-      if (newIndex !== currentIndex) {
-        this.focusRowWithArray(rows, newIndex);
+      // Current row is cloaked - find proxy in navigation direction
+      console.log(`[A11Y-NAV] focusPreviousRow: CLOAKED - finding proxy for ${this.activeRowId}`);
+      const proxy = this.findProxyRow(rows, this.activeRowId, -1);
+      if (proxy) {
+        this.focusRowByElement(proxy);
       }
     }
   }
 
   focusFirstRow() {
-    // Reset direction - no directional preference for explicit first/last navigation
-    this._lastNavigationDirection = 0;
-    this.focusRow(0);
+    // Focus first visible row (header or first post)
+    const rows = this.rows;
+    if (rows.length > 0) {
+      this._lastNavigationDirection = 0;
+      this.focusRowByElement(rows[0]);
+    }
   }
 
   focusLastRow() {
-    // Reset direction - no directional preference for explicit first/last navigation
-    this._lastNavigationDirection = 0;
-    this.focusRow(this.rows.length - 1);
+    // Focus last visible row
+    const rows = this.rows;
+    if (rows.length > 0) {
+      this._lastNavigationDirection = 0;
+      this.focusRowByElement(rows[rows.length - 1]);
+    }
   }
 
   focusRowByOffset(offset) {
-    // CRITICAL: Capture rows array ONCE and pass it through ALL methods
-    // to avoid cloaking changes causing index mismatches between calls
+    // PURE POST-NUMBER NAVIGATION for Page Up/Down
     const rows = this.rows;
-    if (rows.length === 0) {
-      return;
-    }
-    // Set navigation direction BEFORE getting activeRowIndex
+    if (rows.length === 0) return;
+
     this._lastNavigationDirection = offset > 0 ? 1 : offset < 0 ? -1 : 0;
 
-    // Check if current activeRowId is visible using the SAME rows array
-    const targetIsCloaked = this.findRowIndexByIdWithArray(rows, this.activeRowId) === -1;
-    const currentIndex = this.getActiveRowIndex(rows);
+    // Find current row BY POST NUMBER directly
+    const currentRow = this.findRowByPostNumber(rows, this.activeRowId);
 
-    if (targetIsCloaked) {
-      // Fallback already gave us the best visible post in our direction
-      // Focus it directly without additional offset
-      this.focusRowWithArray(rows, currentIndex);
-    } else {
-      // Normal case: apply offset from current position
+    if (currentRow) {
+      // Current row is visible - apply offset
+      const currentIndex = rows.indexOf(currentRow);
       const newIndex = Math.max(0, Math.min(rows.length - 1, currentIndex + offset));
-      this.focusRowWithArray(rows, newIndex);
+      this.focusRowByElement(rows[newIndex]);
+    } else {
+      // Current row is cloaked - find proxy first
+      const proxy = this.findProxyRow(rows, this.activeRowId, offset > 0 ? 1 : -1);
+      if (proxy) {
+        this.focusRowByElement(proxy);
+      }
     }
   }
 
@@ -751,37 +792,26 @@ export default class PostStreamNavigationModifier extends Modifier {
    */
   focusRowWithArray(rows, index) {
     if (index >= 0 && index < rows.length) {
-      // Set navigation flag to prevent modify() from interfering with tabindices
-      this._isNavigating = true;
+      const row = rows[index];
+      // Track by row ID (post number) not index
+      const newRowId = this.getRowId(row);
+      // DEBUG: Log focusRow
+      console.log(`[A11Y-NAV] focusRowWithArray: index=${index}, newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`);
+      this.activeRowId = newRowId;
+      this.activeFocusableIndex = -1; // Row itself is focused
+      this.inDocumentMode = false;
+      this.updateTabindices();
 
-      try {
-        const row = rows[index];
-        // Track by row ID (post number) not index
-        const newRowId = this.getRowId(row);
-        // DEBUG: Log focusRow
-        console.log(`[A11Y-NAV] focusRowWithArray: index=${index}, newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`);
-        this.activeRowId = newRowId;
-        this.activeFocusableIndex = -1; // Row itself is focused
-        this.inDocumentMode = false;
-        this.updateTabindices();
+      // Manage cloaking prevention - prevent cloaking on the new row,
+      // allow cloaking on the previous row. This prevents focus loss
+      // during rapid arrow key navigation.
+      this.updateCloakingPrevention(row);
 
-        // Manage cloaking prevention - prevent cloaking on the new row,
-        // allow cloaking on the previous row. This prevents focus loss
-        // during rapid arrow key navigation.
-        this.updateCloakingPrevention(row);
+      row.focus();
 
-        row.focus();
-
-        // Custom scroll logic to respect sticky header
-        // scrollIntoView with block: "nearest" doesn't reliably honor scroll-margin-top
-        this.scrollRowIntoView(row);
-      } finally {
-        // Clear navigation flag after microtask to ensure any modify() triggered
-        // by focus/scroll has had a chance to run with the flag still set
-        queueMicrotask(() => {
-          this._isNavigating = false;
-        });
-      }
+      // Custom scroll logic to respect sticky header
+      // scrollIntoView with block: "nearest" doesn't reliably honor scroll-margin-top
+      this.scrollRowIntoView(row);
     } else {
       console.log(`[A11Y-NAV] focusRowWithArray: INVALID index=${index}, rows.length=${rows.length}`);
     }
