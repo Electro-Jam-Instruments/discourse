@@ -47,6 +47,9 @@ export default class PostStreamNavigationModifier extends Modifier {
   // Track last navigation direction for directional fallback when target row is cloaked
   // -1 = navigating up/backward, 1 = navigating down/forward, 0 = no direction preference
   _lastNavigationDirection = 0;
+  // Flag to prevent updateTabindices from running during active navigation
+  // This prevents modify() interference when cloaking changes mid-navigation
+  _isNavigating = false;
   options = {
     // Row selector includes topic header row and post rows
     rowSelector: '.topic-header-row[role="row"], .topic-post[role="row"]',
@@ -72,9 +75,11 @@ export default class PostStreamNavigationModifier extends Modifier {
 
       this.handleKeydown = this.handleKeydown.bind(this);
       this.handleFocusIn = this.handleFocusIn.bind(this);
+      this.handleFocusOut = this.handleFocusOut.bind(this);
 
       this.element.addEventListener("keydown", this.handleKeydown);
       this.element.addEventListener("focusin", this.handleFocusIn);
+      this.element.addEventListener("focusout", this.handleFocusOut);
 
       this.activeRowId = "header";
       this.activeFocusableIndex = -1;
@@ -83,7 +88,7 @@ export default class PostStreamNavigationModifier extends Modifier {
     this.options = { ...this.options, ...named };
 
     // DEBUG: Log modify() calls to see if they're interfering with navigation
-    console.log(`[A11Y-NAV] modify(): activeRowId=${this.activeRowId}, initialFocusComplete=${this.initialFocusComplete}, keyboardMode=${this.focusHistory.keyboardMode}`);
+    console.log(`[A11Y-NAV] modify(): activeRowId=${this.activeRowId}, initialFocusComplete=${this.initialFocusComplete}, keyboardMode=${this.focusHistory.keyboardMode}, isNavigating=${this._isNavigating}`);
 
     // IMPORTANT: We intentionally do NOT read DOM focus state to update activeRowId here.
     // This method runs on EVERY Ember re-render (including cloaking boundary changes).
@@ -96,8 +101,14 @@ export default class PostStreamNavigationModifier extends Modifier {
     //
     // The activeRowIndex getter handles cloaked rows by finding the closest visible row.
 
-    this.updateTabindices();
-    this.setInternalTabindices();
+    // GUARD: Skip tabindex updates during active navigation to prevent
+    // modify() from setting tabindex on wrong row due to cloaking changes
+    if (!this._isNavigating) {
+      this.updateTabindices();
+      this.setInternalTabindices();
+    } else {
+      console.log(`[A11Y-NAV] modify(): SKIPPED tabindex updates - navigation in progress`);
+    }
 
     // Auto-focus first unread post on initial load if user navigated via keyboard
     if (!this.initialFocusComplete && this.focusHistory.keyboardMode) {
@@ -209,20 +220,30 @@ export default class PostStreamNavigationModifier extends Modifier {
   }
 
   /**
-   * Find the index of a row by its ID in the current rows array.
+   * Find the index of a row by its ID in a given rows array.
    * Returns -1 if not found (e.g., row is cloaked).
+   * @param {HTMLElement[]} rows - The rows array to search
+   * @param {string} rowId - The row ID to find
    */
-  findRowIndexById(rowId) {
+  findRowIndexByIdWithArray(rows, rowId) {
     if (!rowId) {
       return -1;
     }
-    const rows = this.rows;
     for (let i = 0; i < rows.length; i++) {
       if (this.getRowId(rows[i]) === rowId) {
         return i;
       }
     }
     return -1;
+  }
+
+  /**
+   * Find the index of a row by its ID in the current rows array.
+   * Returns -1 if not found (e.g., row is cloaked).
+   * @deprecated Use findRowIndexByIdWithArray with pre-captured rows array
+   */
+  findRowIndexById(rowId) {
+    return this.findRowIndexByIdWithArray(this.rows, rowId);
   }
 
   /**
@@ -234,9 +255,15 @@ export default class PostStreamNavigationModifier extends Modifier {
    * between keystrokes - e.g., if navigating UP and target post is cloaked,
    * we find the first visible post BEFORE the target (not "closest" which
    * might be a post after the target).
+   *
+   * @param {HTMLElement[]} [rows] - Optional pre-captured rows array. If not provided, queries DOM.
+   * @returns {number} The active row index
    */
-  get activeRowIndex() {
-    const index = this.findRowIndexById(this.activeRowId);
+  getActiveRowIndex(rows = null) {
+    // Use provided rows array or query DOM (for backward compatibility)
+    const rowsArray = rows || this.rows;
+
+    const index = this.findRowIndexByIdWithArray(rowsArray, this.activeRowId);
     if (index !== -1) {
       return index;
     }
@@ -244,21 +271,20 @@ export default class PostStreamNavigationModifier extends Modifier {
     // Parse the row ID to get post number
     if (this.activeRowId === "header") {
       // Header should always be visible, but fallback to 0
-      console.log(`[A11Y-NAV] activeRowIndex: header cloaked? returning 0`);
+      console.log(`[A11Y-NAV] getActiveRowIndex: header cloaked? returning 0`);
       return 0;
     }
     const targetPostNumber = parseInt(this.activeRowId, 10);
     if (isNaN(targetPostNumber)) {
-      console.log(`[A11Y-NAV] activeRowIndex: invalid activeRowId=${this.activeRowId}, returning 0`);
+      console.log(`[A11Y-NAV] getActiveRowIndex: invalid activeRowId=${this.activeRowId}, returning 0`);
       return 0;
     }
 
-    const rows = this.rows;
     const direction = this._lastNavigationDirection;
 
     // DEBUG: Log visible row IDs
-    const rowIds = rows.map((r) => this.getRowId(r));
-    console.log(`[A11Y-NAV] activeRowIndex: FALLBACK target=${targetPostNumber}, direction=${direction}, visibleRows=[${rowIds.join(",")}]`);
+    const rowIds = rowsArray.map((r) => this.getRowId(r));
+    console.log(`[A11Y-NAV] getActiveRowIndex: FALLBACK target=${targetPostNumber}, direction=${direction}, visibleRows=[${rowIds.join(",")}]`);
 
     // Directional fallback: find the first visible row in the navigation direction
     // This prevents focus jumping when cloaking changes during keystroke delays
@@ -267,8 +293,8 @@ export default class PostStreamNavigationModifier extends Modifier {
       // (with lower or equal post number)
       let bestIndex = 0;
       let bestPostNumber = -Infinity;
-      for (let i = 0; i < rows.length; i++) {
-        const rowId = this.getRowId(rows[i]);
+      for (let i = 0; i < rowsArray.length; i++) {
+        const rowId = this.getRowId(rowsArray[i]);
         if (rowId === "header") {
           continue;
         }
@@ -280,15 +306,15 @@ export default class PostStreamNavigationModifier extends Modifier {
       }
       // If no post found before target, use first visible post
       const result = bestPostNumber > -Infinity ? bestIndex : 0;
-      console.log(`[A11Y-NAV] activeRowIndex: UP fallback -> index ${result} (post ${bestPostNumber})`);
+      console.log(`[A11Y-NAV] getActiveRowIndex: UP fallback -> index ${result} (post ${bestPostNumber})`);
       return result;
     } else if (direction > 0) {
       // Navigating DOWN - find the first visible post AFTER or AT the target
       // (with higher or equal post number)
-      let bestIndex = rows.length - 1;
+      let bestIndex = rowsArray.length - 1;
       let bestPostNumber = Infinity;
-      for (let i = 0; i < rows.length; i++) {
-        const rowId = this.getRowId(rows[i]);
+      for (let i = 0; i < rowsArray.length; i++) {
+        const rowId = this.getRowId(rowsArray[i]);
         if (rowId === "header") {
           continue;
         }
@@ -299,16 +325,16 @@ export default class PostStreamNavigationModifier extends Modifier {
         }
       }
       // If no post found after target, use last visible post
-      const result = bestPostNumber < Infinity ? bestIndex : rows.length - 1;
-      console.log(`[A11Y-NAV] activeRowIndex: DOWN fallback -> index ${result} (post ${bestPostNumber})`);
+      const result = bestPostNumber < Infinity ? bestIndex : rowsArray.length - 1;
+      console.log(`[A11Y-NAV] getActiveRowIndex: DOWN fallback -> index ${result} (post ${bestPostNumber})`);
       return result;
     }
 
     // No direction preference (e.g., initial load, mouse click) - use closest
     let closestIndex = 0;
     let closestDistance = Infinity;
-    for (let i = 0; i < rows.length; i++) {
-      const rowId = this.getRowId(rows[i]);
+    for (let i = 0; i < rowsArray.length; i++) {
+      const rowId = this.getRowId(rowsArray[i]);
       if (rowId === "header") {
         continue;
       }
@@ -321,8 +347,15 @@ export default class PostStreamNavigationModifier extends Modifier {
         }
       }
     }
-    console.log(`[A11Y-NAV] activeRowIndex: CLOSEST fallback -> index ${closestIndex}`);
+    console.log(`[A11Y-NAV] getActiveRowIndex: CLOSEST fallback -> index ${closestIndex}`);
     return closestIndex;
+  }
+
+  /**
+   * @deprecated Use getActiveRowIndex(rows) with pre-captured rows array
+   */
+  get activeRowIndex() {
+    return this.getActiveRowIndex();
   }
 
   /**
@@ -549,9 +582,40 @@ export default class PostStreamNavigationModifier extends Modifier {
     }
   }
 
+  /**
+   * Handle focus leaving the grid entirely.
+   * This can happen when a focused element is removed from DOM (cloaked)
+   * and browser moves focus to <body>.
+   */
+  handleFocusOut(event) {
+    // If focus is moving outside the grid (relatedTarget is null or outside)
+    // schedule a check to see if focus went to body (element removal)
+    if (!event.relatedTarget || !this.element.contains(event.relatedTarget)) {
+      // Use requestAnimationFrame to wait for focus to settle
+      requestAnimationFrame(() => {
+        // If focus is now on body and we were navigating, restore focus
+        if (document.activeElement === document.body || document.activeElement === document.documentElement) {
+          console.log(`[A11Y-NAV] handleFocusOut: Focus lost to body, attempting recovery to activeRowId=${this.activeRowId}`);
+
+          // Try to find and focus the last known row
+          const rows = this.rows;
+          if (rows.length > 0) {
+            const targetIndex = this.getActiveRowIndex(rows);
+            if (targetIndex >= 0 && targetIndex < rows.length) {
+              console.log(`[A11Y-NAV] handleFocusOut: Recovering focus to index ${targetIndex}`);
+              this.focusRowWithArray(rows, targetIndex);
+            }
+          }
+        } else {
+          console.log(`[A11Y-NAV] handleFocusOut: Focus left grid to ${document.activeElement?.tagName}, not recovering`);
+        }
+      });
+    }
+  }
+
   focusNextRow() {
-    // CRITICAL: Capture rows array ONCE and pass it through to avoid
-    // cloaking changes causing index mismatches between calls
+    // CRITICAL: Capture rows array ONCE and pass it through ALL methods
+    // to avoid cloaking changes causing index mismatches between calls
     const rows = this.rows;
     if (rows.length === 0) {
       return;
@@ -560,11 +624,11 @@ export default class PostStreamNavigationModifier extends Modifier {
     // This ensures the directional fallback uses the correct direction
     this._lastNavigationDirection = 1; // Down/forward
 
-    // Check if current activeRowId is visible BEFORE getting activeRowIndex
+    // Check if current activeRowId is visible using the SAME rows array
     // When the target is cloaked, the directional fallback already gives us
     // the best visible post in our navigation direction - don't navigate further
-    const targetIsCloaked = this.findRowIndexById(this.activeRowId) === -1;
-    const currentIndex = this.activeRowIndex;
+    const targetIsCloaked = this.findRowIndexByIdWithArray(rows, this.activeRowId) === -1;
+    const currentIndex = this.getActiveRowIndex(rows);
 
     // DEBUG: Log navigation
     console.log(`[A11Y-NAV] focusNextRow: activeRowId=${this.activeRowId}, cloaked=${targetIsCloaked}, currentIndex=${currentIndex}, rows.length=${rows.length}`);
@@ -585,8 +649,8 @@ export default class PostStreamNavigationModifier extends Modifier {
   }
 
   focusPreviousRow() {
-    // CRITICAL: Capture rows array ONCE and pass it through to avoid
-    // cloaking changes causing index mismatches between calls
+    // CRITICAL: Capture rows array ONCE and pass it through ALL methods
+    // to avoid cloaking changes causing index mismatches between calls
     const rows = this.rows;
     if (rows.length === 0) {
       return;
@@ -595,11 +659,11 @@ export default class PostStreamNavigationModifier extends Modifier {
     // This ensures the directional fallback uses the correct direction
     this._lastNavigationDirection = -1; // Up/backward
 
-    // Check if current activeRowId is visible BEFORE getting activeRowIndex
+    // Check if current activeRowId is visible using the SAME rows array
     // When the target is cloaked, the directional fallback already gives us
     // the best visible post in our navigation direction - don't navigate further
-    const targetIsCloaked = this.findRowIndexById(this.activeRowId) === -1;
-    const currentIndex = this.activeRowIndex;
+    const targetIsCloaked = this.findRowIndexByIdWithArray(rows, this.activeRowId) === -1;
+    const currentIndex = this.getActiveRowIndex(rows);
 
     // DEBUG: Log navigation
     console.log(`[A11Y-NAV] focusPreviousRow: activeRowId=${this.activeRowId}, cloaked=${targetIsCloaked}, currentIndex=${currentIndex}, rows.length=${rows.length}`);
@@ -632,8 +696,8 @@ export default class PostStreamNavigationModifier extends Modifier {
   }
 
   focusRowByOffset(offset) {
-    // CRITICAL: Capture rows array ONCE and pass it through to avoid
-    // cloaking changes causing index mismatches between calls
+    // CRITICAL: Capture rows array ONCE and pass it through ALL methods
+    // to avoid cloaking changes causing index mismatches between calls
     const rows = this.rows;
     if (rows.length === 0) {
       return;
@@ -641,9 +705,9 @@ export default class PostStreamNavigationModifier extends Modifier {
     // Set navigation direction BEFORE getting activeRowIndex
     this._lastNavigationDirection = offset > 0 ? 1 : offset < 0 ? -1 : 0;
 
-    // Check if current activeRowId is visible BEFORE getting activeRowIndex
-    const targetIsCloaked = this.findRowIndexById(this.activeRowId) === -1;
-    const currentIndex = this.activeRowIndex;
+    // Check if current activeRowId is visible using the SAME rows array
+    const targetIsCloaked = this.findRowIndexByIdWithArray(rows, this.activeRowId) === -1;
+    const currentIndex = this.getActiveRowIndex(rows);
 
     if (targetIsCloaked) {
       // Fallback already gave us the best visible post in our direction
@@ -664,26 +728,37 @@ export default class PostStreamNavigationModifier extends Modifier {
    */
   focusRowWithArray(rows, index) {
     if (index >= 0 && index < rows.length) {
-      const row = rows[index];
-      // Track by row ID (post number) not index
-      const newRowId = this.getRowId(row);
-      // DEBUG: Log focusRow
-      console.log(`[A11Y-NAV] focusRowWithArray: index=${index}, newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`);
-      this.activeRowId = newRowId;
-      this.activeFocusableIndex = -1; // Row itself is focused
-      this.inDocumentMode = false;
-      this.updateTabindices();
+      // Set navigation flag to prevent modify() from interfering with tabindices
+      this._isNavigating = true;
 
-      // Manage cloaking prevention - prevent cloaking on the new row,
-      // allow cloaking on the previous row. This prevents focus loss
-      // during rapid arrow key navigation.
-      this.updateCloakingPrevention(row);
+      try {
+        const row = rows[index];
+        // Track by row ID (post number) not index
+        const newRowId = this.getRowId(row);
+        // DEBUG: Log focusRow
+        console.log(`[A11Y-NAV] focusRowWithArray: index=${index}, newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`);
+        this.activeRowId = newRowId;
+        this.activeFocusableIndex = -1; // Row itself is focused
+        this.inDocumentMode = false;
+        this.updateTabindices();
 
-      row.focus();
+        // Manage cloaking prevention - prevent cloaking on the new row,
+        // allow cloaking on the previous row. This prevents focus loss
+        // during rapid arrow key navigation.
+        this.updateCloakingPrevention(row);
 
-      // Custom scroll logic to respect sticky header
-      // scrollIntoView with block: "nearest" doesn't reliably honor scroll-margin-top
-      this.scrollRowIntoView(row);
+        row.focus();
+
+        // Custom scroll logic to respect sticky header
+        // scrollIntoView with block: "nearest" doesn't reliably honor scroll-margin-top
+        this.scrollRowIntoView(row);
+      } finally {
+        // Clear navigation flag after microtask to ensure any modify() triggered
+        // by focus/scroll has had a chance to run with the flag still set
+        queueMicrotask(() => {
+          this._isNavigating = false;
+        });
+      }
     } else {
       console.log(`[A11Y-NAV] focusRowWithArray: INVALID index=${index}, rows.length=${rows.length}`);
     }
@@ -947,6 +1022,7 @@ export default class PostStreamNavigationModifier extends Modifier {
     if (this.element) {
       this.element.removeEventListener("keydown", this.handleKeydown);
       this.element.removeEventListener("focusin", this.handleFocusIn);
+      this.element.removeEventListener("focusout", this.handleFocusOut);
     }
     // Clear any cloaking prevention when navigating away
     this.clearCloakingPrevention();
