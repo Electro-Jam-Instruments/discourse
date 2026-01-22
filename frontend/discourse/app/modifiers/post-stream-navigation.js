@@ -47,8 +47,9 @@ export default class PostStreamNavigationModifier extends Modifier {
   // Track last navigation direction for directional fallback when target row is cloaked
   // -1 = navigating up/backward, 1 = navigating down/forward, 0 = no direction preference
   _lastNavigationDirection = 0;
-  // Navigation direction for directional proxy finding when target is cloaked
-  // No timeout needed - post-number navigation is immune to race conditions
+  // Navigation guard flag - prevents handleFocusIn from resetting state during keyboard navigation
+  // Set true at start of navigation, cleared via microtask after focus() completes
+  _isNavigating = false;
   options = {
     // Row selector includes topic header row and post rows
     rowSelector: '.topic-header-row[role="row"], .topic-post[role="row"]',
@@ -312,6 +313,7 @@ export default class PostStreamNavigationModifier extends Modifier {
   /**
    * Focus a row element directly (post-number based navigation).
    * This is the core focus method - all navigation should use this.
+   * Uses _isNavigating flag to prevent handleFocusIn from resetting state.
    * @param {HTMLElement} row - The row element to focus
    */
   focusRowByElement(row) {
@@ -319,6 +321,9 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     const newRowId = this.getRowId(row);
     console.log(`[A11Y-NAV] focusRowByElement: newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`);
+
+    // Set navigation guard BEFORE any state changes
+    this._isNavigating = true;
 
     this.activeRowId = newRowId;
     this.activeFocusableIndex = -1;
@@ -328,6 +333,12 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     row.focus();
     this.scrollRowIntoView(row);
+
+    // Clear navigation guard via microtask - ensures handleFocusIn sees the flag
+    // during any synchronously-triggered focus events
+    queueMicrotask(() => {
+      this._isNavigating = false;
+    });
   }
 
   /**
@@ -640,6 +651,13 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Track by row ID (post number) not index
       const newRowId = this.getRowId(row);
       if (newRowId && newRowId !== this.activeRowId) {
+        // GUARD: Skip state update during keyboard navigation
+        // This prevents external focus changes (Discourse scroll-to-post, NVDA)
+        // from corrupting navigation state mid-keystroke
+        if (this._isNavigating) {
+          console.log(`[A11Y-NAV] handleFocusIn: BLOCKED ${this.activeRowId} → ${newRowId} (navigation in progress)`);
+          return;
+        }
         // DEBUG: Log when handleFocusIn changes state (potential bug source)
         console.log(`[A11Y-NAV] handleFocusIn: ${this.activeRowId} → ${newRowId}, direction was ${this._lastNavigationDirection}, resetting to 0`);
         this.activeRowId = newRowId;
