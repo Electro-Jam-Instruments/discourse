@@ -647,6 +647,240 @@ This approach provides consistent, predictable navigation where Left/Right alway
 - See `docs/research/post-stream-grid-feasibility-assessment.md`
 - See `docs/research/sub-agent-definitions.md`
 
+### Cloaking Prevention for Keyboard Navigation - COMPLETED (2026-01-17)
+
+**Problem:** Rapid arrow key navigation through posts caused focus loss. When pressing Down Arrow quickly, the previously focused post could get "cloaked" (virtualized out of the DOM) before the new post received focus, causing focus to be lost entirely.
+
+**Root Cause Analysis:**
+Discourse uses a "cloaking" mechanism (`post-stream-viewport-tracker.js`) for performance optimization in long topics. Posts far from the viewport are replaced with placeholder divs. This is managed by `IntersectionObserver` which fires asynchronously. During rapid keyboard navigation:
+
+1. User presses Down Arrow
+2. Focus moves to new post
+3. Previous post scrolls out of viewport
+4. IntersectionObserver fires (async)
+5. Cloaking system replaces previous post with placeholder
+6. But if arrow navigation is fast, the new post might also be cloaked before receiving focus
+
+**Solution:** Prevent cloaking on the currently focused post using Discourse's existing `preventCloaking()` API.
+
+| Commit | Description |
+|--------|-------------|
+| `8e952a95c8` | A11Y: Prevent cloaking on focused post during keyboard navigation |
+
+**Implementation Details:**
+
+```javascript
+// Import the cloaking prevention API
+import { preventCloaking } from "discourse/modifiers/post-stream-viewport-tracker";
+
+// Track the post ID that has cloaking prevented
+_preventedCloakingPostId = null;
+
+// In focusRow() - called on every arrow key navigation
+updateCloakingPrevention(row) {
+  const newPostId = row.dataset?.postId;
+
+  // Allow cloaking on the previous post
+  if (this._preventedCloakingPostId && this._preventedCloakingPostId !== newPostId) {
+    preventCloaking(parseInt(this._preventedCloakingPostId, 10), false);
+    this._preventedCloakingPostId = null;
+  }
+
+  // Prevent cloaking on the new post
+  if (newPostId && newPostId !== this._preventedCloakingPostId) {
+    preventCloaking(parseInt(newPostId, 10), true);
+    this._preventedCloakingPostId = newPostId;
+  }
+}
+
+// Clean up on modifier destroy
+cleanup() {
+  // ... existing cleanup ...
+  this.clearCloakingPrevention();
+}
+```
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `modifiers/post-stream-navigation.js` | Import `preventCloaking`, add `_preventedCloakingPostId` tracking, add `updateCloakingPrevention()` and `clearCloakingPrevention()` methods, call from `focusRow()` and `handleFocusIn()` |
+
+**Key Design Decisions:**
+
+1. **Use existing API:** Discourse already has `preventCloaking(postId, boolean)` for cases where posts need to stay in DOM (e.g., playing video). We reuse this rather than disabling cloaking entirely.
+
+2. **Track by post ID:** Posts have `data-post-id` attribute. We track the post ID rather than DOM element to handle cases where the DOM might change.
+
+3. **One post at a time:** Only prevent cloaking on the currently focused post. When focus moves, the previous post can be cloaked again. This maintains performance benefits of cloaking.
+
+4. **Clean up on destroy:** Clear cloaking prevention when the modifier is destroyed (user navigates away) to avoid memory leaks or stale prevention.
+
+5. **Handle both programmatic and user-initiated focus:** Both `focusRow()` (keyboard navigation) and `handleFocusIn()` (click/Tab) update cloaking prevention.
+
+**Why This Matters for PR to Meta:**
+
+This fix demonstrates a key insight: accessibility features must integrate with performance optimizations. The cloaking system improves performance for long topics, but creates an edge case for keyboard navigation. The solution:
+
+- Doesn't disable cloaking (maintains performance)
+- Uses existing API (no new infrastructure)
+- Is surgical (only affects focused post)
+- Has proper cleanup (no memory leaks)
+- Works for all focus methods (keyboard, mouse, Tab)
+
+**Testing Approach:**
+1. Navigate to a topic with 50+ posts
+2. Use Down Arrow rapidly to scroll through posts
+3. Focus should never be lost
+4. Previous posts should still cloak normally after focus moves
+5. Repeat with Up Arrow navigation
+6. Test with Page Down for large jumps
+
+### Focus Jumping with Delayed Navigation - COMPLETED (2026-01-19)
+
+**Problem:** When users navigated posts with arrow keys and paused 1-2 seconds between keypresses, focus would jump to unexpected posts. For example, pressing Arrow Up would cause focus to jump DOWN instead of up.
+
+**Root Cause Analysis:**
+
+The issue occurred due to the interaction between post cloaking (virtualization) and the `activeRowIndex` getter's fallback logic:
+
+1. User presses Arrow Down, focus moves to post 5
+2. User waits 1-2 seconds
+3. Post 5 gets cloaked (removed from DOM) by IntersectionObserver
+4. User presses Arrow Up
+5. `activeRowIndex` getter can't find post 5 (it's cloaked)
+6. **BUG:** Fallback used "closest distance" algorithm, which might find post 7 (closer than post 3)
+7. `focusPreviousRow()` then navigates UP from post 7 to post 6
+8. **Result:** User pressed UP but focus jumped from conceptual post 5 to post 6 (DOWN!)
+
+The "closest distance" fallback was direction-agnostic, causing focus to jump in the wrong direction when the target post was cloaked.
+
+**Solution:** Implement directional fallback that respects navigation direction.
+
+| Commit | Description |
+|--------|-------------|
+| `489b991b23` | A11Y: Fix focus jumping with directional cloaking fallback |
+
+**Implementation Details:**
+
+```javascript
+// Track navigation direction: -1 = up, 1 = down, 0 = no preference
+_lastNavigationDirection = 0;
+
+// In activeRowIndex getter - directional fallback when target is cloaked
+get activeRowIndex() {
+  const index = this.findRowIndexById(this.activeRowId);
+  if (index !== -1) {
+    return index; // Normal case: target is visible
+  }
+
+  // Target is cloaked - use directional fallback
+  const targetPostNumber = parseInt(this.activeRowId, 10);
+  const direction = this._lastNavigationDirection;
+
+  if (direction < 0) {
+    // Navigating UP - find first visible post BEFORE or AT target
+    // (with lower or equal post number)
+    let bestIndex = 0;
+    let bestPostNumber = -Infinity;
+    for (let i = 0; i < rows.length; i++) {
+      const postNumber = parseInt(this.getRowId(rows[i]), 10);
+      if (postNumber <= targetPostNumber && postNumber > bestPostNumber) {
+        bestPostNumber = postNumber;
+        bestIndex = i;
+      }
+    }
+    return bestIndex;
+  } else if (direction > 0) {
+    // Navigating DOWN - find first visible post AFTER or AT target
+    // (with higher or equal post number)
+    // ... similar logic finding post >= target
+  }
+
+  // No direction preference - use closest (original behavior)
+  // ... closest distance logic
+}
+
+// In focusPreviousRow() - skip double navigation when target is cloaked
+focusPreviousRow() {
+  this._lastNavigationDirection = -1; // Up/backward
+
+  // Check if target is cloaked BEFORE getting activeRowIndex
+  const targetIsCloaked = this.findRowIndexById(this.activeRowId) === -1;
+  const currentIndex = this.activeRowIndex;
+
+  if (targetIsCloaked) {
+    // Fallback already gave us the best visible post in our direction
+    // Focus it directly WITHOUT additional navigation step
+    this.focusRow(currentIndex);
+  } else {
+    // Normal case: navigate from current position
+    const newIndex = getPreviousIndex(rows, currentIndex, this.options.wrap);
+    this.focusRow(newIndex);
+  }
+}
+```
+
+**Key Insight - The "One-Off Error":**
+
+The critical bug was a "double move" issue identified through ULTRATHINK sub-agent analysis:
+
+1. When target post is cloaked, directional fallback finds the correct "proxy" position
+2. But then `getPreviousIndex()` was applied AGAIN, causing an extra navigation step
+3. This resulted in focus moving one post further than intended
+
+The fix checks `targetIsCloaked` BEFORE calling `getPreviousIndex()`/`getNextIndex()` and skips the additional navigation when the fallback was used.
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `modifiers/post-stream-navigation.js` | Add `_lastNavigationDirection` tracking, modify `activeRowIndex` getter with directional fallback, modify `focusNextRow()`/`focusPreviousRow()`/`focusRowByOffset()` to skip double navigation, reset direction in `handleFocusIn()`/`focusFirstRow()`/`focusLastRow()` |
+
+**Key Design Decisions:**
+
+1. **Direction tracking:** Track last navigation direction (-1=up, 1=down, 0=none) to inform fallback logic.
+
+2. **Directional fallback:** When target is cloaked:
+   - Navigating UP → find first visible post with post number ≤ target
+   - Navigating DOWN → find first visible post with post number ≥ target
+   - No direction → use closest (original behavior for mouse clicks, etc.)
+
+3. **Skip double navigation:** When fallback is used, it already gives the correct position. Don't apply additional `getPreviousIndex()`/`getNextIndex()`.
+
+4. **Direction resets:** Reset direction to 0 on:
+   - Mouse clicks (`handleFocusIn()`)
+   - Tab key focus (`handleFocusIn()`)
+   - Home/End navigation (`focusFirstRow()`/`focusLastRow()`)
+   - This prevents stale direction from affecting non-arrow-key interactions
+
+5. **Set direction BEFORE getting index:** Critical that `_lastNavigationDirection` is set before calling `activeRowIndex` getter, so the directional fallback uses the correct direction.
+
+**Why This Works:**
+
+| Scenario | Before Fix | After Fix |
+|----------|-----------|-----------|
+| At post 5 (cloaked), press Up | Fallback finds closest (post 7), then moves up to 6 → **jumped DOWN** | Fallback finds post ≤5 (post 4), focuses it directly → **correct** |
+| At post 5 (cloaked), press Down | Fallback finds closest (post 3), then moves down to 4 → **jumped UP** | Fallback finds post ≥5 (post 6), focuses it directly → **correct** |
+| At post 5 (visible), press Up | Normal: move to post 4 | Normal: move to post 4 |
+| Mouse click on post 7 | Direction reset to 0, use closest | Direction reset to 0, use closest |
+
+**Sub-Agent Validation:**
+- Used 3 ULTRATHINK sub-agents to analyze the fix
+- Agent 1 (45% confidence): Identified one-off error (double navigation)
+- Agent 2 (35% confidence): Identified stale direction persistence issues
+- Agent 3 (65-70% confidence): Most optimistic, identified missing resets
+- All agents contributed unique insights that were incorporated into the final fix
+
+**Testing Approach:**
+1. Navigate to a topic with 9+ posts
+2. Arrow Down through all posts with 1-1.5 second delays between presses
+3. Focus should move sequentially down (1→2→3→...→9)
+4. Arrow Up back to top with 1-1.5 second delays
+5. Focus should move sequentially up (9→8→7→...→1→header)
+6. **Critical:** No focus jumping in wrong direction at any point
+7. Test mouse click mid-navigation to verify direction reset
+
 ## References
 
 - [WAI-ARIA Feed Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/feed/)

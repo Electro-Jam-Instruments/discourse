@@ -218,6 +218,20 @@ This document tracks pending accessibility improvements for Discourse.
 
 ## Recently Completed
 
+### Focus Jumping Bug - Post Stream Navigation
+**Status:** Completed (2026-01-22)
+**Commit:** `caac5650df`
+**Documentation:** [../bugs/focus-jumping-session-2026-01-19.md](../bugs/focus-jumping-session-2026-01-19.md)
+
+Fixed all focus jumping issues during rapid arrow key navigation through posts:
+- Converted `activeRowIndex` getter to `getActiveRowIndex(rows)` method to eliminate DOM re-query race conditions
+- Added `_isNavigating` flag with microtask timing to prevent `modify()` interference during navigation
+- Added `focusout` listener to detect and recover from focus loss when cloaked elements are removed
+
+Key insight: The `queueMicrotask()` timing for clearing the navigation flag ensures Ember's `modify()` sees the guard flag before it runs, preventing tabindex corruption.
+
+---
+
 ### Topic Header Row for Post Grid
 **Status:** Completed (2026-01-12)
 **GitHub Issue:** [#6](https://github.com/Electro-Jam-Instruments/discourse/issues/6)
@@ -246,6 +260,7 @@ When users activate filter tabs (Latest, New, Hot) via keyboard, focus now moves
 
 ## Completed Tasks
 
+- Focus Jumping Bug - All race conditions fixed with microtask timing (2026-01-22)
 - Topic Header Row for Post Grid - Arrow navigation to topic title/category/tags (2026-01-12)
 - Filter Focus Management - Focus first topic after keyboard filter selection (2026-01-11)
 - Navigation Controls Toolbar - Arrow key navigation for Dismiss/New Topic buttons (2026-01-11)

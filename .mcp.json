@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "ssh-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "ssh-mcp",
+        "--",
+        "--host=78.47.198.125",
+        "--user=root",
+        "--key=C:\\Users\\direc\\.ssh\\id_ed25519"
+      ]
+    }
+  }
+}

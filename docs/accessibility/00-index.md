@@ -89,7 +89,11 @@ This folder contains documentation for accessibility improvements to Discourse, 
 | `694187b6fd` | A11Y: Implement sidebar tree navigation with single tab stop |
 | `7b706ba416` | A11Y: Convert navigation controls to toolbar with arrow key navigation |
 | `cc69f8d202` | A11Y: Move focus to first topic row after keyboard filter selection |
-| (pending) | A11Y: Add topic header row to post stream grid navigation |
+| `0302079f35` | A11Y: Auto-focus first topic row on page load for keyboard users |
+| `1e7b72bddf` | A11Y: Add toolbar pattern to header auth buttons |
+| `90492821bd` | A11Y: Fix topic header row scroll under sticky header |
+| `8e952a95c8` | A11Y: Prevent cloaking on focused post during keyboard navigation |
+| `489b991b23` | A11Y: Fix focus jumping with directional cloaking fallback |
 
 ## References
 

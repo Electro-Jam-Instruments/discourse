@@ -87,9 +87,6 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     this.options = { ...this.options, ...named };
 
-    // DEBUG: Log modify() calls to see if they're interfering with navigation
-    console.log(`[A11Y-NAV] modify(): activeRowId=${this.activeRowId}, initialFocusComplete=${this.initialFocusComplete}, keyboardMode=${this.focusHistory.keyboardMode}, isNavigating=${this._isNavigating}`);
-
     // IMPORTANT: We intentionally do NOT read DOM focus state to update activeRowId here.
     // This method runs on EVERY Ember re-render (including cloaking boundary changes).
     // Reading document.activeElement during re-renders creates race conditions where
@@ -98,17 +95,30 @@ export default class PostStreamNavigationModifier extends Modifier {
     // activeRowId is managed exclusively by:
     // 1. focusRow() - keyboard navigation (sets state BEFORE calling focus())
     // 2. handleFocusIn() - user clicks/tabs into grid (event-driven, reliable)
-    //
-    // The activeRowIndex getter handles cloaked rows by finding the closest visible row.
 
-    // GUARD: Skip tabindex updates during active navigation to prevent
-    // modify() from setting tabindex on wrong row due to cloaking changes
-    if (!this._isNavigating) {
-      this.updateTabindices();
-      this.setInternalTabindices();
-    } else {
-      console.log(`[A11Y-NAV] modify(): SKIPPED tabindex updates - navigation in progress`);
+    // GUARD 1: Skip tabindex updates during active navigation
+    if (this._isNavigating) {
+      console.log(`[A11Y-NAV] modify(): SKIPPED - navigation in progress`);
+      return;
     }
+
+    // GUARD 2: Skip tabindex updates if the active row is cloaked
+    // When the focused post is scrolled out of view and cloaked, we should NOT
+    // update tabindices because:
+    // 1. The fallback logic would set tabindex="0" on a different post
+    // 2. This creates focus jumping when the user hasn't navigated
+    // 3. The tabindex will be correctly set when user navigates or row becomes visible
+    const rows = this.rows;
+    const activeRowVisible = this.findRowIndexByIdWithArray(rows, this.activeRowId) !== -1;
+
+    if (!activeRowVisible && this.activeRowId !== "header" && this.initialFocusComplete) {
+      console.log(`[A11Y-NAV] modify(): SKIPPED - activeRowId=${this.activeRowId} is cloaked, not updating tabindices`);
+      return;
+    }
+
+    console.log(`[A11Y-NAV] modify(): activeRowId=${this.activeRowId}, visible=${activeRowVisible}, running tabindex updates`);
+    this.updateTabindices();
+    this.setInternalTabindices();
 
     // Auto-focus first unread post on initial load if user navigated via keyboard
     if (!this.initialFocusComplete && this.focusHistory.keyboardMode) {
@@ -586,6 +596,13 @@ export default class PostStreamNavigationModifier extends Modifier {
    * Handle focus leaving the grid entirely.
    * This can happen when a focused element is removed from DOM (cloaked)
    * and browser moves focus to <body>.
+   *
+   * IMPORTANT: We only recover focus if the user was actively navigating
+   * (using keyboard). If focus is lost due to passive cloaking (scrolling),
+   * we do NOT auto-recover because:
+   * 1. The user may have scrolled away intentionally
+   * 2. Auto-recovery creates a focus jumping loop
+   * 3. Focus will be properly set when user navigates back with arrow keys
    */
   handleFocusOut(event) {
     // If focus is moving outside the grid (relatedTarget is null or outside)
@@ -593,9 +610,11 @@ export default class PostStreamNavigationModifier extends Modifier {
     if (!event.relatedTarget || !this.element.contains(event.relatedTarget)) {
       // Use requestAnimationFrame to wait for focus to settle
       requestAnimationFrame(() => {
-        // If focus is now on body and we were navigating, restore focus
-        if (document.activeElement === document.body || document.activeElement === document.documentElement) {
-          console.log(`[A11Y-NAV] handleFocusOut: Focus lost to body, attempting recovery to activeRowId=${this.activeRowId}`);
+        // Only recover if focus went to body AND we're in the middle of navigation
+        // This prevents recovery loops during passive scrolling
+        if (this._isNavigating &&
+            (document.activeElement === document.body || document.activeElement === document.documentElement)) {
+          console.log(`[A11Y-NAV] handleFocusOut: Focus lost DURING NAVIGATION, attempting recovery to activeRowId=${this.activeRowId}`);
 
           // Try to find and focus the last known row
           const rows = this.rows;
@@ -606,6 +625,10 @@ export default class PostStreamNavigationModifier extends Modifier {
               this.focusRowWithArray(rows, targetIndex);
             }
           }
+        } else if (document.activeElement === document.body || document.activeElement === document.documentElement) {
+          // Focus lost to body but NOT during navigation - don't recover
+          // This happens during passive scrolling when the focused element is cloaked
+          console.log(`[A11Y-NAV] handleFocusOut: Focus lost to body (passive cloaking), NOT recovering - user can navigate with arrows`);
         } else {
           console.log(`[A11Y-NAV] handleFocusOut: Focus left grid to ${document.activeElement?.tagName}, not recovering`);
         }
