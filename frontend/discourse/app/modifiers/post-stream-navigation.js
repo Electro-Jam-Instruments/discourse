@@ -862,6 +862,12 @@ export default class PostStreamNavigationModifier extends Modifier {
   /**
    * Scroll a row into view, accounting for the sticky header.
    * Uses scroll-margin-top CSS value to determine header clearance.
+   *
+   * IMPORTANT: Uses instant scroll (not smooth) to prevent race conditions.
+   * Smooth scroll (~300ms) triggers IntersectionObserver callbacks during animation,
+   * which causes cloaking boundary changes and Ember re-renders while navigation
+   * state is being set. This was the root cause of focus jumping issues.
+   *
    * @param {HTMLElement} row - The row element to scroll into view
    */
   scrollRowIntoView(row) {
@@ -876,11 +882,13 @@ export default class PostStreamNavigationModifier extends Modifier {
     if (rowRect.top < scrollMarginTop) {
       // Scroll up so row is just below the sticky header
       const scrollY = window.scrollY + rowRect.top - scrollMarginTop;
-      window.scrollTo({ top: scrollY, behavior: "smooth" });
+      // CRITICAL: Use instant scroll to avoid race conditions with IntersectionObserver
+      window.scrollTo({ top: scrollY, behavior: "instant" });
     } else if (rowRect.bottom > viewportHeight) {
       // Row is below visible area - scroll down to show it
       const scrollY = window.scrollY + rowRect.bottom - viewportHeight + 20;
-      window.scrollTo({ top: scrollY, behavior: "smooth" });
+      // CRITICAL: Use instant scroll to avoid race conditions with IntersectionObserver
+      window.scrollTo({ top: scrollY, behavior: "instant" });
     }
     // Otherwise row is already fully visible - no scroll needed
   }
