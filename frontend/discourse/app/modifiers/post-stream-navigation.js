@@ -561,8 +561,8 @@ export default class PostStreamNavigationModifier extends Modifier {
         focusables.push(editButton);
       }
 
-      // Category link
-      const categoryLink = row.querySelector(".badge-category__wrapper a[href]");
+      // Category link (the wrapper IS the <a> element, not a container)
+      const categoryLink = row.querySelector("a.badge-category__wrapper[href]");
       if (categoryLink) {
         focusables.push(categoryLink);
       }
@@ -1266,7 +1266,8 @@ export default class PostStreamNavigationModifier extends Modifier {
 
   /**
    * Activate the header row when Enter is pressed on it
-   * Clicks the edit button if available, otherwise the title link
+   * Clicks the title link to trigger inline title edit (same as mouse click)
+   * The edit button opens the full post editor, which is not what we want here
    */
   activateHeaderRow() {
     const row = this.rows.find((r) =>
@@ -1276,14 +1277,8 @@ export default class PostStreamNavigationModifier extends Modifier {
       return;
     }
 
-    // Try edit button first (if user can edit)
-    const editButton = row.querySelector(".edit-topic-button");
-    if (editButton) {
-      editButton.click();
-      return;
-    }
-
-    // Fall back to title link
+    // Click title link to trigger inline title edit (matches mouse behavior)
+    // Note: The edit button opens the full post editor which is different behavior
     const titleLink = row.querySelector("a.fancy-title");
     if (titleLink) {
       titleLink.click();
