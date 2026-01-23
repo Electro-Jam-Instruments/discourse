@@ -784,6 +784,18 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     this._lastNavigationDirection = 1; // Down/forward
 
+    // DEBUG: Log all rows when navigating to see what's available
+    const rowIds = rows.map(r => this.getRowId(r));
+    console.log(`[A11Y-NAV] focusNextRow: activeRowId=${this.activeRowId}, rows=[${rowIds.join(',')}]`);
+
+    // DEBUG: Special logging when on header row
+    if (this.activeRowId === "header") {
+      console.log(`[A11Y-NAV] focusNextRow: ON HEADER ROW - about to navigate DOWN from header`);
+      console.log(`[A11Y-NAV]   - header is at index 0? ${rowIds[0] === 'header'}`);
+      console.log(`[A11Y-NAV]   - next row should be: ${rowIds[1] || 'NONE'}`);
+      console.log(`[A11Y-NAV]   - total rows: ${rows.length}`);
+    }
+
     // Find current row BY POST NUMBER directly
     const currentRow = this.findRowByPostNumber(rows, this.activeRowId);
 
@@ -791,7 +803,12 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Current row is visible - get next in array
       const currentIndex = rows.indexOf(currentRow);
       const nextIndex = currentIndex + 1;
-      console.log(`[A11Y-NAV] focusNextRow: VISIBLE - index ${currentIndex} → ${nextIndex}`);
+      console.log(`[A11Y-NAV] focusNextRow: VISIBLE - currentRow found at index ${currentIndex}, targeting index ${nextIndex}`);
+
+      // DEBUG: Extra logging when leaving header
+      if (this.activeRowId === "header") {
+        console.log(`[A11Y-NAV] focusNextRow: LEAVING HEADER - will focus rows[${nextIndex}] which is rowId=${rowIds[nextIndex]}`);
+      }
       if (nextIndex < rows.length) {
         this.focusRowByElement(rows[nextIndex]);
       }
@@ -813,6 +830,10 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     this._lastNavigationDirection = -1; // Up/backward
 
+    // DEBUG: Log all rows when navigating to see what's available
+    const rowIds = rows.map(r => this.getRowId(r));
+    console.log(`[A11Y-NAV] focusPreviousRow: activeRowId=${this.activeRowId}, rows=[${rowIds.join(',')}]`);
+
     // Find current row BY POST NUMBER directly
     const currentRow = this.findRowByPostNumber(rows, this.activeRowId);
 
@@ -820,7 +841,12 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Current row is visible - get previous in array
       const currentIndex = rows.indexOf(currentRow);
       const prevIndex = currentIndex - 1;
-      console.log(`[A11Y-NAV] focusPreviousRow: VISIBLE - index ${currentIndex} → ${prevIndex}`);
+      console.log(`[A11Y-NAV] focusPreviousRow: VISIBLE - currentRow found at index ${currentIndex}, targeting index ${prevIndex}`);
+
+      // DEBUG: Extra logging when about to arrive at header
+      if (prevIndex === 0 && rowIds[0] === 'header') {
+        console.log(`[A11Y-NAV] focusPreviousRow: ARRIVING AT HEADER - will focus the header row`);
+      }
       if (prevIndex >= 0) {
         this.focusRowByElement(rows[prevIndex]);
       }
