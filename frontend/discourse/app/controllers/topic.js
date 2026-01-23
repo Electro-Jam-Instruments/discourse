@@ -1237,6 +1237,7 @@ export default class TopicController extends Controller {
     this.set("editingTopic", false);
     this.buffered.discardChanges();
     this._resetTranslationState();
+    this._focusHeaderRow();
   }
 
   @action
@@ -1260,6 +1261,7 @@ export default class TopicController extends Controller {
       this.buffered.discardChanges();
       this._resetTranslationState();
       this.set("editingTopic", false);
+      this._focusHeaderRow();
     } catch (error) {
       popupAjaxError(error);
     }
@@ -1295,6 +1297,20 @@ export default class TopicController extends Controller {
     this.translationLocale = null;
     this.translationTitle = null;
     this._localizationFetchPromise = null;
+  }
+
+  /**
+   * Focus the topic header row after editing is complete
+   * Returns focus to where the user was before editing started
+   */
+  _focusHeaderRow() {
+    // Use schedule to ensure DOM has updated after editingTopic changes
+    schedule("afterRender", () => {
+      const headerRow = document.querySelector(".topic-header-row[role='row']");
+      if (headerRow) {
+        headerRow.focus();
+      }
+    });
   }
 
   @action
