@@ -167,10 +167,24 @@ export default class PostStreamNavigationModifier extends Modifier {
    * @param {number|null} lastReadPostNumber - The last read post number
    */
   focusFirstUnreadPost(lastReadPostNumber) {
-    // GUARD: Don't auto-focus if user has already started navigating
-    // This prevents the scheduled callback from stealing focus mid-navigation
+    // GUARD 1: Don't auto-focus if user has already started navigating away from header
     if (this.activeRowId !== "header") {
       console.log(`[A11Y-NAV] focusFirstUnreadPost: ABORTED - user already navigated to ${this.activeRowId}`);
+      return;
+    }
+
+    // GUARD 2: Don't auto-focus if user has navigated recently (even if they came back to header)
+    // This handles the case: user navigates down, then up to header, then this callback fires
+    const msSinceNav = performance.now() - this._navigationTimestamp;
+    if (this._navigationTimestamp > 0 && msSinceNav < NAVIGATION_GUARD_MS * 2) {
+      console.log(`[A11Y-NAV] focusFirstUnreadPost: ABORTED - recent navigation ${msSinceNav.toFixed(1)}ms ago`);
+      return;
+    }
+
+    // GUARD 3: Don't auto-focus if focus is already somewhere useful in the post stream
+    const activeElement = document.activeElement;
+    if (activeElement && this.element.contains(activeElement)) {
+      console.log(`[A11Y-NAV] focusFirstUnreadPost: ABORTED - focus already in post stream`);
       return;
     }
 

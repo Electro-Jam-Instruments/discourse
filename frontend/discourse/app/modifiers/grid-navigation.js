@@ -123,6 +123,21 @@ export default class GridNavigationModifier extends Modifier {
         return;
       }
 
+      // CRITICAL: Don't steal focus from other navigation regions
+      // If focus is already in a grid, post-stream, or other navigation region, skip auto-focus
+      const activeElement = document.activeElement;
+      if (activeElement && activeElement !== document.body) {
+        const inOtherGrid = activeElement.closest('[role="grid"]');
+        const inPostStream = activeElement.closest('.post-stream');
+        const inToolbar = activeElement.closest('[role="toolbar"]');
+        const inTree = activeElement.closest('[role="tree"]');
+
+        // Only skip if focus is in ANOTHER grid (not this one)
+        if ((inOtherGrid && inOtherGrid !== this.element) || inPostStream || inToolbar || inTree) {
+          return;
+        }
+      }
+
       // Focus first data row (index 1 if header exists, index 0 otherwise)
       const hasHeader = this.element.querySelector(this.options.headerRowSelector);
       const targetIndex = hasHeader && rows.length > 1 ? 1 : 0;
