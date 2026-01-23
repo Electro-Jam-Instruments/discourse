@@ -32,6 +32,22 @@ import { preventCloaking } from "discourse/modifiers/post-stream-viewport-tracke
  * - Tab enters grid at first post
  * - Internal focusable elements have tabindex="-1"
  */
+// Time window (ms) during which handleFocusIn ignores focus changes after keyboard navigation.
+// This handles the gap between queueMicrotask (clears _isNavigating) and IntersectionObserver
+// callbacks (macrotasks that fire later and trigger Ember re-renders).
+//
+// Timing analysis:
+// - scrollIntoView instant: 0ms (no animation)
+// - IntersectionObserver callback: 50-150ms after scroll
+// - Ember re-render: adds 16-32ms
+// - Total worst case: ~180ms
+//
+// We use 150ms because:
+// - Covers IntersectionObserver + Ember re-render timing
+// - Keyboard repeat rate is 30-50ms, so rapid keystrokes still work
+// - Mouse/Tab focus events fire at 0ms, never blocked
+const NAVIGATION_GUARD_MS = 150;
+
 export default class PostStreamNavigationModifier extends Modifier {
   @service focusHistory;
 
@@ -42,14 +58,20 @@ export default class PostStreamNavigationModifier extends Modifier {
   activeFocusableIndex = -1; // -1 means the row itself is focused (full highlight)
   inDocumentMode = false;
   initialFocusComplete = false; // Track if we've done the initial auto-focus
-  // Track the post ID that has cloaking prevented (to allow cloaking when focus moves)
-  _preventedCloakingPostId = null;
+  // Track post IDs that have cloaking prevented (to allow cloaking when focus moves)
+  // Uses a Set to manage a "protection window" of adjacent posts for navigation
+  // This prevents focus loss when navigating to a post that would otherwise be cloaked
+  _preventedCloakingPostIds = new Set();
   // Track last navigation direction for directional fallback when target row is cloaked
   // -1 = navigating up/backward, 1 = navigating down/forward, 0 = no direction preference
   _lastNavigationDirection = 0;
   // Navigation guard flag - prevents handleFocusIn from resetting state during keyboard navigation
   // Set true at start of navigation, cleared via microtask after focus() completes
   _isNavigating = false;
+  // Timestamp-based navigation guard - handles IntersectionObserver macrotask delays
+  // queueMicrotask clears _isNavigating before IntersectionObserver callbacks fire,
+  // so we use timestamp to block focus changes within NAVIGATION_GUARD_MS of navigation
+  _navigationTimestamp = 0;
   options = {
     // Row selector includes topic header row and post rows
     rowSelector: '.topic-header-row[role="row"], .topic-post[role="row"]',
@@ -76,10 +98,15 @@ export default class PostStreamNavigationModifier extends Modifier {
       this.handleKeydown = this.handleKeydown.bind(this);
       this.handleFocusIn = this.handleFocusIn.bind(this);
       this.handleFocusOut = this.handleFocusOut.bind(this);
+      this.handleGlobalFocusIn = this.handleGlobalFocusIn.bind(this);
 
       this.element.addEventListener("keydown", this.handleKeydown);
       this.element.addEventListener("focusin", this.handleFocusIn);
       this.element.addEventListener("focusout", this.handleFocusOut);
+
+      // DEBUG: Global focus listener to catch ALL focus events with call stacks
+      // This runs in CAPTURE phase so we see it before any other handler
+      document.addEventListener("focusin", this.handleGlobalFocusIn, true);
 
       this.activeRowId = "header";
       this.activeFocusableIndex = -1;
@@ -322,8 +349,11 @@ export default class PostStreamNavigationModifier extends Modifier {
     const newRowId = this.getRowId(row);
     console.log(`[A11Y-NAV] focusRowByElement: newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`);
 
-    // Set navigation guard BEFORE any state changes
+    // Set DUAL navigation guards BEFORE any state changes:
+    // 1. Boolean flag for synchronous focus events (cleared via microtask)
+    // 2. Timestamp for async IntersectionObserver callbacks (macrotasks after microtask)
     this._isNavigating = true;
+    this._navigationTimestamp = performance.now();
 
     this.activeRowId = newRowId;
     this.activeFocusableIndex = -1;
@@ -334,8 +364,10 @@ export default class PostStreamNavigationModifier extends Modifier {
     row.focus();
     this.scrollRowIntoView(row);
 
-    // Clear navigation guard via microtask - ensures handleFocusIn sees the flag
-    // during any synchronously-triggered focus events
+    // Clear boolean guard via microtask - ensures handleFocusIn sees the flag
+    // during any synchronously-triggered focus events.
+    // NOTE: Timestamp guard remains active for NAVIGATION_GUARD_MS to handle
+    // IntersectionObserver macrotasks that fire AFTER this microtask.
     queueMicrotask(() => {
       this._isNavigating = false;
     });
@@ -651,15 +683,29 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Track by row ID (post number) not index
       const newRowId = this.getRowId(row);
       if (newRowId && newRowId !== this.activeRowId) {
-        // GUARD: Skip state update during keyboard navigation
-        // This prevents external focus changes (Discourse scroll-to-post, NVDA)
-        // from corrupting navigation state mid-keystroke
+        // DUAL GUARD: Skip state update during keyboard navigation
+        // Guard 1: Boolean flag (handles synchronous focus events)
         if (this._isNavigating) {
-          console.log(`[A11Y-NAV] handleFocusIn: BLOCKED ${this.activeRowId} → ${newRowId} (navigation in progress)`);
+          console.log(`[A11Y-NAV] handleFocusIn: BLOCKED ${this.activeRowId} → ${newRowId} (boolean guard)`);
           return;
         }
-        // DEBUG: Log when handleFocusIn changes state (potential bug source)
-        console.log(`[A11Y-NAV] handleFocusIn: ${this.activeRowId} → ${newRowId}, direction was ${this._lastNavigationDirection}, resetting to 0`);
+
+        // Guard 2: Timestamp check (handles IntersectionObserver macrotask delays)
+        // IntersectionObserver callbacks fire AFTER microtask clears _isNavigating,
+        // so we need a time-based guard to catch these late focus changes.
+        const msSinceNavigation = performance.now() - this._navigationTimestamp;
+        if (msSinceNavigation < NAVIGATION_GUARD_MS) {
+          console.log(`[A11Y-NAV] handleFocusIn: BLOCKED ${this.activeRowId} → ${newRowId} (timestamp guard: ${msSinceNavigation.toFixed(1)}ms < ${NAVIGATION_GUARD_MS}ms)`);
+          return;
+        }
+
+        // DEBUG: Log when handleFocusIn changes state - THIS IS A POTENTIAL BUG
+        // The call stack shows us exactly what code triggered this focus change
+        console.log(`[A11Y-NAV] handleFocusIn: STATE CHANGE ${this.activeRowId} → ${newRowId}`);
+        console.log(`[A11Y-NAV]   - ms since nav: ${msSinceNavigation.toFixed(1)}ms`);
+        console.log(`[A11Y-NAV]   - event.target:`, event.target);
+        console.log(`[A11Y-NAV]   - event.relatedTarget (where focus came FROM):`, event.relatedTarget);
+        console.log(`[A11Y-NAV]   - CALL STACK:`, new Error().stack);
         this.activeRowId = newRowId;
         // Reset navigation direction when focus comes from mouse/Tab (not arrow keys)
         // This prevents stale direction from affecting fallback logic during re-renders
@@ -700,6 +746,35 @@ export default class PostStreamNavigationModifier extends Modifier {
     if (!event.relatedTarget || !this.element.contains(event.relatedTarget)) {
       console.log(`[A11Y-NAV] handleFocusOut: Focus left grid, activeRowId=${this.activeRowId}`);
     }
+  }
+
+  /**
+   * DEBUG: Global focus listener to catch ALL focus events with call stacks.
+   * This runs in CAPTURE phase on document, so we see every focus change
+   * before any other handler processes it.
+   *
+   * When focus jumping happens, this will show us:
+   * 1. WHAT element received focus
+   * 2. WHERE it came from (relatedTarget)
+   * 3. The CALL STACK showing exactly what code triggered the focus
+   */
+  handleGlobalFocusIn(event) {
+    // Only log during/shortly after navigation to reduce noise
+    const msSinceNavigation = performance.now() - this._navigationTimestamp;
+    if (msSinceNavigation > 500) {
+      return; // Too long after navigation, probably legitimate user action
+    }
+
+    // Check if this is within our post stream
+    const isInPostStream = this.element && this.element.contains(event.target);
+    const postNumber = event.target.closest('[data-post-number]')?.dataset?.postNumber || 'N/A';
+
+    console.log(`[A11Y-GLOBAL-FOCUS] Focus event at ${msSinceNavigation.toFixed(1)}ms after nav`);
+    console.log(`[A11Y-GLOBAL-FOCUS]   target:`, event.target);
+    console.log(`[A11Y-GLOBAL-FOCUS]   postNumber: ${postNumber}`);
+    console.log(`[A11Y-GLOBAL-FOCUS]   isInPostStream: ${isInPostStream}`);
+    console.log(`[A11Y-GLOBAL-FOCUS]   relatedTarget (from):`, event.relatedTarget);
+    console.log(`[A11Y-GLOBAL-FOCUS]   CALL STACK:`, new Error().stack);
   }
 
   focusNextRow() {
@@ -844,26 +919,91 @@ export default class PostStreamNavigationModifier extends Modifier {
   }
 
   /**
+   * Get the post ID from a row element.
+   * Post rows have data-post-id on the article element inside.
+   * Header row has no post ID.
+   * @param {HTMLElement} row - The row element
+   * @returns {string|null} The post ID or null
+   */
+  getPostIdFromRow(row) {
+    if (!row) return null;
+    // Header row has no post ID
+    if (row.classList.contains("topic-header-row")) return null;
+    // Post ID is on the article element inside the row, or directly on the row
+    const article = row.querySelector("article[data-post-id]");
+    if (article) return article.dataset.postId;
+    // Fallback: check if it's directly on the row
+    return row.dataset?.postId || null;
+  }
+
+  /**
    * Update cloaking prevention for keyboard navigation.
-   * Prevents cloaking on the currently focused post to avoid focus loss
-   * during rapid arrow key navigation.
+   *
+   * Prevents cloaking on a "protection window" of adjacent posts:
+   * - Current post (where focus is)
+   * - Previous post (where focus might go with Arrow Up)
+   * - Next post (where focus might go with Arrow Down)
+   *
+   * This 3-post buffer ensures navigation targets are never cloaked before
+   * focus can land on them, preventing focus jumping issues.
+   *
    * @param {HTMLElement} row - The row element being focused
    */
   updateCloakingPrevention(row) {
-    // Get the post ID from the row element (posts have data-post-id attribute)
-    const newPostId = row.dataset?.postId;
+    const rows = this.rows;
+    const currentIndex = rows.indexOf(row);
 
-    // Clear previous prevention if we're moving to a different post
-    if (this._preventedCloakingPostId && this._preventedCloakingPostId !== newPostId) {
-      preventCloaking(parseInt(this._preventedCloakingPostId, 10), false);
-      this._preventedCloakingPostId = null;
+    if (currentIndex === -1) {
+      // Row not found in current rows array (shouldn't happen, but be safe)
+      console.log(`[A11Y-NAV] updateCloakingPrevention: row not found in rows array`);
+      return;
     }
 
-    // Prevent cloaking on the new post (if it's a post row, not header row)
-    if (newPostId && newPostId !== this._preventedCloakingPostId) {
-      preventCloaking(parseInt(newPostId, 10), true);
-      this._preventedCloakingPostId = newPostId;
+    // Collect post IDs for the protection window (prev, current, next)
+    const newProtectedIds = new Set();
+
+    // Previous row (if exists and is a post row)
+    if (currentIndex > 0) {
+      const prevPostId = this.getPostIdFromRow(rows[currentIndex - 1]);
+      if (prevPostId) {
+        newProtectedIds.add(prevPostId);
+      }
     }
+
+    // Current row
+    const currentPostId = this.getPostIdFromRow(row);
+    if (currentPostId) {
+      newProtectedIds.add(currentPostId);
+    }
+
+    // Next row (if exists and is a post row)
+    if (currentIndex < rows.length - 1) {
+      const nextPostId = this.getPostIdFromRow(rows[currentIndex + 1]);
+      if (nextPostId) {
+        newProtectedIds.add(nextPostId);
+      }
+    }
+
+    // Clear cloaking prevention for posts that are no longer in the protection window
+    for (const oldId of this._preventedCloakingPostIds) {
+      if (!newProtectedIds.has(oldId)) {
+        preventCloaking(parseInt(oldId, 10), false);
+        console.log(`[A11Y-NAV] updateCloakingPrevention: UNPROTECTED post ${oldId}`);
+      }
+    }
+
+    // Add cloaking prevention for new posts in the protection window
+    for (const newId of newProtectedIds) {
+      if (!this._preventedCloakingPostIds.has(newId)) {
+        preventCloaking(parseInt(newId, 10), true);
+        console.log(`[A11Y-NAV] updateCloakingPrevention: PROTECTED post ${newId}`);
+      }
+    }
+
+    // Update the tracked set
+    this._preventedCloakingPostIds = newProtectedIds;
+
+    console.log(`[A11Y-NAV] updateCloakingPrevention: window=[${Array.from(newProtectedIds).join(",")}]`);
   }
 
   /**
@@ -871,10 +1011,11 @@ export default class PostStreamNavigationModifier extends Modifier {
    * Called during cleanup.
    */
   clearCloakingPrevention() {
-    if (this._preventedCloakingPostId) {
-      preventCloaking(parseInt(this._preventedCloakingPostId, 10), false);
-      this._preventedCloakingPostId = null;
+    for (const postId of this._preventedCloakingPostIds) {
+      preventCloaking(parseInt(postId, 10), false);
     }
+    this._preventedCloakingPostIds.clear();
+    console.log(`[A11Y-NAV] clearCloakingPrevention: cleared all`);
   }
 
   /**
@@ -1103,6 +1244,8 @@ export default class PostStreamNavigationModifier extends Modifier {
       this.element.removeEventListener("focusin", this.handleFocusIn);
       this.element.removeEventListener("focusout", this.handleFocusOut);
     }
+    // Remove global debug listener
+    document.removeEventListener("focusin", this.handleGlobalFocusIn, true);
     // Clear any cloaking prevention when navigating away
     this.clearCloakingPrevention();
   }
