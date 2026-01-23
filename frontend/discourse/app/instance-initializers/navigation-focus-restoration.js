@@ -29,6 +29,22 @@ function getFirstTopicRow() {
 }
 
 /**
+ * Get the first focusable category row in the list.
+ * @returns {HTMLElement|null}
+ */
+function getFirstCategoryRow() {
+  return document.querySelector('.category-list tbody tr[role="row"][tabindex]');
+}
+
+/**
+ * Check if we're on a page with a category grid.
+ * @returns {boolean}
+ */
+function hasCategoryGrid() {
+  return document.querySelector(".category-list") !== null;
+}
+
+/**
  * Get the active navigation tab.
  * @returns {HTMLElement|null}
  */
@@ -54,26 +70,41 @@ function hasTopicList() {
 function handleFocusRestoration(filterFocus, a11y) {
   const wasKeyboardActivation = filterFocus.consumeKeyboardActivation();
 
-  if (wasKeyboardActivation && hasTopicList()) {
-    const firstRow = getFirstTopicRow();
-
-    if (firstRow) {
-      // Focus the first topic row for optimal keyboard workflow
-      firstRow.focus();
-    } else {
-      // Empty list - announce and keep focus on tab
-      a11y.announce(i18n("topics.none.filter"), "polite");
-      const activeTab = getActiveTab();
-      if (activeTab) {
-        activeTab.focus();
+  if (wasKeyboardActivation) {
+    // Check category grid first (category pages don't have topic lists)
+    if (hasCategoryGrid()) {
+      const firstRow = getFirstCategoryRow();
+      if (firstRow) {
+        next(() => {
+          firstRow.focus();
+        });
+        return;
       }
     }
-  } else {
-    // Mouse click or non-topic-list page - restore focus to active tab
-    const activeTab = getActiveTab();
-    if (activeTab) {
-      activeTab.focus();
+
+    // Then check topic list
+    if (hasTopicList()) {
+      const firstRow = getFirstTopicRow();
+
+      if (firstRow) {
+        // Focus the first topic row for optimal keyboard workflow
+        firstRow.focus();
+      } else {
+        // Empty list - announce and keep focus on tab
+        a11y.announce(i18n("topics.none.filter"), "polite");
+        const activeTab = getActiveTab();
+        if (activeTab) {
+          activeTab.focus();
+        }
+      }
+      return;
     }
+  }
+
+  // Mouse click or page without list - restore focus to active tab
+  const activeTab = getActiveTab();
+  if (activeTab) {
+    activeTab.focus();
   }
 }
 
