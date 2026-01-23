@@ -163,6 +163,7 @@ export default class PostStreamHeaderRow extends Component {
             href={{@topic.url}}
             {{on "click" this.handleTitleClick}}
             class="fancy-title"
+            tabindex="-1"
           >
             {{htmlSafe @topic.fancyTitle}}
           </a>
@@ -174,6 +175,7 @@ export default class PostStreamHeaderRow extends Component {
               class="btn-flat edit-topic-button"
               title={{i18n "topic.edit_title"}}
               aria-label={{i18n "topic.edit_title"}}
+              tabindex="-1"
             >
               {{icon "pencil"}}
             </button>

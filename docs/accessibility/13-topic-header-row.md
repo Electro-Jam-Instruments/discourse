@@ -1,6 +1,6 @@
 # Topic Header Row for Post Stream Grid
 
-**Status:** Updated (2026-01-17)
+**Status:** Updated (2026-01-23)
 **GitHub Issue:** [#25](https://github.com/Electro-Jam-Instruments/discourse/issues/25)
 
 ## Problem
@@ -37,9 +37,16 @@ The unified header row includes:
 |-----|--------|
 | Arrow Up | From first post, focuses topic header row |
 | Arrow Down | From header row, focuses first post |
-| Arrow Left/Right | Navigate between focusable elements (PM link, title link, edit button) |
+| Arrow Left/Right | Navigate between focusable elements (see order below) |
 | Enter | On row: triggers edit if user can edit, otherwise follows title link |
 | Enter | On edit button: opens topic title editor |
+
+**Focusable elements in header row (in order):**
+1. PM link (if private message and user can send PMs)
+2. Title link
+3. Edit button (if user can edit)
+4. Category link
+5. Tag links (one per tag)
 
 ### Screen Reader Announcement
 

@@ -540,9 +540,27 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     const focusables = [];
 
-    // Topic header row has category/tag links instead of avatar/toolbar
+    // Topic header row has title link, edit button, category/tag links
     const isHeaderRow = row.classList.contains("topic-header-row");
     if (isHeaderRow) {
+      // PM link (if present)
+      const pmLink = row.querySelector(".private-message-glyph-wrapper a[href]");
+      if (pmLink) {
+        focusables.push(pmLink);
+      }
+
+      // Title link
+      const titleLink = row.querySelector("a.fancy-title");
+      if (titleLink) {
+        focusables.push(titleLink);
+      }
+
+      // Edit button (if user can edit)
+      const editButton = row.querySelector(".edit-topic-button");
+      if (editButton) {
+        focusables.push(editButton);
+      }
+
       // Category link
       const categoryLink = row.querySelector(".badge-category__wrapper a[href]");
       if (categoryLink) {
