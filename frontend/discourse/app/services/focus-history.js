@@ -168,6 +168,12 @@ export default class FocusHistoryService extends Service {
           state.selector
         );
         element.focus();
+
+        // Ensure element is visible and focus outline renders
+        element.scrollIntoView({ behavior: "auto", block: "nearest" });
+        // Force browser reflow to ensure focus styles are painted
+        void element.offsetHeight;
+
         return true;
       }
     } catch (e) {

@@ -13,8 +13,10 @@
 
       &.--danger {
         &:hover,
-        :focus-visible {
+        &:focus-visible {
           background: var(--danger-low);
+          outline: 2px solid var(--tertiary);
+          outline-offset: -2px;
         }
         color: var(--danger);
 
