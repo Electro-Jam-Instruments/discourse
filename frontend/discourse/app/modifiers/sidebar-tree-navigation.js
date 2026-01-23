@@ -108,6 +108,15 @@ export default class SidebarTreeNavigationModifier extends Modifier {
     allFocusables.forEach((el) => {
       // Don't modify tabindex on treeitem elements
       if (!treeItems.includes(el)) {
+        // Don't manage if inside a toolbar (has parent with role="toolbar")
+        // These have their own keyboard navigation via toolbarNavigation modifier
+        if (el.closest('[role="toolbar"]')) {
+          return;
+        }
+        // Don't manage if in panel header (outside the tree structure)
+        if (el.closest('.sidebar-panel-header')) {
+          return;
+        }
         el.setAttribute("tabindex", "-1");
       }
     });
