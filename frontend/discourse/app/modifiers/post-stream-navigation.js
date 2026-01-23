@@ -709,8 +709,12 @@ export default class PostStreamNavigationModifier extends Modifier {
           this.enterDocumentModeForCurrentRow();
           handled = true;
         } else if (this.activeFocusableIndex >= 0) {
-          // Only handle plain Enter if on a focusable element (not row)
+          // Focus is on a focusable element inside the row - activate it
           this.activateCurrentFocusable();
+          handled = true;
+        } else if (this.activeRowId === "header") {
+          // Focus is on the header row itself - try to activate edit or title link
+          this.activateHeaderRow();
           handled = true;
         }
         break;
@@ -1258,6 +1262,32 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     // Row is focused - enter document mode for reading post content
     this.enterDocumentMode(row);
+  }
+
+  /**
+   * Activate the header row when Enter is pressed on it
+   * Clicks the edit button if available, otherwise the title link
+   */
+  activateHeaderRow() {
+    const row = this.rows.find((r) =>
+      r.classList.contains("topic-header-row")
+    );
+    if (!row) {
+      return;
+    }
+
+    // Try edit button first (if user can edit)
+    const editButton = row.querySelector(".edit-topic-button");
+    if (editButton) {
+      editButton.click();
+      return;
+    }
+
+    // Fall back to title link
+    const titleLink = row.querySelector("a.fancy-title");
+    if (titleLink) {
+      titleLink.click();
+    }
   }
 
   /**
