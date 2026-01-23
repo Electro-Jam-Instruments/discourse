@@ -256,6 +256,7 @@
     box-sizing: border-box;
     gap: 0.5em;
     width: 100%;
+    scroll-margin-top: calc(var(--header-offset) + 1em);
     max-width: calc(
       var(--topic-body-width) + (var(--topic-body-width-padding) * 2) +
         var(--topic-avatar-width)
