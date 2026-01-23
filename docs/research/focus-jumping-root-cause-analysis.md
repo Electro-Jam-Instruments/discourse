@@ -179,21 +179,23 @@ This captured ALL focus events on the page, not just those in our element, revea
 
 ## Files Modified
 
-- `frontend/discourse/app/modifiers/grid-navigation.js` - Added focus-check guard
-- `frontend/discourse/app/modifiers/post-stream-navigation.js` - Added additional guards to focusFirstUnreadPost
+- `frontend/discourse/app/modifiers/grid-navigation.js` - Added focus-check guard (Attempt 10)
+- `frontend/discourse/app/modifiers/post-stream-navigation.js` - Added `_userHasInteractedWithStream` flag and guards (Attempt 11)
+- `frontend/discourse/app/services/focus-history.js` - Added focus check guard to `restoreFocusState()` (Attempt 11)
 
 ---
 
 ## Status
 
-**ATTEMPT 10 DEPLOYED - ADDITIONAL ISSUES FOUND**
+**✅ FIXED - ATTEMPT 11 VERIFIED BY USER TESTING (2026-01-22)**
 
-Attempt 10 (blocking grid-navigation from stealing focus) was deployed. Testing revealed TWO additional root causes:
+After 11 fix attempts across multiple debugging sessions, the focus jumping bug is now resolved. The bug had THREE distinct root causes, each requiring its own fix:
 
-1. **focusFirstUnreadPost guard failure** - Guards didn't cover "navigate TO header" case
-2. **restoreFocusState bouncing** - Focus-history service steals focus 100ms after navigation
+1. **Root Cause 1 (Attempt 10):** Multiple navigation modifiers competing for focus
+2. **Root Cause 2 (Attempt 11):** `focusFirstUnreadPost` guard failure when navigating TO header
+3. **Root Cause 3 (Attempt 11):** `restoreFocusState` stealing focus 100ms after navigation
 
-See **Attempt 11** in `docs/bugs/focus-jumping-fix-history.md` for the complete fix.
+See `docs/bugs/focus-jumping-fix-history.md` for the complete fix history.
 
 ---
 

@@ -184,3 +184,82 @@ Services use a DSL with these step types:
 - Authorization: Use Guardian classes (`lib/guardian/`)
 - Always validate on both client and server
 - Use strong parameters and length limits
+
+## Code Review Anti-Patterns - MUST REJECT
+
+These patterns indicate a flawed approach. When you see them in code (yours or during review), STOP and find the root cause instead.
+
+### 1. Timing-Based Solutions (CRITICAL)
+
+**NEVER use timing delays to "fix" race conditions or async issues.**
+
+BAD patterns - REJECT these:
+```javascript
+// BAD: Arbitrary delays to "wait for things to settle"
+setTimeout(() => doSomething(), 100);
+setTimeout(() => fix(), 300);
+
+// BAD: Timing guards with hardcoded milliseconds
+const NAVIGATION_GUARD_MS = 150;
+if (msSinceLastAction < NAVIGATION_GUARD_MS) return;
+
+// BAD: performance.now() comparisons as guards
+if (performance.now() - this._lastTimestamp < 200) return;
+```
+
+WHY these are bad:
+- They mask the real problem instead of fixing it
+- They're inherently unreliable (different devices, loads, etc.)
+- They lead to debugging nightmares (11 fix attempts for focus jumping bug)
+- They often need to be increased, creating a maintenance burden
+
+GOOD alternatives:
+```javascript
+// GOOD: State flags that track actual state
+this._userHasInteracted = true;
+if (this._userHasInteracted) return;
+
+// GOOD: Check actual conditions, not time elapsed
+if (document.activeElement !== document.body) return;
+
+// GOOD: Event-based coordination
+element.addEventListener('transitionend', () => doNext());
+
+// GOOD: Boolean guards set before actions
+this._isNavigating = true;
+// ... do navigation ...
+queueMicrotask(() => { this._isNavigating = false; });
+```
+
+### 2. Root Cause Analysis Required
+
+When debugging issues:
+1. **Ask "WHY is this happening?"** - not "HOW do I delay it?"
+2. **Use call stacks** - `new Error().stack` reveals the actual source
+3. **Check multiple sources** - The bug might be in a different file/modifier
+4. **Look for competing code** - Multiple components may fight for the same resource
+
+### 3. ESLint Enforcement
+
+The project has a custom ESLint rule `electrojam/no-timing-hacks` that warns on:
+- `setTimeout` with hardcoded delays (except 0 for deferring)
+- Variables ending in `_MS`, `_DELAY`, `_TIMEOUT`
+- `performance.now()` comparisons used as guards
+
+Run `bin/lint` to check for these patterns.
+
+### 4. Allowed Timing Contexts
+
+Timing IS appropriate for:
+- `debounce`/`throttle` utilities (intentional rate limiting)
+- Animation/transition timing (visual effects)
+- Polling intervals (intentional periodic checks)
+- Test timeouts (waiting for async operations)
+
+### 5. Focus Management Patterns
+
+For focus-related code specifically:
+- Use state flags (`_userHasInteracted`, `_isNavigating`)
+- Check `document.activeElement` before stealing focus
+- Multiple modifiers must coordinate - check if focus is in another region
+- Never assume timing will make race conditions go away
