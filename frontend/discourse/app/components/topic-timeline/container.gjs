@@ -579,6 +579,7 @@ export default class TopicTimelineScrollArea extends Component {
             href={{@model.firstPostUrl}}
             title={{i18n "topic_entrance.jump_top_button_title"}}
             class="start-date"
+            tabindex="-1"
           >
             <span>
               {{this.startDate}}
@@ -631,6 +632,7 @@ export default class TopicTimelineScrollArea extends Component {
             {{on "click" this.updatePercentage}}
             href={{@model.lastPostUrl}}
             class="now-date"
+            tabindex="-1"
           >
             <span>
               {{ageWithTooltip this.nowDate this.nowDateOptions}}
@@ -647,6 +649,7 @@ export default class TopicTimelineScrollArea extends Component {
             @label="summary.short_label"
             title={{i18n "summary.short_title"}}
             class="show-summary btn-default btn-small"
+            tabindex="-1"
           />
         {{/if}}
 
@@ -657,6 +660,7 @@ export default class TopicTimelineScrollArea extends Component {
               @icon="reply"
               title={{i18n "topic.reply.help"}}
               class="btn-default create reply-to-post"
+              tabindex="-1"
             />
           {{/if}}
         {{/if}}
@@ -667,6 +671,7 @@ export default class TopicTimelineScrollArea extends Component {
             @label="topic.progress.jump_prompt"
             title={{i18n "topic.progress.jump_prompt_long"}}
             class="timeline-open-jump-to-post-prompt-btn jump-to-post"
+            tabindex="-1"
           />
         {{/if}}
 
@@ -675,6 +680,7 @@ export default class TopicTimelineScrollArea extends Component {
             @contentClass="topic-timeline-notifications-tracking-content"
             @topic={{@model}}
             @expanded={{false}}
+            tabindex="-1"
           />
         {{/if}}
 

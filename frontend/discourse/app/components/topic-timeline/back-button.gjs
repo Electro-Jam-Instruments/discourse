@@ -6,6 +6,7 @@ const BackButton = <template>
     @label="topic.timeline.back"
     @title="topic.timeline.back_description"
     class="btn-primary btn-small back-button"
+    tabindex="-1"
   />
 </template>;
 

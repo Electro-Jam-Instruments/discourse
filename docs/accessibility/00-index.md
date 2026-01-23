@@ -21,6 +21,9 @@ This folder contains documentation for accessibility improvements to Discourse, 
 | [11-filter-focus-management.md](11-filter-focus-management.md) | Focus management after filter selection |
 | [12-focus-history-restoration.md](12-focus-history-restoration.md) | Focus restoration on browser back/forward |
 | [13-topic-header-row.md](13-topic-header-row.md) | Topic header row for post stream grid |
+| [14-timeline-slider.md](14-timeline-slider.md) | Timeline slider accessibility (N of M indicator) |
+| [14-timeline-slider-dev-design.md](14-timeline-slider-dev-design.md) | Timeline slider developer design |
+| [14-timeline-slider-risk-assessment.md](14-timeline-slider-risk-assessment.md) | Timeline slider risk assessment (**Under Review**) |
 
 ## Implementation Overview
 
@@ -100,5 +103,6 @@ This folder contains documentation for accessibility improvements to Discourse, 
 - [WAI-ARIA Toolbar Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/toolbar/)
 - [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/)
 - [WAI-ARIA Tree Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/treeview/)
+- [WAI-ARIA Slider Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/slider/)
 - [Fluent UI DataGrid](https://react.fluentui.dev/?path=/docs/components-datagrid--docs)
 - [Roving Tabindex](https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/#kbd_roving_tabindex)
