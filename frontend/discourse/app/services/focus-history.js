@@ -141,6 +141,20 @@ export default class FocusHistoryService extends Service {
    * @returns {boolean} - True if focus was restored, false otherwise
    */
   restoreFocusState(url) {
+    // GUARD (NEW): Don't restore if user already has focus somewhere meaningful
+    // This respects the user's intentional focus choices and prevents focus stealing
+    const currentFocus = document.activeElement;
+    if (
+      currentFocus &&
+      currentFocus !== document.body &&
+      currentFocus !== document.documentElement
+    ) {
+      console.log(
+        `[Focus History] restoreFocusState: ABORTED - focus already on ${currentFocus.tagName}`
+      );
+      return false;
+    }
+
     const state = this.focusStack.get(url);
     if (!state || !state.keyboardMode) {
       return false;
@@ -149,6 +163,10 @@ export default class FocusHistoryService extends Service {
     try {
       const element = document.querySelector(state.selector);
       if (element) {
+        console.log(
+          `[Focus History] restoreFocusState: restoring focus to`,
+          state.selector
+        );
         element.focus();
         return true;
       }

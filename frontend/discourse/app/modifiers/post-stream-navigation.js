@@ -72,6 +72,9 @@ export default class PostStreamNavigationModifier extends Modifier {
   // queueMicrotask clears _isNavigating before IntersectionObserver callbacks fire,
   // so we use timestamp to block focus changes within NAVIGATION_GUARD_MS of navigation
   _navigationTimestamp = 0;
+  // Track if user has interacted with the post stream at all (any navigation, click, Tab focus)
+  // Once set, never cleared for this page load - prevents focusFirstUnreadPost from stealing focus
+  _userHasInteractedWithStream = false;
   options = {
     // Row selector includes topic header row and post rows
     rowSelector: '.topic-header-row[role="row"], .topic-post[role="row"]',
@@ -167,6 +170,13 @@ export default class PostStreamNavigationModifier extends Modifier {
    * @param {number|null} lastReadPostNumber - The last read post number
    */
   focusFirstUnreadPost(lastReadPostNumber) {
+    // GUARD 0 (NEW): Don't auto-focus if user has already interacted with the stream at all
+    // This handles the case where user navigated TO the header (not away from it)
+    if (this._userHasInteractedWithStream) {
+      console.log(`[A11Y-NAV] focusFirstUnreadPost: ABORTED - user already interacted with stream`);
+      return;
+    }
+
     // GUARD 1: Don't auto-focus if user has already started navigating away from header
     if (this.activeRowId !== "header") {
       console.log(`[A11Y-NAV] focusFirstUnreadPost: ABORTED - user already navigated to ${this.activeRowId}`);
@@ -362,6 +372,10 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     const newRowId = this.getRowId(row);
     console.log(`[A11Y-NAV] focusRowByElement: newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`);
+
+    // CRITICAL: Mark that user has interacted with the stream
+    // This prevents focusFirstUnreadPost from stealing focus later
+    this._userHasInteractedWithStream = true;
 
     // Set DUAL navigation guards BEFORE any state changes:
     // 1. Boolean flag for synchronous focus events (cleared via microtask)
@@ -720,6 +734,11 @@ export default class PostStreamNavigationModifier extends Modifier {
         console.log(`[A11Y-NAV]   - event.target:`, event.target);
         console.log(`[A11Y-NAV]   - event.relatedTarget (where focus came FROM):`, event.relatedTarget);
         console.log(`[A11Y-NAV]   - CALL STACK:`, new Error().stack);
+
+        // CRITICAL: Mark that user has interacted with the stream
+        // This prevents focusFirstUnreadPost from stealing focus later
+        this._userHasInteractedWithStream = true;
+
         this.activeRowId = newRowId;
         // Reset navigation direction when focus comes from mouse/Tab (not arrow keys)
         // This prevents stale direction from affecting fallback logic during re-renders
