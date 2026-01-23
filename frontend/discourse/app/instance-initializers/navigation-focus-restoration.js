@@ -63,12 +63,28 @@ function hasTopicList() {
 }
 
 /**
+ * Check if we're on a topic page (viewing a single topic with posts).
+ * @returns {boolean}
+ */
+function isTopicPage() {
+  // Topic pages have a post-stream element with grid role
+  return document.querySelector('.post-stream[role="grid"]') !== null;
+}
+
+/**
  * Handle focus restoration after route transition.
  * @param {Object} filterFocus - The filterFocus service
  * @param {Object} a11y - The a11y service for announcements
+ * @param {Object} focusHistory - The focusHistory service for keyboard mode tracking
  */
-function handleFocusRestoration(filterFocus, a11y) {
+function handleFocusRestoration(filterFocus, a11y, focusHistory) {
   const wasKeyboardActivation = filterFocus.consumeKeyboardActivation();
+
+  // If navigating to a topic page via keyboard, let post-stream-navigation handle focus
+  // The modifier checks focusHistory.keyboardMode and focuses first post
+  if (focusHistory.keyboardMode && isTopicPage()) {
+    return;
+  }
 
   if (wasKeyboardActivation) {
     // Check category grid first (category pages don't have topic lists)
@@ -115,6 +131,7 @@ export default {
     const router = owner.lookup("service:router");
     const filterFocus = owner.lookup("service:filter-focus");
     const a11y = owner.lookup("service:a11y");
+    const focusHistory = owner.lookup("service:focus-history");
 
     router.on("routeDidChange", (transition) => {
       if (transition.isAborted) {
@@ -123,7 +140,7 @@ export default {
 
       // Use next() to ensure we run after clean-dom-on-route-change
       // which uses scheduleOnce("afterRender") and blurs active element
-      next(null, () => handleFocusRestoration(filterFocus, a11y));
+      next(null, () => handleFocusRestoration(filterFocus, a11y, focusHistory));
     });
   },
 };
