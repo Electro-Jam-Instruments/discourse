@@ -23,7 +23,9 @@ This folder contains documentation for accessibility improvements to Discourse, 
 | [13-topic-header-row.md](13-topic-header-row.md) | Topic header row for post stream grid |
 | [14-timeline-slider.md](14-timeline-slider.md) | Timeline slider accessibility (N of M indicator) |
 | [14-timeline-slider-dev-design.md](14-timeline-slider-dev-design.md) | Timeline slider developer design |
-| [14-timeline-slider-risk-assessment.md](14-timeline-slider-risk-assessment.md) | Timeline slider risk assessment (**Under Review**) |
+| [14-timeline-slider-risk-assessment.md](14-timeline-slider-risk-assessment.md) | Timeline slider risk assessment (Decision: Remove from keyboard nav) |
+| [15-sidebar-action-buttons.md](15-sidebar-action-buttons.md) | **PLANNING** - Sidebar action button arrow key navigation |
+| [16-post-content-link-navigation.md](16-post-content-link-navigation.md) | **PLANNING** - Arrow key navigation between links within post content |
 
 ## Implementation Overview
 
@@ -97,6 +99,14 @@ This folder contains documentation for accessibility improvements to Discourse, 
 | `90492821bd` | A11Y: Fix topic header row scroll under sticky header |
 | `8e952a95c8` | A11Y: Prevent cloaking on focused post during keyboard navigation |
 | `489b991b23` | A11Y: Fix focus jumping with directional cloaking fallback |
+| `d035eb86f1` | A11Y: Remove timeline slider from keyboard navigation |
+| `4959214207` | A11Y: Fix header row Enter key and category link navigation |
+| `67621ca2aa` | A11Y: Focus first category row after keyboard tab selection (#35) |
+| `fe6fdc9900` | A11Y: Ensure focus outline visible after browser back navigation (#36) |
+| `fe6fdc9900` | A11Y: Fix focus indicator on danger dropdown items (#37) |
+| `46d38f52c8` | A11Y: Fix sidebar tree nav catching toolbar and header elements (#40) |
+| `c5b580eb7d` | A11Y: Let post-stream handle focus when navigating to topic via keyboard (#41) |
+| `d24bc172f2` | A11Y: Fix header edit scroll under sticky nav (#43) |
 
 ## References
 

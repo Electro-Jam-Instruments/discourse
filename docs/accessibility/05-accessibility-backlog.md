@@ -260,6 +260,13 @@ When users activate filter tabs (Latest, New, Hot) via keyboard, focus now moves
 
 ## Completed Tasks
 
+- #43 Header edit scroll under sticky nav - scroll-margin-top fix (2026-01-23)
+- #41 Suggested topics Enter focus - defer to post-stream-navigation (2026-01-23)
+- #40 Sidebar extra tab stop - exclude toolbar/panel header from tree nav (2026-01-23)
+- #37 Delete Topic focus indicator - added outline to .--danger dropdown items (2026-01-23)
+- #36 Browser back focus rect - scrollIntoView + reflow after focus restore (2026-01-23)
+- #35 Categories tab Enter - added category grid support to focus restoration (2026-01-23)
+- Timeline slider removed from keyboard navigation - tabindex="-1" on all elements (2026-01-23)
 - Focus Jumping Bug - All race conditions fixed with microtask timing (2026-01-22)
 - Topic Header Row for Post Grid - Arrow navigation to topic title/category/tags (2026-01-12)
 - Filter Focus Management - Focus first topic after keyboard filter selection (2026-01-11)

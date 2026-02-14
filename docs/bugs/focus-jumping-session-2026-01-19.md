@@ -454,3 +454,95 @@ The microtask timing fix was the key improvement that raised confidence above th
 ### Remaining Known Issue (LOW Priority)
 
 **J/K keyboard shortcuts** - Discourse's built-in J/K navigation calls `focus()` directly, bypassing our modifier. This is a LOW priority ergonomic enhancement - screen reader users rely on arrow keys per WAI-ARIA grid patterns, not Vim-style shortcuts.
+
+---
+
+## Post-Deploy Regression Fix (2026-01-22)
+
+After deploying commit `caac5650df`, the focus jumping bug persisted. Console logs revealed the root cause.
+
+### Bug Analysis from Console Logs
+
+```
+[A11Y-NAV] modify(): activeRowId=3, initialFocusComplete=true, keyboardMode=true, isNavigating=false
+[A11Y-NAV] getActiveRowIndex: FALLBACK target=3, direction=1, visibleRows=[header,4,5,6,7,8,9]
+[A11Y-NAV] handleFocusOut: Focus left grid to TR
+```
+
+The pattern repeated 10+ times. The issue:
+
+1. Post 3 was focused but got **cloaked** (scrolled out of view)
+2. `modify()` runs on every Ember re-render (including scroll/cloaking changes)
+3. `_isNavigating=false` (microtask already cleared it)
+4. `updateTabindices()` called `getActiveRowIndex()` which did **FALLBACK**
+5. FALLBACK set `tabindex="0"` on post 4 (the closest visible post)
+6. `handleFocusOut` detected focus loss and tried to recover → more focus jumps
+7. Loop continued indefinitely
+
+### Root Cause: Microtask Timing Insufficient
+
+The `_isNavigating` flag with `queueMicrotask()` clearing only protected during the actual focus operation. But cloaking events that happen AFTER navigation completes (during scroll settling) also trigger `modify()` and can corrupt tabindex state.
+
+### Additional Fixes (Commit `f7e7135aa6`)
+
+**Fix 1: GUARD 2 - Skip tabindex updates when active row is cloaked**
+
+```javascript
+modify(element, positional, named) {
+  // GUARD 1: Skip during active navigation
+  if (this._isNavigating) {
+    return;
+  }
+
+  // GUARD 2: Skip if active row is cloaked
+  const rows = this.rows;
+  const activeRowVisible = this.findRowIndexByIdWithArray(rows, this.activeRowId) !== -1;
+
+  if (!activeRowVisible && this.activeRowId !== "header" && this.initialFocusComplete) {
+    console.log(`[A11Y-NAV] modify(): SKIPPED - activeRowId=${this.activeRowId} is cloaked`);
+    return;
+  }
+
+  // Only update tabindices when active row is visible
+  this.updateTabindices();
+  this.setInternalTabindices();
+}
+```
+
+**Fix 2: handleFocusOut - Only recover during active navigation**
+
+```javascript
+handleFocusOut(event) {
+  if (!event.relatedTarget || !this.element.contains(event.relatedTarget)) {
+    requestAnimationFrame(() => {
+      // Only recover if _isNavigating=true (user pressing arrow keys)
+      // NOT for passive cloaking (scrolling)
+      if (this._isNavigating &&
+          (document.activeElement === document.body || document.activeElement === document.documentElement)) {
+        // Recover focus
+        const rows = this.rows;
+        const targetIndex = this.getActiveRowIndex(rows);
+        this.focusRowWithArray(rows, targetIndex);
+      } else if (document.activeElement === document.body) {
+        // Passive cloaking - don't auto-recover
+        // User can press arrow keys to resume navigation
+        console.log(`[A11Y-NAV] Focus lost (passive cloaking), NOT recovering`);
+      }
+    });
+  }
+}
+```
+
+### Key Insight
+
+The `_isNavigating` guard alone is insufficient because:
+
+1. It only protects during the `focusRowWithArray()` call
+2. `scrollRowIntoView()` may trigger additional scrolling
+3. Scrolling causes cloaking changes
+4. Cloaking changes trigger Ember re-render → `modify()`
+5. By this time, `_isNavigating=false` (microtask cleared it)
+
+The solution is to **also guard based on state** - if `activeRowId` points to a cloaked post, don't update tabindices at all. Wait until:
+- User navigates with arrow keys (which properly handles cloaked targets)
+- The row becomes visible again through scrolling
