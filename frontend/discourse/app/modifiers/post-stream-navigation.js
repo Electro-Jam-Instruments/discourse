@@ -32,21 +32,6 @@ import { preventCloaking } from "discourse/modifiers/post-stream-viewport-tracke
  * - Tab enters grid at first post
  * - Internal focusable elements have tabindex="-1"
  */
-// Time window (ms) during which handleFocusIn ignores focus changes after keyboard navigation.
-// This handles the gap between queueMicrotask (clears _isNavigating) and IntersectionObserver
-// callbacks (macrotasks that fire later and trigger Ember re-renders).
-//
-// Timing analysis:
-// - scrollIntoView instant: 0ms (no animation)
-// - IntersectionObserver callback: 50-150ms after scroll
-// - Ember re-render: adds 16-32ms
-// - Total worst case: ~180ms
-//
-// We use 150ms because:
-// - Covers IntersectionObserver + Ember re-render timing
-// - Keyboard repeat rate is 30-50ms, so rapid keystrokes still work
-// - Mouse/Tab focus events fire at 0ms, never blocked
-const NAVIGATION_GUARD_MS = 150;
 
 export default class PostStreamNavigationModifier extends Modifier {
   @service focusHistory;
@@ -68,10 +53,15 @@ export default class PostStreamNavigationModifier extends Modifier {
   // Navigation guard flag - prevents handleFocusIn from resetting state during keyboard navigation
   // Set true at start of navigation, cleared via microtask after focus() completes
   _isNavigating = false;
-  // Timestamp-based navigation guard - handles IntersectionObserver macrotask delays
-  // queueMicrotask clears _isNavigating before IntersectionObserver callbacks fire,
-  // so we use timestamp to block focus changes within NAVIGATION_GUARD_MS of navigation
-  _navigationTimestamp = 0;
+  // Cloaking cycle guard - replaces the old NAVIGATION_GUARD_MS timing hack.
+  // Tracks cloaking update cycles to detect when IO/Ember re-render focus events
+  // are caused by navigation-triggered scrolls rather than user actions.
+  // _currentCloakCycle: latest cloakCycle value from post-stream.gjs (updated via modify())
+  // _navigationCloakCycle: snapshot taken at navigation start (-1 = no active guard)
+  // _settlementScheduled: prevents duplicate settlement rAFs
+  _currentCloakCycle = 0;
+  _navigationCloakCycle = -1;
+  _settlementScheduled = false;
   // Track if user has interacted with the post stream at all (any navigation, click, Tab focus)
   // Once set, never cleared for this page load - prevents focusFirstUnreadPost from stealing focus
   _userHasInteractedWithStream = false;
@@ -125,6 +115,50 @@ export default class PostStreamNavigationModifier extends Modifier {
     }
 
     this.options = { ...this.options, ...named };
+
+    // Track cloaking cycle from post-stream.gjs.
+    // modify() runs on every Ember re-render, so we observe cycle changes here.
+    const newCloakCycle = named.cloakCycle || 0;
+
+    // Settlement logic: detect when navigation-triggered cloaking has finished.
+    // If the cycle advanced past our snapshot + 2, the cloaking update(s) from
+    // our scroll have been fully processed — clear the guard.
+    if (
+      this._navigationCloakCycle >= 0 &&
+      newCloakCycle > this._navigationCloakCycle + 2
+    ) {
+      console.log(
+        `[A11Y-NAV] modify(): cloaking settled - cycle ${newCloakCycle} > nav ${this._navigationCloakCycle} + 2, clearing guard`
+      );
+      this._navigationCloakCycle = -1;
+    }
+
+    // No-scroll settlement: if the cycle hasn't changed after navigation and the
+    // boolean guard has cleared, schedule a double-rAF to confirm no IO is coming.
+    // This handles the case where scrollRowIntoView didn't scroll (row was visible).
+    if (
+      this._navigationCloakCycle >= 0 &&
+      newCloakCycle === this._navigationCloakCycle &&
+      !this._isNavigating &&
+      !this._settlementScheduled
+    ) {
+      this._settlementScheduled = true;
+      // Double-rAF gives IO callbacks time to fire (~32ms).
+      // If cycle still hasn't changed, no cloaking happened.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (this._currentCloakCycle === this._navigationCloakCycle) {
+            console.log(
+              `[A11Y-NAV] modify(): no-scroll settlement - no cloaking after double-rAF, clearing guard`
+            );
+            this._navigationCloakCycle = -1;
+          }
+          this._settlementScheduled = false;
+        });
+      });
+    }
+
+    this._currentCloakCycle = newCloakCycle;
 
     // IMPORTANT: We intentionally do NOT update tabindices on re-renders.
     // This method runs on EVERY Ember re-render (including cloaking boundary changes).
@@ -183,11 +217,13 @@ export default class PostStreamNavigationModifier extends Modifier {
       return;
     }
 
-    // GUARD 2: Don't auto-focus if user has navigated recently (even if they came back to header)
+    // GUARD 2: Don't auto-focus if cloaking is still settling from a recent navigation
     // This handles the case: user navigates down, then up to header, then this callback fires
-    const msSinceNav = performance.now() - this._navigationTimestamp;
-    if (this._navigationTimestamp > 0 && msSinceNav < NAVIGATION_GUARD_MS * 2) {
-      console.log(`[A11Y-NAV] focusFirstUnreadPost: ABORTED - recent navigation ${msSinceNav.toFixed(1)}ms ago`);
+    if (
+      this._navigationCloakCycle >= 0 &&
+      this._currentCloakCycle <= this._navigationCloakCycle + 2
+    ) {
+      console.log(`[A11Y-NAV] focusFirstUnreadPost: ABORTED - cloaking still settling (cycle ${this._currentCloakCycle} <= nav ${this._navigationCloakCycle} + 2)`);
       return;
     }
 
@@ -379,9 +415,10 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     // Set DUAL navigation guards BEFORE any state changes:
     // 1. Boolean flag for synchronous focus events (cleared via microtask)
-    // 2. Timestamp for async IntersectionObserver callbacks (macrotasks after microtask)
+    // 2. Cloaking cycle snapshot for async IO/Ember re-render focus events
     this._isNavigating = true;
-    this._navigationTimestamp = performance.now();
+    this._navigationCloakCycle = this._currentCloakCycle;
+    this._settlementScheduled = false; // Cancel any pending settlement from previous nav
 
     this.activeRowId = newRowId;
     this.activeFocusableIndex = -1;
@@ -394,8 +431,8 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     // Clear boolean guard via microtask - ensures handleFocusIn sees the flag
     // during any synchronously-triggered focus events.
-    // NOTE: Timestamp guard remains active for NAVIGATION_GUARD_MS to handle
-    // IntersectionObserver macrotasks that fire AFTER this microtask.
+    // NOTE: Cloaking cycle guard remains active to handle IntersectionObserver
+    // macrotasks that fire AFTER this microtask clears the boolean.
     queueMicrotask(() => {
       this._isNavigating = false;
     });
@@ -740,19 +777,24 @@ export default class PostStreamNavigationModifier extends Modifier {
           return;
         }
 
-        // Guard 2: Timestamp check (handles IntersectionObserver macrotask delays)
-        // IntersectionObserver callbacks fire AFTER microtask clears _isNavigating,
-        // so we need a time-based guard to catch these late focus changes.
-        const msSinceNavigation = performance.now() - this._navigationTimestamp;
-        if (msSinceNavigation < NAVIGATION_GUARD_MS) {
-          console.log(`[A11Y-NAV] handleFocusIn: BLOCKED ${this.activeRowId} → ${newRowId} (timestamp guard: ${msSinceNavigation.toFixed(1)}ms < ${NAVIGATION_GUARD_MS}ms)`);
+        // Guard 2: Cloaking cycle check (handles async IO/Ember re-render focus events)
+        // After navigation, scrollRowIntoView triggers IntersectionObserver which triggers
+        // cloaking boundary updates (incrementing cloakCycle). Those updates cause Ember
+        // re-renders that add/remove DOM nodes, which can fire spurious focus events.
+        // We block focus changes until the cloaking cycle has settled past the navigation.
+        if (
+          this._navigationCloakCycle >= 0 &&
+          this._currentCloakCycle <= this._navigationCloakCycle + 2
+        ) {
+          console.log(
+            `[A11Y-NAV] handleFocusIn: BLOCKED ${this.activeRowId} → ${newRowId} (cloaking guard: cycle ${this._currentCloakCycle} <= nav ${this._navigationCloakCycle} + 2)`
+          );
           return;
         }
 
-        // DEBUG: Log when handleFocusIn changes state - THIS IS A POTENTIAL BUG
-        // The call stack shows us exactly what code triggered this focus change
+        // DEBUG: Log when handleFocusIn changes state
         console.log(`[A11Y-NAV] handleFocusIn: STATE CHANGE ${this.activeRowId} → ${newRowId}`);
-        console.log(`[A11Y-NAV]   - ms since nav: ${msSinceNavigation.toFixed(1)}ms`);
+        console.log(`[A11Y-NAV]   - cloakCycle: ${this._currentCloakCycle}, navCycle: ${this._navigationCloakCycle}`);
         console.log(`[A11Y-NAV]   - event.target:`, event.target);
         console.log(`[A11Y-NAV]   - event.relatedTarget (where focus came FROM):`, event.relatedTarget);
         console.log(`[A11Y-NAV]   - CALL STACK:`, new Error().stack);
@@ -814,17 +856,19 @@ export default class PostStreamNavigationModifier extends Modifier {
    * 3. The CALL STACK showing exactly what code triggered the focus
    */
   handleGlobalFocusIn(event) {
-    // Only log during/shortly after navigation to reduce noise
-    const msSinceNavigation = performance.now() - this._navigationTimestamp;
-    if (msSinceNavigation > 500) {
-      return; // Too long after navigation, probably legitimate user action
+    // Only log when cloaking is still settling from navigation to reduce noise
+    if (
+      this._navigationCloakCycle < 0 ||
+      this._currentCloakCycle > this._navigationCloakCycle + 2
+    ) {
+      return; // Well past navigation, probably legitimate user action
     }
 
     // Check if this is within our post stream
     const isInPostStream = this.element && this.element.contains(event.target);
     const postNumber = event.target.closest('[data-post-number]')?.dataset?.postNumber || 'N/A';
 
-    console.log(`[A11Y-GLOBAL-FOCUS] Focus event at ${msSinceNavigation.toFixed(1)}ms after nav`);
+    console.log(`[A11Y-GLOBAL-FOCUS] Focus event (cloakCycle=${this._currentCloakCycle}, navCycle=${this._navigationCloakCycle})`);
     console.log(`[A11Y-GLOBAL-FOCUS]   target:`, event.target);
     console.log(`[A11Y-GLOBAL-FOCUS]   postNumber: ${postNumber}`);
     console.log(`[A11Y-GLOBAL-FOCUS]   isInPostStream: ${isInPostStream}`);

@@ -39,6 +39,12 @@ export default class PostStream extends Component {
   @tracked cloakBelow;
   @tracked keyboardSelection;
 
+  // Counter incremented each time cloaking boundaries actually change.
+  // Used by PostStreamNavigation to detect when cloaking updates from
+  // navigation-triggered scrolls have settled, replacing the old
+  // NAVIGATION_GUARD_MS timing hack.
+  @tracked _cloakCycle = 0;
+
   viewportTracker = new PostStreamViewportTracker();
 
   constructor() {
@@ -230,6 +236,7 @@ export default class PostStream extends Component {
 
       this.cloakAbove = above;
       this.cloakBelow = below;
+      this._cloakCycle++;
     });
   }
 
@@ -276,7 +283,10 @@ export default class PostStream extends Component {
         setCloakingBoundaries=this.setCloakingBoundaries
         topicId=@topic.id
       }}
-      {{PostStreamNavigation lastReadPostNumber=@lastReadPostNumber}}
+      {{PostStreamNavigation
+        lastReadPostNumber=@lastReadPostNumber
+        cloakCycle=this._cloakCycle
+      }}
     >
       {{#if (and (not @postStream.loadingAbove) @postStream.canPrependMore)}}
         <PostLoadMoreAccessible
