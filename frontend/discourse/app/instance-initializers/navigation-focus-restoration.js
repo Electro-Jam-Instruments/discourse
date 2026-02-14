@@ -80,13 +80,21 @@ function isTopicPage() {
 function handleFocusRestoration(filterFocus, a11y, focusHistory) {
   const wasKeyboardActivation = filterFocus.consumeKeyboardActivation();
 
+  // If focus-history-tracking has a pending restore (browser back/forward),
+  // yield entirely - let it handle focus restoration to the user's previous position
+  if (focusHistory.pendingRestore) {
+    return;
+  }
+
   // If navigating to a topic page via keyboard, let post-stream-navigation handle focus
   // The modifier checks focusHistory.keyboardMode and focuses first post
   if (focusHistory.keyboardMode && isTopicPage()) {
     return;
   }
 
-  if (wasKeyboardActivation) {
+  // Keyboard mode: user arrived via keyboard (filter tab, category Enter, sidebar link, etc.)
+  // Focus the first content row for optimal keyboard workflow
+  if (wasKeyboardActivation || focusHistory.keyboardMode) {
     // Check category grid first (category pages don't have topic lists)
     if (hasCategoryGrid()) {
       const firstRow = getFirstCategoryRow();
