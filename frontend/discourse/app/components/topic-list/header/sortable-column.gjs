@@ -88,6 +88,7 @@ export default class SortableColumn extends Component {
             {{on "click" @bulkSelectHelper.toggleBulkSelect}}
             title={{i18n "topics.bulk.toggle"}}
             class="btn-transparent bulk-select no-text"
+            tabindex="-1"
           >
             {{icon "list-check"}}
           </button>
@@ -105,10 +106,12 @@ export default class SortableColumn extends Component {
             <button
               {{on "click" this.bulkSelectAll}}
               class="btn btn-default bulk-select-all"
+              tabindex="-1"
             >{{i18n "topics.bulk.select_all"}}</button>
             <button
               {{on "click" this.bulkClearAll}}
               class="btn btn-default bulk-clear-all"
+              tabindex="-1"
             >{{i18n "topics.bulk.clear_all"}}</button>
           </span>
         {{/if}}
@@ -116,7 +119,7 @@ export default class SortableColumn extends Component {
 
       {{#unless @bulkSelectEnabled}}
         {{#if @sortable}}
-          <button aria-pressed={{this.isSorting}}>
+          <button aria-pressed={{this.isSorting}} tabindex="-1">
             {{this.localizedName}}
             {{#if this.isSorting}}
               {{icon (if @ascending "chevron-up" "chevron-down")}}

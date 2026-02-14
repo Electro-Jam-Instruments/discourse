@@ -9,6 +9,7 @@ const BulkSelectCell = <template>
         {{on "click" @bulkSelectHelper.toggleBulkSelect}}
         title={{i18n "topics.bulk.toggle"}}
         class="btn-transparent bulk-select no-text --primary"
+        tabindex="-1"
       >
         {{icon "list-check"}}
       </button>
