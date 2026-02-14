@@ -14,6 +14,10 @@ import { tracked } from "@glimmer/tracking";
 export default class FocusHistoryService extends Service {
   @tracked keyboardMode = false;
 
+  // True when a back/forward navigation has saved focus state to restore.
+  // Other focus managers (navigation-focus-restoration) should yield when this is set.
+  @tracked pendingRestore = false;
+
   // Map of URL -> focus info
   focusStack = new Map();
 
@@ -135,25 +139,32 @@ export default class FocusHistoryService extends Service {
   }
 
   /**
+   * Check if we have saved focus state for a URL and mark pending restore.
+   * Called early during back/forward navigation so other focus managers can yield.
+   *
+   * @param {string} url - The URL to check
+   * @returns {boolean} - True if there is saved state to restore
+   */
+  markPendingRestore(url) {
+    const state = this.focusStack.get(url);
+    if (state && state.keyboardMode) {
+      this.pendingRestore = true;
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Restore focus for this URL if we have saved state.
+   * This intentionally overrides any focus placed by other managers
+   * because the user navigated back/forward and expects their previous
+   * focus position to be restored.
    *
    * @param {string} url - The URL to restore focus for
    * @returns {boolean} - True if focus was restored, false otherwise
    */
   restoreFocusState(url) {
-    // GUARD (NEW): Don't restore if user already has focus somewhere meaningful
-    // This respects the user's intentional focus choices and prevents focus stealing
-    const currentFocus = document.activeElement;
-    if (
-      currentFocus &&
-      currentFocus !== document.body &&
-      currentFocus !== document.documentElement
-    ) {
-      console.log(
-        `[Focus History] restoreFocusState: ABORTED - focus already on ${currentFocus.tagName}`
-      );
-      return false;
-    }
+    this.pendingRestore = false;
 
     const state = this.focusStack.get(url);
     if (!state || !state.keyboardMode) {
@@ -163,10 +174,6 @@ export default class FocusHistoryService extends Service {
     try {
       const element = document.querySelector(state.selector);
       if (element) {
-        console.log(
-          `[Focus History] restoreFocusState: restoring focus to`,
-          state.selector
-        );
         element.focus();
 
         // Ensure element is visible and focus outline renders

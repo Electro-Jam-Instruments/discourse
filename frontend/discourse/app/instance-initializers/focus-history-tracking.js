@@ -3,6 +3,11 @@
  *
  * This enables focus restoration when users navigate with browser back/forward
  * (Alt+Left/Right arrows or browser buttons).
+ *
+ * Coordination with navigation-focus-restoration.js:
+ * - On back/forward navigation, markPendingRestore() is called synchronously
+ *   so navigation-focus-restoration (which runs on routeDidChange) can yield
+ * - restoreFocusState() is called after Ember renders to actually restore focus
  */
 export default {
   name: "focus-history-tracking",
@@ -36,27 +41,35 @@ export default {
 
     // Navigation API (modern browsers: Chrome 102+, Edge 102+)
     if ("navigation" in window) {
-      window.navigation.addEventListener("navigate", () => {
+      window.navigation.addEventListener("navigate", (event) => {
         // Save focus before navigating away
         focusHistory.saveFocusState(location.href);
+
+        // For back/forward navigation, mark pending restore synchronously
+        // so navigation-focus-restoration.js can yield to us
+        if (
+          event.navigationType === "traverse" &&
+          focusHistory.keyboardMode
+        ) {
+          // The destination URL isn't available yet during "navigate",
+          // so we mark pending and resolve in "navigatesuccess"
+          focusHistory.pendingRestore = true;
+        }
       });
 
       window.navigation.addEventListener("navigatesuccess", () => {
-        // Restore focus after navigation completes
-        // Use requestAnimationFrame to ensure DOM is ready
-        requestAnimationFrame(() => {
-          // Add a small delay to ensure Ember has finished rendering
-          setTimeout(() => {
+        // Only attempt restore if we marked pending during navigate
+        if (focusHistory.pendingRestore) {
+          // Use requestAnimationFrame to ensure DOM is rendered
+          requestAnimationFrame(() => {
             focusHistory.restoreFocusState(location.href);
-          }, 100);
-        });
+          });
+        }
       });
     } else {
       // Popstate fallback (Firefox, Safari, older browsers)
-      // Save focus state before any navigation
       let lastUrl = location.href;
 
-      // Use a MutationObserver to detect URL changes in SPAs
       const checkUrlChange = () => {
         if (location.href !== lastUrl) {
           focusHistory.saveFocusState(lastUrl);
@@ -64,18 +77,20 @@ export default {
         }
       };
 
-      // Check for URL changes periodically (for SPA navigation)
+      // Check for URL changes on clicks (for SPA navigation)
       document.addEventListener("click", () => {
-        setTimeout(checkUrlChange, 100);
+        setTimeout(checkUrlChange, 0);
       });
 
       // Handle browser back/forward
       window.addEventListener("popstate", () => {
+        // Mark pending synchronously so navigation-focus-restoration yields
+        focusHistory.markPendingRestore(location.href);
+
+        // Restore after Ember renders
         requestAnimationFrame(() => {
-          setTimeout(() => {
-            focusHistory.restoreFocusState(location.href);
-            lastUrl = location.href;
-          }, 100);
+          focusHistory.restoreFocusState(location.href);
+          lastUrl = location.href;
         });
       });
     }

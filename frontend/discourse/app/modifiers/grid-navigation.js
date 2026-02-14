@@ -105,7 +105,8 @@ export default class GridNavigationModifier extends Modifier {
     this.setInternalTabindices();
 
     // Auto-focus first data row on initial page load if user navigated via keyboard
-    if (!this.initialFocusComplete && this.focusHistory.keyboardMode) {
+    // Skip if focus-history has a pending restore (browser back/forward)
+    if (!this.initialFocusComplete && this.focusHistory.keyboardMode && !this.focusHistory.pendingRestore) {
       this.scheduleInitialFocus();
     }
   }
