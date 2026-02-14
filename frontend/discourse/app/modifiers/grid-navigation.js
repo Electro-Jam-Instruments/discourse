@@ -94,6 +94,13 @@ export default class GridNavigationModifier extends Modifier {
       }
     }
 
+    // Skip tabindex updates if the grid is being torn down during a route transition.
+    // clean-dom-on-route-change sets data-tearing-down on routeWillChange to prevent
+    // the browser from auto-focusing a random row when the focused row is removed.
+    if (this.element.dataset.tearingDown) {
+      return;
+    }
+
     // Ensure activeRowIndex is valid (rows might have changed)
     const rows = this.rows;
     if (rows.length > 0 && (this.activeRowIndex < 0 || this.activeRowIndex >= rows.length)) {
@@ -516,6 +523,16 @@ export default class GridNavigationModifier extends Modifier {
     if (this.element) {
       this.element.removeEventListener("keydown", this.handleKeydown);
       this.element.removeEventListener("focusin", this.handleFocusIn);
+
+      // Blur any focused element within the grid and remove all tabindex="0"
+      // This prevents the browser from auto-focusing another row when Ember
+      // removes the currently focused row during route transition teardown,
+      // which causes a brief visual flash on a random row.
+      const focused = this.element.querySelector(":focus");
+      if (focused) {
+        focused.blur();
+      }
+      this.rows.forEach((row) => row.setAttribute("tabindex", "-1"));
     }
   }
 }
