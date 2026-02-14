@@ -60,9 +60,13 @@ export default {
       window.navigation.addEventListener("navigatesuccess", () => {
         // Only attempt restore if we marked pending during navigate
         if (focusHistory.pendingRestore) {
-          // Use requestAnimationFrame to ensure DOM is rendered
+          // Use double-rAF to ensure Ember has rendered the DOM.
+          // A single rAF fires before Ember's render cycle completes,
+          // causing focus to be set on elements that get replaced.
           requestAnimationFrame(() => {
-            focusHistory.restoreFocusState(location.href);
+            requestAnimationFrame(() => {
+              focusHistory.restoreFocusState(location.href);
+            });
           });
         }
       });

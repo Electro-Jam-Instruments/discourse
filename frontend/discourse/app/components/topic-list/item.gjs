@@ -34,6 +34,7 @@ import { and, eq } from "discourse/truth-helpers";
 import { i18n } from "discourse-i18n";
 
 export default class Item extends Component {
+  @service focusHistory;
   @service historyStore;
   @service site;
   @service siteSettings;
@@ -46,8 +47,15 @@ export default class Item extends Component {
       next(() => this.historyStore.delete("lastTopicIdViewed"));
 
       if (this.shouldFocusLastVisited) {
-        // Using next() so it always runs after clean-dom
-        next(() => element.querySelector(".main-link .title")?.focus());
+        // When focus-history is handling a back/forward restore, focus the row
+        // instead of the link so our grid outline renders correctly.
+        // Otherwise use Discourse's default behavior (focus the title link).
+        if (this.focusHistory.keyboardMode) {
+          next(() => element.focus());
+        } else {
+          // Using next() so it always runs after clean-dom
+          next(() => element.querySelector(".main-link .title")?.focus());
+        }
       }
     } else if (this.args.topic.get("highlight")) {
       // highlight new topics that have been loaded from the server or the one we just created
