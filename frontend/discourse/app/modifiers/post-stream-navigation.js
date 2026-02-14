@@ -254,11 +254,30 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Found the target post
       this.focusRow(targetIndex);
     } else {
-      // Target post not found (all read or post not loaded), focus first content row
-      // First content row is at index 1 (index 0 is header row)
-      const fallbackIndex = rows.length > 1 ? 1 : 0;
-      console.log(`[A11Y-NAV] focusFirstUnreadPost: target not found, using fallbackIndex=${fallbackIndex}`);
-      this.focusRow(fallbackIndex);
+      // Target post not found (all read or post not loaded).
+      // Focus the post nearest to the viewport center — this matches where
+      // Discourse scrolled based on the URL (e.g., /topic/79/14 scrolls to post 14).
+      // Falling back to the first post would put focus off-screen.
+      const viewportCenter = window.innerHeight / 2;
+      let bestIndex = rows.length > 1 ? 1 : 0;
+      let bestDistance = Infinity;
+
+      for (let i = 0; i < rows.length; i++) {
+        // Skip header row
+        if (rows[i].classList.contains("topic-header-row")) {
+          continue;
+        }
+        const rect = rows[i].getBoundingClientRect();
+        const rowCenter = (rect.top + rect.bottom) / 2;
+        const distance = Math.abs(rowCenter - viewportCenter);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestIndex = i;
+        }
+      }
+
+      console.log(`[A11Y-NAV] focusFirstUnreadPost: target not found, using viewport-nearest index=${bestIndex}`);
+      this.focusRow(bestIndex);
     }
   }
 
