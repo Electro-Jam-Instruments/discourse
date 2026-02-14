@@ -1,6 +1,22 @@
 .category-list {
   table-layout: fixed;
 
+  // Focus styles for grid navigation - full rectangle highlight
+  // Uses CSS variables for theme customization (see color_definitions.scss)
+  tbody tr[role="row"] {
+    &:focus {
+      outline: var(--d-grid-focus-outline-width) solid
+        var(--d-grid-focus-outline-color);
+      outline-offset: var(--d-grid-focus-outline-offset);
+    }
+
+    &:focus-visible {
+      outline: var(--d-grid-focus-outline-width) solid
+        var(--d-grid-focus-outline-color);
+      outline-offset: var(--d-grid-focus-outline-offset);
+    }
+  }
+
   tbody {
     .category {
       &.no-category-style {
