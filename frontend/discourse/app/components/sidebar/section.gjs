@@ -178,7 +178,7 @@ export default class SidebarSection extends Component {
             class="sidebar-section-header-wrapper sidebar-row"
             role="toolbar"
             aria-label={{@headerLinkText}}
-            {{toolbarNavigation itemSelector="button"}}
+            {{toolbarNavigation itemSelector="button, summary"}}
           >
             <SectionHeader
               @collapsable={{@collapsable}}
