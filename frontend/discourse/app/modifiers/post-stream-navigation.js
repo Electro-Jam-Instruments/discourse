@@ -160,17 +160,24 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     this._currentCloakCycle = newCloakCycle;
 
-    // IMPORTANT: We intentionally do NOT update tabindices on re-renders.
+    // IMPORTANT: We intentionally do NOT update ROW tabindices on re-renders.
     // This method runs on EVERY Ember re-render (including cloaking boundary changes).
-    // Updating tabindices during re-renders creates race conditions with:
+    // Updating which row has tabindex="0" during re-renders creates race conditions with:
     // - IntersectionObserver callbacks (macrotasks after microtask clears flag)
     // - Scroll animation (~300ms window after navigation)
     // - Ember render cycles from tracked property changes
     //
-    // Tabindices are now managed exclusively by:
+    // Row tabindices are now managed exclusively by:
     // 1. focusRowWithArray() - keyboard navigation (sets state BEFORE calling focus())
     // 2. handleFocusIn() - user clicks/tabs into grid (event-driven, reliable)
     // 3. Initial setup (above) - first time modifier is attached
+    //
+    // However, we DO need to re-run setInternalTabindices() on every re-render.
+    // When posts are uncloaked (become visible after scrolling), they enter the DOM
+    // with default tabindex values — their links and buttons are tabbable. Without
+    // this, Shift+Tab from the post stream would land on internal elements in
+    // uncloaked posts instead of cleanly exiting the grid.
+    this.setInternalTabindices();
 
     // Auto-focus first unread post on initial load if user navigated via keyboard
     if (!this.initialFocusComplete && this.focusHistory.keyboardMode) {
