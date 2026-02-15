@@ -628,14 +628,15 @@ en:
           other: "%{commaSeparatedUsernames} and %{count} others are typing"
 
       retention_reminders:
+        chat_settings: "Chat settings"
         indefinitely_short: "indefinitely"
-        indefinitely_long: "Chat settings have been set to retain channel messages indefinitely."
+        indefinitely_long: "%{chatSettingsLink} have been set to retain channel messages indefinitely."
         short:
           one: "%{count} day"
           other: "%{count} days"
         long:
-          one: "Chat settings have been set to retain channel messages for %{count} day."
-          other: "Chat settings have been set to retain channel messages for %{count} days."
+          one: "%{chatSettingsLink} have been set to retain channel messages for %{count} day."
+          other: "%{chatSettingsLink} have been set to retain channel messages for %{count} days."
 
       flags:
         off_topic: "This message is not relevant to the current discussion as defined by the channel title, and should probably be moved elsewhere."
@@ -776,7 +777,7 @@ en:
           composer_bold: "%{shortcut} Bold (composer only)"
           composer_italic: "%{shortcut} Italic (composer only)"
           composer_code: "%{shortcut} Code (composer only)"
-          drawer_open: "%{shortcut} Open chat drawer"
+          drawer_toggle: "%{shortcut} Toggle chat drawer"
           drawer_close: "%{shortcut} Close chat drawer"
           mark_all_channels_read: "%{shortcut} Mark all channels read"
     topic_statuses:

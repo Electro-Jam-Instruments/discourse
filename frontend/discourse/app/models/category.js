@@ -18,12 +18,14 @@ import { MultiCache } from "discourse/lib/multi-cache";
 import { NotificationLevels } from "discourse/lib/notification-levels";
 import { trackedArray } from "discourse/lib/tracked-tools";
 import { applyValueTransformer } from "discourse/lib/transformer";
+import { removeAccents } from "discourse/lib/utilities";
 import PermissionType from "discourse/models/permission-type";
 import RestModel from "discourse/models/rest";
 import Site from "discourse/models/site";
 import Topic from "./topic";
 
 const CATEGORY_ASYNC_SEARCH_CACHE = {};
+const CATEGORY_ASYNC_HIERARCHICAL_SEARCH_CACHE = {};
 const pluginSaveProperties = new Set();
 
 let _uncategorized;
@@ -352,8 +354,10 @@ export default class Category extends RestModel {
     const emptyTerm = term === "";
     let slugTerm = term;
 
+    const normalize = (str) => removeAccents(str.toLowerCase());
+
     if (!emptyTerm) {
-      term = term.toLowerCase();
+      term = normalize(term);
       slugTerm = term;
       term = term.replace(/-/g, " ");
     }
@@ -379,8 +383,8 @@ export default class Category extends RestModel {
       if (
         ((emptyTerm && !category.get("parent_category_id")) ||
           (!emptyTerm &&
-            (category.get("name").toLowerCase().startsWith(term) ||
-              category.get("slug").toLowerCase().startsWith(slugTerm)))) &&
+            (normalize(category.get("name")).startsWith(term) ||
+              normalize(category.get("slug")).startsWith(slugTerm)))) &&
         validCategoryParent(category)
       ) {
         data.push(category);
@@ -392,9 +396,8 @@ export default class Category extends RestModel {
         const category = categories[i];
 
         if (
-          ((!emptyTerm &&
-            category.get("name").toLowerCase().indexOf(term) > 0) ||
-            category.get("slug").toLowerCase().indexOf(slugTerm) > 0) &&
+          ((!emptyTerm && normalize(category.get("name")).indexOf(term) > 0) ||
+            normalize(category.get("slug")).indexOf(slugTerm) > 0) &&
           validCategoryParent(category)
         ) {
           if (!data.includes(category)) {
@@ -417,11 +420,25 @@ export default class Category extends RestModel {
       page: opts.page,
     };
 
-    const result = await ajax("/categories/hierarchical_search", { data });
+    const cacheKey = JSON.stringify(data);
+    CATEGORY_ASYNC_HIERARCHICAL_SEARCH_CACHE[cacheKey] ||= await ajax(
+      "/categories/hierarchical_search",
+      {
+        method: "GET",
+        data,
+      }
+    );
+    const result = CATEGORY_ASYNC_HIERARCHICAL_SEARCH_CACHE[cacheKey];
 
     return result["categories"].map((category) =>
       Site.current().updateCategory(category)
     );
+  }
+
+  static clearAsyncHierarchicalSearchCache() {
+    Object.keys(CATEGORY_ASYNC_HIERARCHICAL_SEARCH_CACHE).forEach((key) => {
+      delete CATEGORY_ASYNC_HIERARCHICAL_SEARCH_CACHE[key];
+    });
   }
 
   static async asyncSearch(term, opts) {
@@ -468,6 +485,7 @@ export default class Category extends RestModel {
   @tracked localizations = this.category_localizations;
   @tracked minimum_required_tags;
   @tracked styleType = this.style_type;
+  @tracked allowed_tags;
   @trackedArray available_groups;
   @trackedArray permissions;
   @trackedArray required_tag_groups;
@@ -783,7 +801,9 @@ export default class Category extends RestModel {
         all_topics_wiki: this.all_topics_wiki,
         allow_unlimited_owner_edits_on_first_post:
           this.allow_unlimited_owner_edits_on_first_post,
-        allowed_tags: this.allowed_tags,
+        allowed_tags: this.allowed_tags?.map((t) =>
+          typeof t === "object" ? t.name : t
+        ),
         allowed_tag_groups: this.allowed_tag_groups,
         allow_global_tags: this.allow_global_tags,
         required_tag_groups: this.required_tag_groups,

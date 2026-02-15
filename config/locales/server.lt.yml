@@ -52,6 +52,8 @@ lt:
   remove_posts_deleted_by_author: "Pašalinta autoriaus"
   redirect_warning: "Negalėjome patvirtinti, kad jūsų pasirinkta nuoroda buvo faktiškai paskelbta forume. Jei vis tiek norite tęsti, pasirinkite žemiau esančią nuorodą."
   on_another_topic: "Kitoje temoje"
+  topic_tag_changed:
+    added: "Pridėta %{added}"
   inline_oneboxer:
     topic_page_title_post_number: "#%{post_number}"
     topic_page_title_post_number_by_user: "#%{post_number} nuo %{username}"
@@ -289,6 +291,7 @@ lt:
   read_full_topic: "Skaityti pilną temą"
   private_message_abbrev: "Žinutė"
   rss_description:
+    hot: "Karštos temos"
     latest: "Naujausios temos"
     top: "Top temos"
     top_all: "Visų laikų Top temos"
@@ -1334,7 +1337,6 @@ lt:
     digest_posts: "Didžiausias populiarių įrašų, rodomų el. pašto suvestinėje, skaičius."
     digest_other_topics: "Didžiausias temų skaičius, rodomas el. laiškų santraukos skiltyje „Naujienos jūsų stebimose temose ir kategorijose“."
     show_inactive_accounts: "Leisti prisijungusiems vartotojams naršyti neaktyvių paskyrų profilius."
-    hide_suspension_reasons: "Nerodyti sustabdymo priežasčių viešai naudotojų profiliuose."
     user_selected_primary_groups: "Leiskite vartotojams nustatyti savo pagrindinę grupę"
     max_notifications_per_user: "Maksimalus vieno vartotojo pranešimų skaičius, jei šis skaičius viršijamas, senieji pranešimai bus ištrinti. Taikoma kas savaitę. Norėdami išjungti, nustatykite 0"
     header_dropdown_category_count: "Kiek kategorijų gali būti rodoma antraštės išskleidžiamajame meniu."
@@ -2596,6 +2598,7 @@ lt:
         title: "Ne"
       ignore:
         title: "Ignoruoti"
+        description: "Pašalinkite jį iš eilės nesiimdami jokių veiksmų."
       ignore_and_do_nothing:
         title: "Nieko nedaryti"
       approve:

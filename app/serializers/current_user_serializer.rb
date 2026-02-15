@@ -53,6 +53,7 @@ class CurrentUserSerializer < BasicUserSerializer
              :primary_group_id,
              :flair_group_id,
              :can_create_topic,
+             :can_create_category,
              :can_create_group,
              :link_posting_access,
              :external_id,
@@ -76,6 +77,7 @@ class CurrentUserSerializer < BasicUserSerializer
              :can_view_raw_email,
              :login_method,
              :has_unseen_features,
+             :has_new_upcoming_changes,
              :can_see_emails,
              :can_localize_content?,
              :effective_locale,
@@ -126,8 +128,16 @@ class CurrentUserSerializer < BasicUserSerializer
     scope.can_create_topic?(nil)
   end
 
+  def can_create_category
+    true
+  end
+
+  def include_can_create_category?
+    scope.can_create_category?
+  end
+
   def can_create_group
-    scope.can_create_group?
+    true
   end
 
   def include_can_create_group?
@@ -142,12 +152,24 @@ class CurrentUserSerializer < BasicUserSerializer
     scope.can_send_private_messages?
   end
 
+  def include_has_unseen_features?
+    object.staff?
+  end
+
   def has_unseen_features
     DiscourseUpdates.has_unseen_features?(object.id)
   end
 
-  def include_has_unseen_features?
-    object.staff?
+  def include_has_new_upcoming_changes?
+    SiteSetting.enable_upcoming_changes && object.staff?
+  end
+
+  def has_new_upcoming_changes
+    last_visited = object.custom_fields["last_visited_upcoming_changes_at"]
+
+    scope = UpcomingChangeEvent.added
+    scope = scope.where("created_at > ?", Time.zone.parse(last_visited)) if last_visited.present?
+    scope.exists?
   end
 
   def can_post_anonymously
@@ -176,7 +198,7 @@ class CurrentUserSerializer < BasicUserSerializer
   end
 
   def can_invite_to_forum
-    scope.can_invite_to_forum?
+    true
   end
 
   def include_can_invite_to_forum?
@@ -191,12 +213,12 @@ class CurrentUserSerializer < BasicUserSerializer
     !object.has_password?
   end
 
-  def include_can_delete_account?
-    scope.can_delete_user?(object)
-  end
-
   def can_delete_account
     true
+  end
+
+  def include_can_delete_account?
+    scope.can_delete_user?(object)
   end
 
   def custom_fields

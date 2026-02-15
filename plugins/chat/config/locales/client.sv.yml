@@ -549,13 +549,9 @@ sv:
           other: "%{commaSeparatedUsernames} och %{count} andra skriver"
       retention_reminders:
         indefinitely_short: "på obestämd tid"
-        indefinitely_long: "Chattinställningarna har ställts in för att behålla kanalmeddelanden på obestämd tid."
         short:
           one: "%{count} dag"
           other: "%{count} dagar"
-        long:
-          one: "Chattinställningarna har ställts in för att behålla kanalmeddelanden i %{count} dag."
-          other: "Chattinställningarna har ställts in för att behålla kanalmeddelanden i %{count} dagar."
       flags:
         off_topic: "Det här meddelandet är inte relevant för den aktuella diskussionen enligt kanaltiteln och bör förmodligen flyttas någon annanstans."
         inappropriate: "Detta meddelande innehåller saker som en förnuftig person skulle anse vara stötande, kränkande eller en överträdelse av <a href=\"%{basePath}/guidelines\">vårt forums riktlinjer</a>."
@@ -658,7 +654,6 @@ sv:
           composer_bold: "%{shortcut} Fet (endast kompositör)"
           composer_italic: "%{shortcut} Kursiv (endast kompositör)"
           composer_code: "%{shortcut} Kod (endast kompositör)"
-          drawer_open: "%{shortcut} Öppna chattmenyn"
           drawer_close: "%{shortcut} Stäng chattmenyn"
           mark_all_channels_read: "%{shortcut} Markera alla kanaler som lästa"
     topic_statuses:

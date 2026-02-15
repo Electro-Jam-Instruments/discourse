@@ -5,23 +5,12 @@ import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { dependentKeyCompat } from "@ember/object/compat";
 import { service } from "@ember/service";
-import {
-  attributeBindings,
-  classNameBindings,
-  tagName,
-} from "@ember-decorators/component";
+import { tagName } from "@ember-decorators/component";
+import concatClass from "discourse/helpers/concat-class";
 import discourseComputed from "discourse/lib/decorators";
 import { filterTypeForMode } from "discourse/lib/filter-mode";
 
-@tagName("li")
-@classNameBindings(
-  "active",
-  "content.hasIcon:has-icon",
-  "content.classNames",
-  "isHidden:hidden",
-  "content.name"
-)
-@attributeBindings("content.title:title", "role")
+@tagName("")
 export default class NavigationItem extends Component {
   @service filterFocus;
 
@@ -119,17 +108,31 @@ export default class NavigationItem extends Component {
   }
 
   <template>
-    <a
-      href={{this.hrefLink}}
-      class={{this.activeClass}}
-      role="tab"
-      aria-selected={{if this.active "true" "false"}}
-      {{on "click" this.handleClick}}
+    <li
+      title={{this.content.title}}
+      class={{concatClass
+        (if this.active "active")
+        (if this.content.hasIcon "has-icon")
+        this.content.classNames
+        (if this.isHidden "hidden")
+        this.content.name
+      }}
+      role="presentation"
+      ...attributes
     >
-      {{#if this.hasIcon}}
-        <span class={{this.content.name}}></span>
-      {{/if}}
-      {{this.content.displayName}}
-    </a>
+      <a
+        href={{this.hrefLink}}
+        class={{this.activeClass}}
+        role="tab"
+        aria-selected={{if this.active "true" "false"}}
+        aria-current={{if this.activeClass "page"}}
+        {{on "click" this.handleClick}}
+      >
+        {{#if this.hasIcon}}
+          <span class={{this.content.name}}></span>
+        {{/if}}
+        {{this.content.displayName}}
+      </a>
+    </li>
   </template>
 }

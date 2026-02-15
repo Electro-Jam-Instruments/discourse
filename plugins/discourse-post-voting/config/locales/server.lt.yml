@@ -10,8 +10,6 @@ lt:
       actions:
         no_action_comment:
           title: "Jokių veiksmų"
-        agree_and_silence:
-          description: "Sutikti su pranešimu ir nutildyti narį."
   post_action_types:
     vote:
       title: "Balsuoti"

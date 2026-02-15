@@ -5,9 +5,3 @@
 # https://translate.discourse.org/
 
 lt:
-  js:
-    discourse_math:
-      edit_modal:
-        apply: "Kandidatuoti"
-      insert_modal:
-        insert: "Įterpti"

@@ -101,7 +101,7 @@ export default class DiscoveryTopics extends Component {
       return this.topicTrackingState.countUnread({
         categoryId: this.args.category?.id,
         noSubcategories: this.args.noSubcategories,
-        tagId: this.args.tag?.name,
+        tagId: this.args.tag?.id,
       });
     } else {
       return 0;
@@ -115,7 +115,7 @@ export default class DiscoveryTopics extends Component {
       return this.topicTrackingState.countNew({
         categoryId: this.args.category?.id,
         noSubcategories: this.args.noSubcategories,
-        tagId: this.args.tag?.name,
+        tagId: this.args.tag?.id,
       });
     } else {
       return 0;
@@ -263,6 +263,7 @@ export default class DiscoveryTopics extends Component {
         @category={{@category}}
         @topics={{@model.sharedDrafts}}
         @discoveryList={{true}}
+        @listContext="discovery"
         class="shared-drafts"
       />
     {{/if}}
@@ -343,6 +344,7 @@ export default class DiscoveryTopics extends Component {
         @onLoadMore={{this.loadMore}}
         @footerMessage={{if this.allLoaded this.footerMessage}}
         @emptyMessage={{unless this.hasTopics this.emptyMessage}}
+        @listContext="discovery"
       />
 
       {{#if this.hasTopics}}
@@ -386,7 +388,7 @@ export default class DiscoveryTopics extends Component {
             @dismissRead={{@dismissRead}}
           />
 
-{{#if this.showEmptyFilterEducationInFooter}}
+          {{#if this.showEmptyFilterEducationInFooter}}
             <EmptyTopicFilter
               @newFilter={{this.new}}
               @unreadFilter={{this.unread}}

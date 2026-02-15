@@ -5,14 +5,9 @@
 # https://translate.discourse.org/
 
 pt:
-  discourse_post_voting:
-    reviewables:
-      actions:
-        agree_and_silence:
-          title: "Silenciar utilizador"
   post_action_types:
     vote:
-      title: "Voto"
+      title: "Votar"
   post_voting:
     comment:
       reviewables:
@@ -20,7 +15,7 @@ pt:
           agree_and_suspend:
             title: "Utilizador Suspenso"
           agree_and_silence:
-            title: "Silenciar Usuário"
+            title: "Silenciar Utilizador"
       reviewable_score_types:
         notify_user:
           comment_pm_body: "%{link}\n\n%{comment}"

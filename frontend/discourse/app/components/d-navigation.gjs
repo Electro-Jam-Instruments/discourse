@@ -132,7 +132,7 @@ export default class DNavigation extends Component {
     "filterType",
     "category",
     "noSubcategories",
-    "tag.name",
+    "tag",
     "router.currentRoute.queryParams",
     "skipCategoriesNavItem"
   )
@@ -140,7 +140,7 @@ export default class DNavigation extends Component {
     filterType,
     category,
     noSubcategories,
-    tagId,
+    tag,
     currentRouteQueryParams,
     skipCategoriesNavItem
   ) {
@@ -148,7 +148,7 @@ export default class DNavigation extends Component {
       filterType,
       noSubcategories,
       currentRouteQueryParams,
-      tagId,
+      tag,
       siteSettings: this.siteSettings,
       skipCategoriesNavItem,
     });
@@ -325,6 +325,10 @@ export default class DNavigation extends Component {
         @canCreateTopic={{this.canCreateTopic}}
         @action={{this.clickCreateTopicButton}}
         @label={{this.createTopicLabel}}
+        @btnTypeClass={{if
+          this.siteSettings.modernize_foundation_theme
+          "btn-primary"
+        }}
         @showDrafts={{if (gt this.draftCount 0) true false}}
       />
 

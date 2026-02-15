@@ -28,7 +28,7 @@ class Tags::BulkCreate
     validates :tag_names,
               length: {
                 maximum: 100,
-                message: ->(object, data) { I18n.t("tags.bulk_create.too_many_tags", max: 100) },
+                message: ->(object, data) { I18n.t("tags.bulk_create.too_many_tags", count: 100) },
               },
               if: -> { tag_names.present? }
 
@@ -67,12 +67,14 @@ class Tags::BulkCreate
     raw_tag_names.each do |raw_name|
       next if raw_name.blank?
 
-      normalized_input = raw_name.strip.downcase.gsub(/[[:space:]]+/, "-")
+      normalized_input = raw_name.strip
+      normalized_input = normalized_input.downcase if SiteSetting.force_lowercase_tags
+      normalized_input = normalized_input.gsub(/[[:space:]]+/, "-")
 
       if normalized_input.length > SiteSetting.max_tag_length
         results[:failed][raw_name] = I18n.t(
           "tags.bulk_create.tag_too_long",
-          max: SiteSetting.max_tag_length,
+          count: SiteSetting.max_tag_length,
         )
         next
       end

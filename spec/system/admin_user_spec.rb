@@ -171,6 +171,31 @@ describe "Admin User Page", type: :system do
           end
         end
       end
+
+      it "does not show conceptual upcoming changes" do
+        mock_upcoming_change_metadata(
+          {
+            enable_upload_debug_mode: {
+              impact: "feature,all_members",
+              status: :beta,
+              impact_type: "feature",
+              impact_role: "all_members",
+            },
+            about_page_extra_groups_show_description: {
+              impact: "feature,all_members",
+              status: :conceptual,
+              impact_type: "feature",
+              impact_role: "all_members",
+            },
+          },
+        )
+
+        admin_user_page.visit(user)
+        expect(admin_user_page).to have_upcoming_change("enable_upload_debug_mode")
+        expect(admin_user_page).to have_no_upcoming_change(
+          "about_page_extra_groups_show_description",
+        )
+      end
     end
 
     describe "the suspend user modal" do
@@ -236,6 +261,43 @@ describe "Admin User Page", type: :system do
         admin_user_page.click_unsilence_button
         expect(page).not_to have_css(".silence-info")
       end
+    end
+  end
+
+  describe "custom groups" do
+    fab!(:user)
+    fab!(:group)
+
+    it "saves and displays the added group" do
+      admin_user_page.visit(user)
+
+      group_chooser = admin_user_page.custom_groups_chooser
+      group_chooser.expand
+      group_chooser.select_row_by_value(group.id)
+
+      expect(admin_user_page).to have_custom_groups_save_button
+      admin_user_page.save_custom_groups
+      expect(admin_user_page).to have_no_custom_groups_save_button
+      expect(admin_user_page).to have_custom_group(group.name)
+
+      expect(GroupUser.exists?(user:, group:)).to eq(true)
+    end
+
+    it "saves and removes the group from the list" do
+      group.add(user)
+      admin_user_page.visit(user)
+      expect(admin_user_page).to have_custom_group(group.name)
+
+      group_chooser = admin_user_page.custom_groups_chooser
+      group_chooser.expand
+      group_chooser.unselect_by_name(group.name)
+
+      expect(admin_user_page).to have_custom_groups_save_button
+      admin_user_page.save_custom_groups
+      expect(admin_user_page).to have_no_custom_groups_save_button
+      expect(admin_user_page).to have_no_custom_group(group.name)
+
+      expect(GroupUser.exists?(user:, group:)).to eq(false)
     end
   end
 

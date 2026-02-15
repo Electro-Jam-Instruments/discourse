@@ -94,6 +94,10 @@ export default class TopicList extends Component {
 
     const self = this;
     const context = {
+      get listContext() {
+        return self.args.listContext;
+      },
+
       get category() {
         return self.topicTrackingState.get("filterCategory");
       },
@@ -179,6 +183,7 @@ export default class TopicList extends Component {
   get additionalClasses() {
     return applyValueTransformer("topic-list-class", [], {
       topics: this.args.topics,
+      listContext: this.args.listContext,
     });
   }
 
@@ -285,6 +290,7 @@ export default class TopicList extends Component {
             @tagsForUser={{@tagsForUser}}
             @focusLastVisitedTopic={{@focusLastVisitedTopic}}
             @index={{index}}
+            @listContext={{@listContext}}
           />
 
           {{#if (eq topic this.lastVisitedTopic)}}

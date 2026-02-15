@@ -275,10 +275,6 @@ export default <template>
             }}
           />
 
-          {{#if @controller.model.has_localized_content}}
-            <TopicLocalizedContentToggle @topic={{@controller.model}} />
-          {{/if}}
-
           {{#if info.renderTimeline}}
             <TopicTimeline
               @info={{info}}
@@ -314,16 +310,14 @@ export default <template>
               @expanded={{info.topicProgressExpanded}}
               @jumpToPost={{@controller.jumpToPost}}
             >
-              <span>
-                <PluginOutlet
-                  @name="before-topic-progress"
-                  @connectorTagName="div"
-                  @outletArgs={{lazyHash
-                    model=@controller.model
-                    jumpToPost=@controller.jumpToPost
-                  }}
-                />
-              </span>
+              <PluginOutlet
+                @name="before-topic-progress"
+                @connectorTagName="div"
+                @outletArgs={{lazyHash
+                  model=@controller.model
+                  jumpToPost=@controller.jumpToPost
+                }}
+              />
               <TopicAdminMenu
                 @topic={{@controller.model}}
                 @toggleMultiSelect={{@controller.toggleMultiSelect}}
@@ -342,6 +336,9 @@ export default <template>
                 @convertToPublicTopic={{@controller.convertToPublicTopic}}
                 @convertToPrivateMessage={{@controller.convertToPrivateMessage}}
               />
+              {{#if @controller.model.has_localized_content}}
+                <TopicLocalizedContentToggle @topic={{@controller.model}} />
+              {{/if}}
             </TopicProgress>
           {{/if}}
 
@@ -507,7 +504,6 @@ export default <template>
                 <SlowModeInfo
                   @topic={{@controller.model}}
                   @user={{@controller.currentUser}}
-                  @tagName=""
                 />
 
                 <TopicTimerInfo

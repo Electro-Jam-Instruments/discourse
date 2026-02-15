@@ -89,8 +89,9 @@ export default class TagInfo extends Component {
       return;
     }
     this.set("loading", true);
+    const findArgs = this.tag.id || this.tag.name;
     return this.store
-      .find("tag-info", this.tag.name)
+      .find("tag-info", findArgs)
       .then((result) => {
         this.set("tagInfo", result);
         this.set(
@@ -119,12 +120,13 @@ export default class TagInfo extends Component {
   }
 
   @action
-  unlinkSynonym(tag, event) {
+  unlinkSynonym(synonym, event) {
     event?.preventDefault();
-    ajax(`/tag/${this.tagInfo.name}/synonyms/${tag.name}`, {
+    const id = this.tagInfo.id;
+    ajax(`/tag/${id}/synonyms/${synonym.id}.json`, {
       type: "DELETE",
     })
-      .then(() => removeValueFromArray(this.tagInfo.synonyms, tag))
+      .then(() => removeValueFromArray(this.tagInfo.synonyms, synonym))
       .catch(popupAjaxError);
   }
 
@@ -161,17 +163,22 @@ export default class TagInfo extends Component {
     this.newTagDescription = this.newTagDescription?.replaceAll("\n", "<br>");
     this.tag
       .update({
+        slug: this.tag.slug,
         name: this.newTagName,
         description: this.newTagDescription,
       })
       .then((result) => {
         this.set("editing", false);
-        this.tagInfo.set("description", this.newTagDescription);
-
         if (result.responseJson.tag) {
-          const newTagName = result.responseJson.tag.name;
-          if (oldTagName !== newTagName) {
-            this.router.transitionTo("tag.show", newTagName);
+          const updatedTag = result.responseJson.tag;
+          this.tagInfo.setProperties({
+            name: updatedTag.name,
+            slug: updatedTag.slug,
+            description: this.newTagDescription,
+          });
+          if (oldTagName !== updatedTag.name) {
+            const slugForUrl = updatedTag.slug || `${updatedTag.id}-tag`;
+            this.router.transitionTo("tag.show", slugForUrl, updatedTag.id);
           }
         }
       })
@@ -219,10 +226,15 @@ export default class TagInfo extends Component {
         })
       ),
       didConfirm: () => {
-        return ajax(`/tag/${this.tagInfo.name}/synonyms`, {
+        const id = this.tagInfo.id;
+        return ajax(`/tag/${id}/synonyms.json`, {
           type: "POST",
           data: {
-            synonyms: this.newSynonyms,
+            tags: this.newSynonyms.map((t) =>
+              typeof t.id === "number"
+                ? { id: t.id, name: t.name }
+                : { name: t.name }
+            ),
           },
         })
           .then((response) => {

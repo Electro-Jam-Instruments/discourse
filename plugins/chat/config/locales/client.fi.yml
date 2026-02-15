@@ -526,13 +526,9 @@ fi:
           other: "%{commaSeparatedUsernames} ja %{count} muuta kirjoittavat"
       retention_reminders:
         indefinitely_short: "toistaiseksi"
-        indefinitely_long: "Keskusteluasetukset on määritetty säilyttämään kanavien viestit pysyvästi."
         short:
           one: "%{count} päivä"
           other: "%{count} päivää"
-        long:
-          one: "Keskusteluasetukset on määritetty säilyttämään kanavien viestit %{count} päivän ajan."
-          other: "Keskusteluasetukset on määritetty säilyttämään kanavien viestit %{count} päivän ajan."
       flags:
         off_topic: "Tämä viesti ei liity nykyiseen keskusteluun kanavan otsikon mukaan, ja se pitäisi todennäköisesti siirtää muualle."
         inappropriate: "Tämä viesti sisältää sisältöä, jota kohtuullinen henkilö pitäisi loukkaavana, herjaavana tai <a href=\"%{basePath}/guidelines\">yhteisömme ohjeiden vastaisena</a>."
@@ -664,7 +660,6 @@ fi:
           composer_bold: "%{shortcut} Lihavointi (vain tekstieditori)"
           composer_italic: "%{shortcut} Kursiivi (vain tekstieditori)"
           composer_code: "%{shortcut} Koodi (vain tekstieditori)"
-          drawer_open: "%{shortcut} Avaa chat-laatikko"
           drawer_close: "%{shortcut} Sulje chat-laatikko"
           mark_all_channels_read: "%{shortcut} Merkitse kaikki kanavat luetuiksi"
     topic_statuses:

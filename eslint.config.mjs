@@ -17,12 +17,6 @@ export default [
       "electrojam": electroJamPlugin,
     },
     rules: {
-      "qunit/no-assert-equal": "error",
-      "qunit/no-loose-assertions": "error",
-      "ember/no-classic-components": "error",
-      "discourse/no-route-template": "error",
-      "discourse/moved-packages-import-paths": "error",
-
       // Custom ElectroJam rules
       // Set to "warn" initially so existing code doesn't break builds
       // Change to "error" once codebase is clean
@@ -42,6 +36,7 @@ export default [
         ],
       }],
     },
+    // custom overrides go here
   },
   {
     ignores: [

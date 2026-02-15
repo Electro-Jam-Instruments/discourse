@@ -34,6 +34,7 @@ class CategoriesController < ApplicationController
 
   SYMMETRICAL_CATEGORIES_TO_TOPICS_FACTOR = 1.5
   MIN_CATEGORIES_TOPICS = 5
+  MAX_CATEGORIES_TOPICS = 100
   MAX_CATEGORIES_LIMIT = 25
 
   def redirect
@@ -335,26 +336,17 @@ class CategoriesController < ApplicationController
   end
 
   def hierarchical_search
-    term = params[:term].to_s.strip
-    page = [1, params[:page].to_i].max
-    only_ids = params[:only].map(&:to_i) if params[:only].present?
-    except_ids = params[:except].map(&:to_i) if params[:except].present?
-
-    categories =
-      CategoryHierarchicalSearch.call(
-        guardian: guardian,
-        params: {
-          term:,
-          only_ids:,
-          except_ids:,
-          limit: MAX_CATEGORIES_LIMIT,
-          offset: (page - 1) * MAX_CATEGORIES_LIMIT,
-        },
-      ).categories
-
-    response = { categories: serialize_data(categories, SiteCategorySerializer, scope: guardian) }
-
-    render_json_dump(response)
+    Category::HierarchicalSearch.call(service_params) do
+      on_success do |categories:|
+        render_json_dump(
+          categories: serialize_data(categories, SiteCategorySerializer, scope: guardian),
+        )
+      end
+      on_failed_contract do |contract|
+        render json: failed_json.merge(errors: contract.errors.full_messages), status: :bad_request
+      end
+      on_failure { render json: failed_json, status: :unprocessable_entity }
+    end
   end
 
   def search
@@ -402,7 +394,13 @@ class CategoriesController < ApplicationController
     categories = Category.secured(guardian)
 
     if term.present? && words = term.split
-      words.each { |word| categories = categories.where("name ILIKE ?", "%#{word}%") }
+      words.each do |word|
+        categories =
+          categories.where(
+            "#{Category.normalize_sql("name")} ILIKE #{Category.normalize_sql("?")}",
+            "%#{word}%",
+          )
+      end
     end
 
     categories =
@@ -440,7 +438,7 @@ class CategoriesController < ApplicationController
         .joins("LEFT JOIN topics t on t.id = categories.topic_id")
         .select("categories.*, t.slug topic_slug")
         .order(
-          "starts_with(lower(categories.name), #{ActiveRecord::Base.connection.quote(term)}) DESC",
+          "starts_with(#{Category.normalize_sql("categories.name")}, #{Category.normalize_sql(ActiveRecord::Base.connection.quote(term))}) DESC",
           "categories.parent_category_id IS NULL DESC",
           "categories.id IS NOT DISTINCT FROM #{ActiveRecord::Base.connection.quote(prioritized_category_id)} DESC",
           "categories.parent_category_id IS NOT DISTINCT FROM #{ActiveRecord::Base.connection.quote(prioritized_category_id)} DESC",
@@ -471,12 +469,12 @@ class CategoriesController < ApplicationController
 
   private
 
-  def self.topics_per_page
+  def topics_per_page
     return SiteSetting.categories_topics if SiteSetting.categories_topics > 0
 
-    count = Category.where(parent_category: nil).count
+    count = Category.secured(guardian).where(parent_category: nil).count
     count = (SYMMETRICAL_CATEGORIES_TO_TOPICS_FACTOR * count).to_i
-    count > MIN_CATEGORIES_TOPICS ? count : MIN_CATEGORIES_TOPICS
+    count.clamp(MIN_CATEGORIES_TOPICS, MAX_CATEGORIES_TOPICS)
   end
 
   def categories_and_topics(topics_filter)
@@ -658,7 +656,7 @@ class CategoriesController < ApplicationController
         SiteSetting.desktop_category_page_style
       end
 
-    topic_options = { per_page: CategoriesController.topics_per_page, no_definitions: true }
+    topic_options = { per_page: topics_per_page, no_definitions: true }
     topic_options.merge!(build_topic_list_options)
     topic_options[:order] = "created" if SiteSetting.desktop_category_page_style ==
       "categories_and_latest_topics_created_date"

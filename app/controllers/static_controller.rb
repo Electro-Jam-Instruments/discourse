@@ -3,9 +3,9 @@
 class StaticController < ApplicationController
   skip_before_action :check_xhr, :redirect_to_login_if_required, :redirect_to_profile_if_required
   skip_before_action :verify_authenticity_token,
-                     only: %i[cdn_asset enter favicon service_worker_asset]
-  skip_before_action :preload_json, only: %i[cdn_asset enter favicon service_worker_asset]
-  skip_before_action :handle_theme, only: %i[cdn_asset enter favicon service_worker_asset]
+                     only: %i[cdn_asset enter favicon llms_txt service_worker_asset]
+  skip_before_action :preload_json, only: %i[cdn_asset enter favicon llms_txt service_worker_asset]
+  skip_before_action :handle_theme, only: %i[cdn_asset enter favicon llms_txt service_worker_asset]
 
   before_action :apply_cdn_headers, only: %i[cdn_asset enter favicon service_worker_asset]
 
@@ -64,8 +64,7 @@ class StaticController < ApplicationController
       return redirect_to path("/login")
     end
 
-    rename_faq =
-      UpcomingChanges.enabled_for_user?(:experimental_rename_faq_to_guidelines, current_user)
+    rename_faq = UpcomingChanges.enabled_for_user?(:rename_faq_to_guidelines, current_user)
 
     if rename_faq
       redirect_paths = %w[/rules /conduct]
@@ -111,7 +110,7 @@ class StaticController < ApplicationController
       @title = "#{title_prefix} - #{SiteSetting.title}"
       @body = @topic.posts.first.cooked
       @faq_overridden = SiteSetting.faq_url.present?
-      @experimental_rename_faq_to_guidelines = rename_faq
+      @rename_faq_to_guidelines = rename_faq
 
       render :show, layout: !request.xhr?, formats: [:html]
       return
@@ -221,6 +220,28 @@ class StaticController < ApplicationController
         response.headers["Last-Modified"] = Time.new(2000, 01, 01).httpdate
         render body: data, content_type: "image/png"
       end
+    end
+  end
+
+  def llms_txt
+    upload = SiteSetting.llms_txt
+    return head(:not_found) if upload.blank?
+
+    if Discourse.store.external?
+      content =
+        Discourse
+          .cache
+          .fetch("llms_txt_content:#{upload.sha1}") do
+            Discourse.store.download_safe(upload)&.path&.then { |path| File.read(path) }
+          end
+      return head(:not_found) if content.blank?
+
+      render plain: content, content_type: "text/plain"
+    else
+      path = Discourse.store.path_for(upload)
+      return head(:not_found) if path.blank? || !File.exist?(path)
+
+      send_file(path, type: "text/plain", disposition: "inline")
     end
   end
 

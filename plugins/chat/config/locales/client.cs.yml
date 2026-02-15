@@ -264,10 +264,10 @@ cs:
       kicked_from_channel: "K tomuto kanálu již nemáte přístup."
       chat_notifications_title: "Upozornění chatu"
       only_chat_push_notifications:
-        title: "Odesílání pouze push notifikací chatu"
+        title: "Odesílat pouze push notifikace chatu"
       personalization_title: "Osobní přizpůsobení"
       ignore_channel_wide_mention:
-        title: "Ignorování zmínek v rámci celého kanálu"
+        title: "Ignorovat zmínky v rámci celého kanálu"
       show_thread_title_prompts:
         title: "Zobrazit výzvy k zadání názvu vlákna"
         description: "Zobrazit výzvy k nastavení názvu pro nová vlákna"
@@ -662,18 +662,19 @@ cs:
           many: "%{commaSeparatedUsernames} a %{count} dalších píší"
           other: "%{commaSeparatedUsernames} a %{count} dalších píší"
       retention_reminders:
+        chat_settings: "Nastavení chatu"
         indefinitely_short: "navždy"
-        indefinitely_long: "Chat byl nastaven tak, aby se zprávy kanálu uchovávaly po neomezenou dobu."
+        indefinitely_long: "%{chatSettingsLink} bylo nastaveno tak, aby uchovávalo zprávy kanálu na dobu neurčitou."
         short:
           one: "%{count} den"
           few: "%{count} dny"
           many: "%{count} dní"
           other: "%{count} dní"
         long:
-          one: "Chat byl nastaven tak, aby se zprávy kanálu uchovávaly %{count} den."
-          few: "Chat byl nastaven tak, aby se zprávy kanálu uchovávaly %{count} dny."
-          many: "Chat byl nastaven tak, aby se zprávy kanálu uchovávaly %{count} dní."
-          other: "Chat byl nastaven tak, aby se zprávy kanálu uchovávaly %{count} dní."
+          one: "%{chatSettingsLink} bylo nastaveno tak, aby uchovávalo zprávy kanálu po dobu %{count} dne."
+          few: "%{chatSettingsLink} bylo nastaveno tak, aby uchovávalo zprávy kanálu po dobu %{count} dnů."
+          many: "%{chatSettingsLink} bylo nastaveno tak, aby uchovávalo zprávy kanálu po dobu %{count} dnů."
+          other: "%{chatSettingsLink} bylo nastaveno tak, aby uchovávalo zprávy kanálu po dobu %{count} dnů."
       flags:
         off_topic: "Tato zpráva není relevantní pro aktuální diskusi, definovanou názvem kanálu, a pravděpodobně by měla být přesunuta jinam."
         inappropriate: "Tato zpráva obsahuje obsah, který by rozumný člověk mohl považovat za urážlivý, zneužívající nebo porušující <a href=\"%{basePath}/guidelines\">naše pravidla komunity</a>."
@@ -811,7 +812,7 @@ cs:
           composer_bold: "%{shortcut} Tučné (pouze editor)"
           composer_italic: "%{shortcut} Kurzíva (pouze editor)"
           composer_code: "%{shortcut} Kód (pouze editor)"
-          drawer_open: "%{shortcut} Otevření okénka chatu"
+          drawer_toggle: "%{shortcut} Přepnout okénko chatu"
           drawer_close: "%{shortcut} Zavření okénka chatu"
           mark_all_channels_read: "%{shortcut} Označit všechny kanály jako přečtené"
     topic_statuses:

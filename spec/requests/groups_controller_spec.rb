@@ -1175,7 +1175,9 @@ RSpec.describe GroupsController do
 
           expect(response.status).to eq(422)
           expect(response.parsed_body["user_count"]).to eq(group.group_users.count)
-          expect(response.parsed_body["errors"].first).to include("update_existing_users")
+          expect(response.parsed_body["errors"].first).to eq(
+            I18n.t("groups.errors.update_existing_users_required", count: group.group_users.count),
+          )
           expect(group_user1.reload.notification_level).to eq(NotificationLevels.all[:watching])
           expect(group_user2.reload.notification_level).to eq(NotificationLevels.all[:watching])
 
@@ -2874,6 +2876,34 @@ RSpec.describe GroupsController do
           expect(response.status).to eq(429)
         end
       end
+    end
+  end
+
+  describe "requires_login for state-changing actions" do
+    fab!(:group)
+
+    it "returns not_logged_in error for anonymous add_members request" do
+      put "/groups/#{group.id}/members.json", params: { usernames: "bob" }
+      expect(response.status).to eq(403)
+      expect(response.parsed_body["error_type"]).to eq("not_logged_in")
+    end
+
+    it "returns not_logged_in error for anonymous add_owners request" do
+      put "/groups/#{group.id}/owners.json", params: { usernames: "bob" }
+      expect(response.status).to eq(403)
+      expect(response.parsed_body["error_type"]).to eq("not_logged_in")
+    end
+
+    it "returns not_logged_in error for anonymous remove_member request" do
+      delete "/groups/#{group.id}/members.json", params: { username: "bob" }
+      expect(response.status).to eq(403)
+      expect(response.parsed_body["error_type"]).to eq("not_logged_in")
+    end
+
+    it "returns not_logged_in error for anonymous handle_membership_request" do
+      put "/groups/#{group.id}/handle_membership_request.json", params: { user_id: 1 }
+      expect(response.status).to eq(403)
+      expect(response.parsed_body["error_type"]).to eq("not_logged_in")
     end
   end
 end

@@ -22,7 +22,10 @@ import { i18n } from "discourse-i18n";
 
 export default class LatestTopicListItem extends Component {
   get tagClassNames() {
-    return this.args.topic.tags?.map((tagName) => `tag-${tagName}`);
+    return this.args.topic.tags?.map((tag) => {
+      const tagName = typeof tag === "string" ? tag : tag.name;
+      return `tag-${tagName}`;
+    });
   }
 
   get additionalClasses() {

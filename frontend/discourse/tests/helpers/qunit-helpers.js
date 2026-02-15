@@ -1,3 +1,4 @@
+/* eslint-disable ember/no-jquery */
 import { run } from "@ember/runloop";
 import {
   find,
@@ -33,6 +34,7 @@ import { resetQuickSearchRandomTips } from "discourse/components/search-menu/res
 import { resetOnKeyUpCallbacks } from "discourse/components/search-menu/search-term";
 import { resetUserMenuProfileTabItems } from "discourse/components/user-menu/profile-tab-content";
 import { resetCustomPostMessageCallbacks } from "discourse/controllers/topic";
+import { resetCustomUserNavMessagesDropdownRows } from "discourse/controllers/user-private-messages";
 import { clearHTMLCache } from "discourse/helpers/custom-html";
 import { resetUsernameDecorators } from "discourse/helpers/decorate-username-selector";
 import { resetBeforeAuthCompleteCallbacks } from "discourse/instance-initializers/auth-complete";
@@ -267,6 +269,7 @@ export function testCleanup(container, app) {
   resetGroupPostSmallActionCodes();
   enableClearA11yAnnouncementsInTests();
   resetHtmlDecorators();
+  resetCustomUserNavMessagesDropdownRows();
 }
 
 function cleanupCssGeneratorTags() {
@@ -331,24 +334,10 @@ export function addPretenderCallback(name, fn) {
   }
 }
 
-export function acceptance(name, optionsOrCallback) {
+export function acceptance(name, callback) {
   name = `Acceptance: ${name}`;
 
-  let callback;
   let options = {};
-  if (typeof optionsOrCallback === "function") {
-    callback = optionsOrCallback;
-  } else if (typeof optionsOrCallback === "object") {
-    deprecated(
-      `${name}: The second parameter to \`acceptance\` should be a function that encloses your tests.`,
-      {
-        since: "2.6.0",
-        dropFrom: "2.9.0.beta1",
-        id: "discourse.qunit.acceptance-function",
-      }
-    );
-    options = optionsOrCallback;
-  }
 
   addPretenderCallback(name, options.pretend);
 

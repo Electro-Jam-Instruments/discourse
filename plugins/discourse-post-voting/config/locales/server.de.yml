@@ -35,8 +35,11 @@ de:
   discourse_post_voting:
     reviewables:
       actions:
+        comment_actions:
+          bundle_title: "Was willst du mit dem Kommentar machen?"
         no_action_comment:
           title: "Keine Aktion"
+          description: "Kommentar unverändert lassen."
         agree_and_keep_comment:
           title: "Kommentar behalten"
           description: "Meldung zustimmen und den Kommentar unbearbeitet lassen."
@@ -49,21 +52,9 @@ de:
         agree_and_delete:
           title: "Kommentar löschen"
           description: "Kommentar löschen, damit Benutzer ihn nicht sehen können."
-        agree_and_suspend:
-          title: "Benutzer sperren"
-          description: "Meldung zustimmen und den Benutzer sperren."
-        agree_and_silence:
-          title: "Benutzer stummschalten"
-          description: "Meldung zustimmen und den Benutzer stummschalten."
         disagree_and_restore:
           title: "Ablehnen und Kommentar wiederherstellen"
           description: "Kommentar wiederherstellen, damit alle Benutzer ihn sehen können."
-        disagree:
-          title: "Kommentar behalten"
-        ignore:
-          title: "Meldung ignorieren"
-        delete_and_agree:
-          description: "Ignoriere die Meldung, indem du sie aus der Warteschlange entfernst und den Kommentar löschst."
   post_action_types:
     vote:
       title: "Abstimmen"
@@ -115,10 +106,6 @@ de:
           disagree_and_restore:
             title: "Ablehnen und Kommentar wiederherstellen"
             description: "Kommentar wiederherstellen, damit alle Benutzer ihn sehen können."
-          disagree:
-            title: "Kommentar behalten"
-          ignore:
-            title: "Meldung ignorieren"
         transcript:
           view: "Transkript früherer Kommentare anzeigen"
       reviewable_score_types:

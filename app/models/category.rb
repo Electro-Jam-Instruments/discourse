@@ -232,6 +232,10 @@ class Category < ActiveRecord::Base
 
   enum :style_type, { square: 0, icon: 1, emoji: 2 }
 
+  def self.normalize_sql(expr)
+    "lower(unaccent(#{expr}))"
+  end
+
   def self.preload_user_fields!(guardian, categories)
     category_ids = categories.map(&:id)
 
@@ -323,7 +327,7 @@ class Category < ActiveRecord::Base
     sqls =
       slugs.map do |slug|
         category_slugs =
-          slug.split(":").first(SiteSetting.max_category_nesting).map { Slug.for(_1, "") }
+          slug.split(":").first(SiteSetting.max_category_nesting).map { Slug.for(it, "") }
 
         sql = ""
 
