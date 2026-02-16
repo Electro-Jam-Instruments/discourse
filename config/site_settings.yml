@@ -3824,6 +3824,11 @@ uncategorized:
     default: "top_menu_pages"
     area: "interface"
 
+  enable_enhanced_keyboard_navigation:
+    client: true
+    default: true
+    area: "interface"
+
   modernize_foundation_theme:
     default: false
     client: true
@@ -3896,6 +3901,9 @@ user_preferences:
     default: false
     area: "user_defaults"
   default_other_enable_smart_lists:
+    default: true
+    area: "user_defaults"
+  default_other_enable_enhanced_keyboard_navigation:
     default: true
     area: "user_defaults"
   default_other_dynamic_favicon:

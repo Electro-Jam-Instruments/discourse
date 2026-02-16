@@ -59,6 +59,7 @@ class UserUpdater
     watched_precedence_over_muted
     topics_unread_when_closed
     composition_mode
+    enable_enhanced_keyboard_navigation
   ]
 
   NOTIFICATION_SCHEDULE_ATTRS = -> do

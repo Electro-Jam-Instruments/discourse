@@ -2604,6 +2604,8 @@ en:
     default_other_external_links_in_new_tab: "Open external links in a new tab by default."
     default_other_enable_quoting: "Enable quote reply for highlighted text by default."
     default_other_enable_smart_lists: "Enable smart lists when typing in the composer by default."
+    enable_enhanced_keyboard_navigation: "Enable enhanced keyboard navigation with arrow keys for topic lists, post streams, toolbars, and sidebar."
+    default_other_enable_enhanced_keyboard_navigation: "Enable enhanced keyboard navigation by default for new users."
     default_other_enable_defer: "Enable defer topic functionality by default."
     default_other_enable_markdown_monospace_font: "Use monospace font in composer's Markdown mode by default."
     default_other_dynamic_favicon: "Show new/updated topic count on browser icon by default."

@@ -35,6 +35,7 @@ import { preventCloaking } from "discourse/modifiers/post-stream-viewport-tracke
 
 export default class PostStreamNavigationModifier extends Modifier {
   @service focusHistory;
+  @service keyboardNavigation;
 
   element = null;
   // Track active row by post number (stable across cloaking) rather than array index
@@ -83,6 +84,11 @@ export default class PostStreamNavigationModifier extends Modifier {
   }
 
   modify(element, positional, named) {
+    if (!this.keyboardNavigation.isEnabled) {
+      this.cleanup();
+      return;
+    }
+
     // Only set up listeners once per element
     if (this.element !== element) {
       this.cleanup();

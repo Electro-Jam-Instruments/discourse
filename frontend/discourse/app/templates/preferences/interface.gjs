@@ -222,6 +222,12 @@ export default <template>
       data-setting-name="user-enable-markdown-monospace-font"
       class="pref-enable-markdown-monospace-font"
     />
+    <PreferenceCheckbox
+      @labelKey="user.enable_enhanced_keyboard_navigation"
+      @checked={{@controller.model.user_option.enable_enhanced_keyboard_navigation}}
+      data-setting-name="user-enhanced-keyboard-nav"
+      class="pref-enhanced-keyboard-nav"
+    />
     <div
       class="controls controls-dropdown pref-page-title"
       data-setting-name="user-page-title"

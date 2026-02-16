@@ -33,6 +33,7 @@ import {
  */
 export default class GridNavigationModifier extends Modifier {
   @service focusHistory;
+  @service keyboardNavigation;
 
   element = null;
   activeRowIndex = 0;
@@ -53,6 +54,11 @@ export default class GridNavigationModifier extends Modifier {
   }
 
   modify(element, positional, named) {
+    if (!this.keyboardNavigation.isEnabled) {
+      this.cleanup();
+      return;
+    }
+
     // Only set up listeners once per element
     if (this.element !== element) {
       this.cleanup();

@@ -1,4 +1,5 @@
 import { registerDestructor } from "@ember/destroyable";
+import { service } from "@ember/service";
 import Modifier from "ember-modifier";
 import { bind } from "discourse/lib/decorators";
 
@@ -34,6 +35,8 @@ import { bind } from "discourse/lib/decorators";
  * </div>
  */
 export default class ToolbarNavigationModifier extends Modifier {
+  @service keyboardNavigation;
+
   /**
    * The DOM element the modifier is attached to
    * @type {HTMLElement|null}
@@ -72,6 +75,11 @@ export default class ToolbarNavigationModifier extends Modifier {
    * @param {object} named - Named arguments for configuration options
    */
   modify(element, positional, named) {
+    if (!this.keyboardNavigation.isEnabled) {
+      this.cleanup();
+      return;
+    }
+
     // Only set up listeners once
     if (this.element !== element) {
       this.cleanup();

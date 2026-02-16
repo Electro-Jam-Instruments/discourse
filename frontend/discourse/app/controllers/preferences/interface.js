@@ -81,6 +81,7 @@ export default class InterfaceController extends Controller {
       "bookmark_auto_delete_preference",
       "interface_color_mode",
       "enable_markdown_monospace_font",
+      "enable_enhanced_keyboard_navigation",
     ];
 
     if (makeThemeDefault) {

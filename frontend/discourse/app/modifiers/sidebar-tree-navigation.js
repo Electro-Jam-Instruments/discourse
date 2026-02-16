@@ -1,4 +1,5 @@
 import { registerDestructor } from "@ember/destroyable";
+import { service } from "@ember/service";
 import Modifier from "ember-modifier";
 import {
   getNextIndex,
@@ -33,6 +34,8 @@ import {
  * - This enables keyboard users to navigate between the collapse and edit buttons
  */
 export default class SidebarTreeNavigationModifier extends Modifier {
+  @service keyboardNavigation;
+
   element = null;
   activeItemIndex = 0;
   options = {
@@ -47,6 +50,11 @@ export default class SidebarTreeNavigationModifier extends Modifier {
   }
 
   modify(element, positional, named) {
+    if (!this.keyboardNavigation.isEnabled) {
+      this.cleanup();
+      return;
+    }
+
     if (this.element !== element) {
       this.cleanup();
       this.element = element;
