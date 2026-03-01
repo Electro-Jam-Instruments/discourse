@@ -3904,6 +3904,7 @@ user_preferences:
     default: true
     area: "user_defaults"
   default_other_enable_enhanced_keyboard_navigation:
+    client: true
     default: true
     area: "user_defaults"
   default_other_dynamic_favicon:
