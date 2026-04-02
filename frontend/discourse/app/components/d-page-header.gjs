@@ -2,7 +2,7 @@ import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
 import { hash } from "@ember/helper";
 import { service } from "@ember/service";
-import { htmlSafe } from "@ember/template";
+import { trustHTML } from "@ember/template";
 import DBreadcrumbsContainer from "discourse/components/d-breadcrumbs-container";
 import {
   DangerActionListItem,
@@ -65,7 +65,7 @@ export default class DPageHeader extends Component {
 
   <template>
     {{#if this.shouldDisplay}}
-      <div class="d-page-header">
+      <div class="d-page-header" ...attributes>
         {{#if (has-block "breadcrumbs")}}
           <div class="d-page-header__breadcrumbs">
             <DBreadcrumbsContainer />
@@ -73,9 +73,20 @@ export default class DPageHeader extends Component {
           </div>
         {{/if}}
 
-        {{#if (or @titleLabel (has-block "actions") @headerActionComponent)}}
+        {{#if
+          (or
+            (has-block "title")
+            @titleLabel
+            (has-block "actions")
+            @headerActionComponent
+          )
+        }}
           <div class="d-page-header__title-row">
-            {{#if @titleLabel}}
+            {{#if (has-block "title")}}
+              <h1 class="d-page-header__title">
+                {{yield to="title"}}
+              </h1>
+            {{else if @titleLabel}}
               <h1 class="d-page-header__title">{{@titleLabel}}</h1>
             {{/if}}
 
@@ -132,9 +143,9 @@ export default class DPageHeader extends Component {
 
         {{#if @descriptionLabel}}
           <p class="d-page-header__description">
-            {{htmlSafe @descriptionLabel}}
+            {{trustHTML @descriptionLabel}}
             {{#if @learnMoreUrl}}
-              <span class="d-page-header__learn-more">{{htmlSafe
+              <span class="d-page-header__learn-more">{{trustHTML
                   (i18n "learn_more_with_link" url=@learnMoreUrl)
                 }}</span>
             {{/if}}

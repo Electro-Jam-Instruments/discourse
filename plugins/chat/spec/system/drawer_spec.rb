@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe "Drawer", type: :system do
+RSpec.describe "Drawer" do
   fab!(:current_user, :user)
   let(:chat_page) { PageObjects::Pages::Chat.new }
   let(:channel_page) { PageObjects::Pages::ChatChannel.new }
@@ -27,6 +27,21 @@ RSpec.describe "Drawer", type: :system do
     expect(page).to have_css("html.has-chat.has-full-page-chat")
     expect(page).to have_no_css("body.has-drawer-chat")
     expect(page).to have_no_css("html.has-drawer-chat")
+  end
+
+  it "respects drawer preference after page refresh" do
+    visit("/")
+    chat_page.open_from_header
+    expect(page).to have_css("body.has-drawer-chat")
+
+    drawer_page.close
+    expect(page).to have_no_css("body.chat-drawer-active")
+
+    refresh
+
+    chat_page.open_from_header
+    expect(page).to have_css("body.has-drawer-chat")
+    expect(page).to have_no_css("body.has-full-page-chat")
   end
 
   context "when on channel" do

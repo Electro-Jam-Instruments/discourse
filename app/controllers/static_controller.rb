@@ -152,12 +152,21 @@ class StaticController < ApplicationController
     params.delete(:password)
 
     destination = extract_redirect_param
-
     allow_other_host = false
 
+    # We need this to redirect the user back when Discourse Connect Provider is used.
     if cookies[:sso_destination_url]
-      destination = cookies.delete(:sso_destination_url)
-      allow_other_host = true
+      sso_url = cookies.delete(:sso_destination_url)
+
+      begin
+        uri = URI(sso_url)
+        if valid_sso_redirect_uri?(uri)
+          destination = sso_url
+          allow_other_host = true
+        end
+      rescue URI::Error, ArgumentError
+        # Invalid URI, ignore and use default destination
+      end
     end
 
     destination = path(destination) if destination == "/"
@@ -232,8 +241,10 @@ class StaticController < ApplicationController
         Discourse
           .cache
           .fetch("llms_txt_content:#{upload.sha1}") do
-            Discourse.store.download_safe(upload)&.path&.then { |path| File.read(path) }
+            path = Discourse.store.download(upload)
+            File.read(path) if path
           end
+
       return head(:not_found) if content.blank?
 
       render plain: content, content_type: "text/plain"
@@ -267,11 +278,25 @@ class StaticController < ApplicationController
 
   protected
 
+  def valid_sso_redirect_uri?(uri)
+    return false unless SiteSetting.enable_discourse_connect_provider
+    return false if uri.host.blank?
+
+    provider_domains =
+      SiteSetting
+        .discourse_connect_provider_secrets
+        .split("\n")
+        .map { |row| row.split("|", 2).first }
+        .compact
+
+    provider_domains.any? { |domain| WildcardDomainChecker.check_domain(domain, uri.host) }
+  end
+
   def serve_asset(suffix = nil)
     path = File.expand_path(Rails.root + "public/assets/#{params[:path]}#{suffix}")
 
     # SECURITY what if path has /../
-    raise Discourse::NotFound unless path.start_with?(Rails.root.to_s + "/public/assets")
+    raise Discourse::NotFound unless path.start_with?(Rails.root.to_s + "/public/assets/")
 
     response.headers["Expires"] = 1.year.from_now.httpdate
     response.headers["Access-Control-Allow-Origin"] = params[:origin] if params[:origin]
@@ -282,6 +307,12 @@ class StaticController < ApplicationController
       begin
         if GlobalSetting.fallback_assets_path.present?
           path = File.expand_path("#{GlobalSetting.fallback_assets_path}/#{params[:path]}#{suffix}")
+
+          # fallback path should not escape the fallback directory with /../
+          unless path.start_with?(File.expand_path(GlobalSetting.fallback_assets_path))
+            raise Discourse::NotFound
+          end
+
           response.headers["Last-Modified"] = File.ctime(path).httpdate
         else
           raise

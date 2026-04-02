@@ -17,22 +17,29 @@ module Jobs
       end
 
       post = Post.find_by(id: args[:post_id])
-      return if post.blank? || post.raw.blank? || post.deleted_at.present? || post.user_id <= 0
+      return if post.blank? || post.raw.blank? || post.deleted_at.present?
+
+      force = args[:force] || false
+      return if post.user_id <= 0 && !force && !SiteSetting.ai_translation_include_bot_content
 
       topic = post.topic
       return if topic.blank?
 
-      force = args[:force] || false
-
       if force
         # no restrictions
-      elsif SiteSetting.ai_translation_backfill_limit_to_public_content
-        return if topic.category&.read_restricted? || topic.archetype == Archetype.private_message
-      else
-        if topic.archetype == Archetype.private_message &&
-             !TopicAllowedGroup.exists?(topic_id: topic.id)
+      elsif topic.archetype == Archetype.private_message
+        case SiteSetting.ai_translation_personal_messages
+        when "all"
+          # allow
+        when "group"
+          return unless TopicAllowedGroup.exists?(topic_id: topic.id)
+        else
           return
         end
+      else
+        target_category_ids = SiteSetting.ai_translation_target_categories
+        return if target_category_ids.blank?
+        return if target_category_ids.split("|").map(&:to_i).exclude?(topic.category_id)
       end
 
       # the user may fill locale in manually

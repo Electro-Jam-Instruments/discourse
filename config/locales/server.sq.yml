@@ -416,6 +416,7 @@ sq:
     authorize: "Autorizo"
     deny: "Anulo"
     read: "lexuar"
+    copied: "Kopjuar!"
     otp_confirmation:
       confirm_title: Vazhdo tek %{site_name}
     scopes:
@@ -442,7 +443,8 @@ sq:
         flag: Lloji
     visits:
       title: "Vizitat e përdoruesit"
-      xaxis: "Ditë"
+      xaxis:
+        mobile: "Mobile"
       yaxis: "Numri i vizitave"
     signups:
       xaxis: "Ditë"
@@ -1375,8 +1377,6 @@ sq:
       title: "Konfirmoni emailin tuaj"
     resend_email:
       title: "Dërgo përsëri emailin e aktivizimit"
-  dev_mode:
-    enter: "Hyni"
   wizard:
     step:
       setup:

@@ -26,6 +26,7 @@ class SiteSettings::TypeSupervisor
     depends_behavior
     authorized_extensions
     max_file_size_kb
+    disallowed_groups
   ].freeze
   VALIDATOR_OPTS = %i[min max regex hidden regex_error json_schema schema].freeze
 
@@ -68,6 +69,7 @@ class SiteSettings::TypeSupervisor
         locale_enum: 29,
         topic: 30,
         datetime: 31,
+        icon: 32,
       )
   end
 
@@ -158,7 +160,7 @@ class SiteSettings::TypeSupervisor
       @validators[name] = { class: validator_type, opts: validator_opts }
     end
 
-    @dependencies[name] = opts[:depends_on] || []
+    @dependencies[name] = (opts[:depends_on] || []).map(&:to_sym)
     @dependencies.change_behavior(name, opts[:depends_behavior]) if opts[:depends_behavior]
   end
 
@@ -179,7 +181,7 @@ class SiteSettings::TypeSupervisor
       nil
     when self.class.types[:enum]
       @defaults_provider[name].is_a?(Integer) ? value.to_i : value.to_s
-    when self.class.types[:string], self.class.types[:datetime]
+    when self.class.types[:string], self.class.types[:datetime], self.class.types[:icon]
       value.to_s
     else
       return value if self.class.types[type]

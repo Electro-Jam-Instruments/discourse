@@ -29,10 +29,12 @@ class UpcomingChanges::NotifyPromotion
   policy :meets_or_exceeds_status
   policy :change_has_not_already_been_notified_about_promotion
   policy :admin_has_not_manually_toggled
+  policy :should_notify_admins
 
   try do
     step :log_promotion
-    model :records
+    model :existing_notifications, optional: true
+    model :bulk_notification_new_records
     step :notify_admins
     step :create_event
     step :trigger_discourse_event
@@ -59,6 +61,10 @@ class UpcomingChanges::NotifyPromotion
     !SiteSetting.modified.key?(params.setting_name)
   end
 
+  def should_notify_admins(params:)
+    UpcomingChanges.should_notify_admins?
+  end
+
   def log_promotion(params:, guardian:)
     context =
       I18n.t(
@@ -75,23 +81,39 @@ class UpcomingChanges::NotifyPromotion
     )
   end
 
-  def fetch_records(params:)
-    data = {
-      upcoming_change_name: params.setting_name,
-      upcoming_change_humanized_name: SiteSetting.humanized_name(params.setting_name),
-    }.to_json
+  def fetch_existing_notifications(params:)
+    Notification.where(
+      notification_type: Notification.types[:upcoming_change_automatically_promoted],
+      user_id: params.admin_user_ids,
+      read: false,
+    )
+  end
 
+  def fetch_bulk_notification_new_records(params:, existing_notifications:)
+    existing_by_user = existing_notifications.to_a.index_by(&:user_id)
     params.admin_user_ids.map do |admin_id|
       {
         user_id: admin_id,
         notification_type: Notification.types[:upcoming_change_automatically_promoted],
-        data:,
+        data:
+          UpcomingChanges::Action::NotificationDataMerger.call(
+            existing_notification: existing_by_user[admin_id],
+            new_change_name: params.setting_name,
+          ).to_json,
       }
     end
   end
 
-  def notify_admins(records:)
-    Notification::Action::BulkCreate.call(records:)
+  def notify_admins(params:, bulk_notification_new_records:, existing_notifications:)
+    merge_with_existing = existing_notifications.to_a.any?
+
+    Notification.transaction do
+      existing_notifications.delete_all if merge_with_existing
+      Notification::Action::BulkCreate.call(
+        records: bulk_notification_new_records,
+        skip_send_email: merge_with_existing,
+      )
+    end
   end
 
   def create_event(params:)

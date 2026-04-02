@@ -1,5 +1,7 @@
 // @ts-check
 
+import { waitForPromise } from "@ember/test-waiters";
+
 /**
  * @typedef PluginContext
  * @property {string} placeholder
@@ -32,6 +34,7 @@
  * @property {typeof import('prosemirror-history')} pmHistory
  * @property {typeof import('prosemirror-transform')} pmTransform
  * @property {typeof import('prosemirror-commands')} pmCommands
+ * @property {typeof import('prosemirror-schema-list')} pmSchemaList
  * @property {import('prosemirror-model').Schema} schema
  * @property {() => PluginContext} getContext
  */
@@ -148,8 +151,9 @@ export function clearRichEditorExtensions() {
 }
 
 export async function resetRichEditorExtensions() {
-  const { default: extensions } =
-    await import("discourse/static/prosemirror/extensions/register-default");
+  const { default: extensions } = await waitForPromise(
+    import("discourse/static/prosemirror/extensions/register-default")
+  );
   clearRichEditorExtensions();
   extensions.forEach(registerRichEditorExtension);
 }

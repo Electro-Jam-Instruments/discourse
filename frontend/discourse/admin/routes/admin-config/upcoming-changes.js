@@ -6,14 +6,18 @@ import { i18n } from "discourse-i18n";
 export default class AdminConfigUpcomingChangesRoute extends DiscourseRoute {
   @service currentUser;
 
+  queryParams = {
+    changeNamesFilter: { replace: true },
+  };
+
   titleToken() {
     return i18n("admin.config.upcoming_changes.title");
   }
 
   model() {
-    return ajax("/admin/config/upcoming-changes").then(
-      (result) => result.upcoming_changes
-    );
+    return ajax(
+      "/admin/config/upcoming-changes?filter_statuses=experimental,alpha,beta,stable"
+    ).then((result) => result.upcoming_changes);
   }
 
   activate() {

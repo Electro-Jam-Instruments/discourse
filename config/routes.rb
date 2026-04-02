@@ -28,9 +28,9 @@ Discourse::Application.routes.draw do
     get "/404-body" => "exceptions#not_found_body"
 
     if Rails.env.local?
-      get "/bootstrap/plugin-css-for-tests.css" => "bootstrap#plugin_css_for_tests"
       get "/bootstrap/core-css-for-tests.css" => "bootstrap#core_css_for_tests"
       get "/bootstrap/site-settings-for-tests.js" => "bootstrap#site_settings_for_tests"
+      get "/bootstrap/plugin-test-info" => "bootstrap#plugin_test_info"
     end
 
     # This is not a valid production route and is causing routing errors to be raised in
@@ -342,7 +342,7 @@ Discourse::Application.routes.draw do
       post "/toggle-feature" => "dashboard#toggle_feature"
 
       resources :dashboard, only: [:index] do
-        collection { get "problems" }
+        collection { post "problems" }
       end
 
       resources :api, only: [:index], constraints: AdminConstraint.new do
@@ -827,6 +827,10 @@ Discourse::Application.routes.draw do
           :constraints => {
             username: RouteFormat.username,
           }
+      get "#{root_path}/:username/preferences/calendar-subscriptions" => "users#preferences",
+          :constraints => {
+            username: RouteFormat.username,
+          }
       post "#{root_path}/:username/preferences/email" => "users_email#create",
            :constraints => {
              username: RouteFormat.username,
@@ -1078,6 +1082,7 @@ Discourse::Application.routes.draw do
     get "color-scheme-stylesheet/:id(/:theme_id)" => "stylesheets#color_scheme",
         :constraints => {
           format: :json,
+          theme_id: /-?\d+/,
         }
     get "theme-javascripts/:digest" => "theme_javascripts#show",
         :constraints => {
@@ -1331,6 +1336,7 @@ Discourse::Application.routes.draw do
 
     resources :categories, only: %i[index create update destroy]
     post "categories/reorder" => "categories#reorder"
+    get "categories/types" => "categories#types"
     get "categories/find" => "categories#find"
     post "categories/search" => "categories#search"
     get "categories/hierarchical_search" => "categories#hierarchical_search"
@@ -1357,6 +1363,8 @@ Discourse::Application.routes.draw do
           format: "html",
         }
     get "/new-category" => "categories#show", :constraints => { format: "html" }
+    get "/new-category/setup" => "categories#show", :constraints => { format: "html" }
+    get "/new-category/:tab" => "categories#show", :constraints => { format: "html" }
 
     get "c/*category_slug_path_with_id.rss" => "list#category_feed", :format => :rss
     scope path: "c/*category_slug_path_with_id" do
@@ -1856,6 +1864,10 @@ Discourse::Application.routes.draw do
     get "/user-api-key-client" => "user_api_key_clients#show"
     post "/user-api-key-client" => "user_api_key_clients#create"
 
+    get "/calendar-subscriptions" => "calendar_subscriptions#show"
+    post "/calendar-subscriptions" => "calendar_subscriptions#create"
+    delete "/calendar-subscriptions" => "calendar_subscriptions#destroy"
+
     get "/safe-mode" => "safe_mode#index"
     post "/safe-mode" => "safe_mode#enter", :as => "safe_mode_enter"
 
@@ -1877,8 +1889,6 @@ Discourse::Application.routes.draw do
 
     post "/push_notifications/subscribe" => "push_notification#subscribe"
     post "/push_notifications/unsubscribe" => "push_notification#unsubscribe"
-
-    resources :csp_reports, only: [:create]
 
     get "/permalink-check", to: "permalinks#check"
 

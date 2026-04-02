@@ -561,83 +561,6 @@ RSpec.describe Reviewable, type: :model do
       expect(job["args"].first["reviewable_id"]).to eq(reviewable.id)
       expect(job["args"].first["updated_reviewable_ids"]).to contain_exactly(reviewable.id)
     end
-
-    describe "action logging" do
-      fab!(:guardian) { Guardian.new(moderator) }
-      fab!(:reviewable, :reviewable_flagged_post)
-
-      context "with new UI enabled" do
-        before do
-          SiteSetting.reviewable_old_moderator_actions = false
-          allow_any_instance_of(Guardian).to receive(:can_see_reviewable_ui_refresh?).and_return(
-            true,
-          )
-        end
-
-        it "creates an action log" do
-          expect { reviewable.perform(moderator, :edit_post, guardian: guardian) }.to change {
-            reviewable.reviewable_action_logs.count
-          }.by(1)
-
-          log = reviewable.reviewable_action_logs.last
-          expect(log.action_key).to eq("edit_post")
-          expect(log.status).to eq("approved")
-          expect(log.bundle).to eq("post-actions")
-          expect(log.performed_by).to eq(moderator)
-        end
-
-        it "keeps reviewable pending when not all bundles are actioned" do
-          reviewable.perform(moderator, :edit_post, guardian: guardian)
-
-          reviewable.reload
-          expect(reviewable.status).to eq("pending")
-          expect(reviewable.reviewable_action_logs.count).to eq(1)
-        end
-
-        it "finalizes status when all bundles are actioned" do
-          reviewable.perform(moderator, :edit_post, guardian: guardian)
-          expect(reviewable.reload.status).to eq("pending")
-          reviewable.perform(moderator, :suspend_user, guardian: guardian)
-
-          reviewable.reload
-          expect(reviewable.status).to eq("approved")
-          expect(reviewable.reviewable_action_logs.count).to eq(2)
-        end
-
-        it "calculates correct final status for all ignored" do
-          reviewable.perform(moderator, :no_action_post, guardian: guardian)
-          reviewable.perform(moderator, :no_action_user, guardian: guardian)
-
-          reviewable.reload
-          expect(reviewable.status).to eq("ignored")
-        end
-
-        it "calculates correct final status for all rejected" do
-          reviewable.perform(moderator, :hide_post, guardian: guardian)
-          reviewable.perform(moderator, :silence_user, guardian: guardian)
-
-          reviewable.reload
-          expect(reviewable.status).to eq("rejected")
-        end
-      end
-
-      context "with old UI (backward compatibility)" do
-        before { SiteSetting.reviewable_old_moderator_actions = true }
-
-        it "creates an action log" do
-          expect { reviewable.perform(moderator, :agree_and_keep, guardian: guardian) }.to change {
-            reviewable.reviewable_action_logs.count
-          }.by(1)
-        end
-
-        it "transitions immediately (original behavior)" do
-          reviewable.perform(moderator, :agree_and_keep, guardian: guardian)
-
-          reviewable.reload
-          expect(reviewable.status).to eq("approved")
-        end
-      end
-    end
   end
 
   describe "flag_stats" do
@@ -744,6 +667,32 @@ RSpec.describe Reviewable, type: :model do
       expect(described_class.score_to_auto_close_topic.to_f.truncate(2)).to eq(166.66)
       SiteSetting.auto_close_topic_sensitivity = described_class.sensitivities[:high]
       expect(described_class.score_to_auto_close_topic.to_f.truncate(2)).to eq(83.33)
+    end
+  end
+
+  describe "#add_score" do
+    fab!(:user1, :user)
+    fab!(:user2, :user)
+    fab!(:post)
+
+    it "does not overwrite force_review=true when set by trusted sources" do
+      reviewable =
+        ReviewableFlaggedPost.needs_review!(
+          target: post,
+          topic: post.topic,
+          created_by: Discourse.system_user,
+          reviewable_by_moderator: true,
+        )
+
+      # Spam detection system flags with force_review: true
+      reviewable.add_score(Discourse.system_user, PostActionType.types[:spam], force_review: true)
+      expect(reviewable.reload.force_review).to eq(true)
+
+      # Regular user adds another score without force_review
+      reviewable.add_score(user1, PostActionType.types[:inappropriate])
+
+      # force_review should remain true (set by spam detection)
+      expect(reviewable.reload.force_review).to eq(true)
     end
   end
 

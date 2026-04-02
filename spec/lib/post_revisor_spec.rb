@@ -119,6 +119,37 @@ describe PostRevisor do
       expect(post.reload.topic.category_id).to eq(new_category.id)
     end
 
+    it "allows category change with localized tags" do
+      SiteSetting.create_tag_allowed_groups = Group::AUTO_GROUPS[:trust_level_0]
+      SiteSetting.tag_topic_allowed_groups = Group::AUTO_GROUPS[:trust_level_0]
+
+      tag = Fabricate(:tag)
+      tag_group = Fabricate(:tag_group, tags: [tag])
+      old_category = Fabricate(:category)
+      new_category = Fabricate(:category, tag_groups: [tag_group])
+
+      post = create_post(category: old_category)
+
+      post.revise(post.user, category_id: new_category.id, tags: [{ id: tag.id, name: tag.name }])
+      expect(post.reload.topic.category_id).to eq(new_category.id)
+    end
+
+    it "allows category change when clearing all tags with an empty array" do
+      SiteSetting.create_tag_allowed_groups = Group::AUTO_GROUPS[:trust_level_0]
+      SiteSetting.tag_topic_allowed_groups = Group::AUTO_GROUPS[:trust_level_0]
+
+      tag = Fabricate(:tag)
+      old_category = Fabricate(:category)
+      new_category = Fabricate(:category)
+
+      post = create_post(category: old_category, tags: [tag.name])
+      expect(post.topic.tags).to contain_exactly(tag)
+
+      post.revise(post.user, category_id: new_category.id, tags: [])
+      expect(post.reload.topic.category_id).to eq(new_category.id)
+      expect(post.topic.tags).to be_empty
+    end
+
     it "returns an error if the topic does not have minimum amount of tags that the new category requires" do
       SiteSetting.create_tag_allowed_groups = Group::AUTO_GROUPS[:trust_level_0]
       SiteSetting.tag_topic_allowed_groups = Group::AUTO_GROUPS[:trust_level_0]
@@ -533,6 +564,32 @@ describe PostRevisor do
         expect(post.revisions.count).to eq(1)
       end
 
+      it "creates a new version when diff computation exceeds the comparison budget" do
+        SiteSetting.editing_grace_period = 1.minute
+        SiteSetting.editing_grace_period_max_diff = 1_000
+
+        post = Fabricate(:post, raw: "hello world")
+        revisor = PostRevisor.new(post)
+
+        ONPDiff
+          .any_instance
+          .stubs(:short_diff)
+          .raises(
+            ONPDiff::DiffLimitExceeded.new(
+              comparisons_used: 2_000_001,
+              comparison_budget: 2_000_000,
+              left_size: 11,
+              right_size: 12,
+            ),
+          )
+
+        revisor.revise!(post.user, { raw: "hello world!" }, revised_at: post.updated_at + 1.second)
+
+        post.reload
+        expect(post.version).to eq(2)
+        expect(post.revisions.count).to eq(1)
+      end
+
       it "creates a new version when the post is flagged" do
         SiteSetting.editing_grace_period = 1.minute
 
@@ -573,6 +630,17 @@ describe PostRevisor do
 
         expect(post.version).to eq(1)
         expect(post.public_version).to eq(1)
+        expect(post.revisions.size).to eq(0)
+      end
+
+      it "does not create a new version for tag-only topic change within grace period when tags unchanged" do
+        SiteSetting.tagging_enabled = true
+        SiteSetting.editing_grace_period = 1.minute
+
+        post_revisor.revise!(post.user, { tags: [] }, revised_at: post.updated_at + 10.seconds)
+        post.reload
+
+        expect(post.version).to eq(1)
         expect(post.revisions.size).to eq(0)
       end
     end
@@ -963,6 +1031,19 @@ describe PostRevisor do
           expect(events).to include(event_name: :before_edit_post, params: [post, params])
         end
       end
+
+      context "when editing the post_edited event signature for extensibility" do
+        it "exposes revise opts via the PostRevisor payload" do
+          params = { raw: "body (edited)" }
+          opts = { suggested_edit: true }
+
+          events = DiscourseEvent.track_events { post_revisor.revise!(user, params, opts) }
+          event = events.find { |e| e[:event_name] == :post_edited }
+
+          expect(event[:params].third).to be_kind_of(PostRevisor)
+          expect(event[:params].third.opts).to include(suggested_edit: true)
+        end
+      end
     end
 
     describe "topic excerpt" do
@@ -1033,11 +1114,11 @@ describe PostRevisor do
       expect(post_revisor.raw_changed?).to eq(false)
     end
 
-    it "revises and tracks changes of topic archetypes" do
+    it "revises and tracks changes of topic archetypes for staff" do
       new_archetype = Archetype.banner
       result =
         post_revisor.revise!(
-          post.user,
+          admin,
           { archetype: new_archetype },
           revised_at: post.updated_at + 10.minutes,
         )
@@ -1049,21 +1130,34 @@ describe PostRevisor do
       expect(post_revisor.raw_changed?).to eq(false)
     end
 
+    it "does not allow regular users to change topic archetype to banner" do
+      result =
+        post_revisor.revise!(
+          post.user,
+          { archetype: Archetype.banner },
+          revised_at: post.updated_at + 10.minutes,
+        )
+
+      expect(result).to eq(false)
+      post.reload
+      expect(post.topic.archetype).to eq(Archetype.default)
+    end
+
     it "revises and tracks changes of topic tags" do
       post_revisor.revise!(admin, tags: ["new-tag"])
       expect(post.post_revisions.last.modifications).to eq("tags" => [[], ["new-tag"]])
       expect(post_revisor.raw_changed?).to eq(false)
 
       post_revisor.revise!(admin, tags: %w[new-tag new-tag-2])
-      expect(post.post_revisions.last.modifications).to eq(
-        "tags" => [["new-tag"], %w[new-tag new-tag-2]],
-      )
+      before, after = post.post_revisions.last.modifications["tags"]
+      expect(before).to contain_exactly("new-tag")
+      expect(after).to contain_exactly("new-tag", "new-tag-2")
       expect(post_revisor.raw_changed?).to eq(false)
 
       post_revisor.revise!(admin, tags: ["new-tag-3"])
-      expect(post.post_revisions.last.modifications).to eq(
-        "tags" => [%w[new-tag new-tag-2], ["new-tag-3"]],
-      )
+      before, after = post.post_revisions.last.modifications["tags"]
+      expect(before).to contain_exactly("new-tag", "new-tag-2")
+      expect(after).to contain_exactly("new-tag-3")
       expect(post_revisor.raw_changed?).to eq(false)
     end
 

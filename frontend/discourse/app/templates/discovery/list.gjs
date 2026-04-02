@@ -2,15 +2,12 @@ import CategoriesDisplay from "discourse/components/discovery/categories-display
 import Layout from "discourse/components/discovery/layout";
 import Navigation from "discourse/components/discovery/navigation";
 import Topics from "discourse/components/discovery/topics";
-import TagInfo from "discourse/components/tag-info";
-import { and } from "discourse/truth-helpers";
 import { i18n } from "discourse-i18n";
 
 export default <template>
   <Layout
     @model={{@controller.model}}
     @createTopicDisabled={{@controller.createTopicDisabled}}
-    @toggleTagInfo={{@controller.toggleTagInfo}}
     @listClass="--topic-list"
   >
     <:navigation>
@@ -25,7 +22,6 @@ export default <template>
         @createTopic={{@controller.createTopic}}
         @createTopicDisabled={{@controller.createTopicDisabled}}
         @canCreateTopicOnTag={{@controller.model.canCreateTopicOnTag}}
-        @toggleTagInfo={{@controller.toggleTagInfo}}
         @tagNotification={{@controller.model.tagNotification}}
         @model={{@controller.model.list}}
         @showDismissRead={{@controller.showDismissRead}}
@@ -41,12 +37,6 @@ export default <template>
           @categories={{@controller.model.subcategoryList.content}}
           @parentCategory={{@controller.model.subcategoryList.parentCategory}}
           @loadMore={{@controller.model.subcategoryList.loadMore}}
-        />
-      {{/if}}
-      {{#if (and @controller.showTagInfo @controller.model.tag)}}
-        <TagInfo
-          @tag={{@controller.model.tag}}
-          @list={{@controller.model.list}}
         />
       {{/if}}
     </:header>

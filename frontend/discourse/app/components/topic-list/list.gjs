@@ -33,8 +33,17 @@ import ItemViewsCell from "./item/views-cell";
 
 export default class TopicList extends Component {
   @service currentUser;
-  // eslint-disable-next-line discourse/no-unused-services
+
   @service topicTrackingState; // accessed via `self` variable
+  @service moreTopicsTabs;
+
+  get #transformerContext() {
+    return {
+      listContext: this.args.listContext,
+      category: this.topicTrackingState.filterCategory,
+      filter: this.topicTrackingState.filter,
+    };
+  }
 
   @cached
   get columns() {
@@ -92,25 +101,10 @@ export default class TopicList extends Component {
       item: ItemActivityCell,
     });
 
-    const self = this;
-    const context = {
-      get listContext() {
-        return self.args.listContext;
-      },
-
-      get category() {
-        return self.topicTrackingState.get("filterCategory");
-      },
-
-      get filter() {
-        return self.topicTrackingState.get("filter");
-      },
-    };
-
     return applyMutableValueTransformer(
       "topic-list-columns",
       defaultColumns,
-      context
+      this.#transformerContext
     ).resolve();
   }
 
@@ -183,7 +177,7 @@ export default class TopicList extends Component {
   get additionalClasses() {
     return applyValueTransformer("topic-list-class", [], {
       topics: this.args.topics,
-      listContext: this.args.listContext,
+      ...this.#transformerContext,
     });
   }
 
@@ -244,7 +238,13 @@ export default class TopicList extends Component {
       ...attributes
     >
       <caption class="sr-only">{{i18n "sr_topic_list_caption"}}</caption>
-      <thead class="topic-list-header" role="rowgroup">
+      <thead
+        class={{concatClass
+          "topic-list-header"
+          (if this.moreTopicsTabs.tabs.length "--has-tabs")
+        }}
+        role="rowgroup"
+      >
         <Header
           @columns={{this.columns}}
           @canBulkSelect={{@canBulkSelect}}

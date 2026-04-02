@@ -386,6 +386,7 @@ bs_BA:
   user_api_key:
     deny: "Odustani"
     read: "čitaj"
+    copied: "Kopirano!"
     otp_confirmation:
       confirm_title: Nastavi ka %{site_name}
       logging_in_as: Prijavite se kao %{username}
@@ -413,7 +414,9 @@ bs_BA:
         flag: Tip
     visits:
       title: "User Visits"
-      xaxis: "Day"
+      xaxis:
+        desktop: "Desktop"
+        mobile: "Mobilno"
       yaxis: "Number of visits"
     signups:
       xaxis: "Day"
@@ -1006,8 +1009,6 @@ bs_BA:
       button: "Registriraj"
     resend_email:
       title: "Pošalji ponovo email aktivacije"
-  dev_mode:
-    enter: "Naprijed"
   wizard:
     step:
       setup:

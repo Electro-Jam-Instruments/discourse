@@ -607,6 +607,21 @@ RSpec.describe GroupsController do
       expect(response.status).to eq(200)
       expect(response.parsed_body["posts"]).to be_empty
     end
+
+    it "excludes posts from unlisted topics" do
+      visible_post = Fabricate(:post)
+      GroupMention.create!(post: visible_post, group: group)
+
+      unlisted_post = Fabricate(:post)
+      unlisted_post.topic.update!(visible: false)
+      GroupMention.create!(post: unlisted_post, group: group)
+
+      sign_in(user)
+      get "/groups/#{group.name}/mentions.json"
+
+      expect(response.status).to eq(200)
+      expect(response.parsed_body["posts"].map { |p| p["id"] }).to contain_exactly(visible_post.id)
+    end
   end
 
   describe "#posts" do
@@ -717,7 +732,7 @@ RSpec.describe GroupsController do
       freeze_time 1.day.from_now
 
       4.times { group.add(Fabricate(:user)) }
-      usernames = group.users.map { |m| m.username }.sort
+      usernames = group.reload.users.map { |m| m.username }.sort
 
       get "/groups/#{group.name}/members.json", params: { limit: 3, asc: true }
 
@@ -738,7 +753,9 @@ RSpec.describe GroupsController do
       get "/groups/#{group.name}/members.json", params: { order: "added_at" }
       members = response.parsed_body["members"]
 
-      expect(members.last["added_at"]).to eq(first_user.created_at.as_json)
+      expect(Time.zone.parse(members.last["added_at"])).to be_within_one_second_of(
+        first_user.created_at,
+      )
     end
 
     it "can sort items" do
@@ -752,7 +769,7 @@ RSpec.describe GroupsController do
       expect(response.parsed_body["members"].map { |u| u["id"] }).to eq([other_user.id, user.id])
       expect(response.parsed_body["owners"].map { |u| u["id"] }).to eq([other_user.id])
 
-      get "/groups/#{group.name}/members.json?order=added_at&asc=1"
+      get "/groups/#{group.name}/members.json?order=added_at&asc=true"
 
       expect(response.parsed_body["members"].map { |u| u["id"] }).to eq([user.id, other_user.id])
       expect(response.parsed_body["owners"].map { |u| u["id"] }).to eq([other_user.id])
@@ -1021,7 +1038,7 @@ RSpec.describe GroupsController do
                 },
                 update_existing_users: false,
               }
-        end.to change { GroupHistory.count }.by(13)
+        end.to change { GroupHistory.count }.by(12)
 
         expect(response.status).to eq(200)
 
@@ -1042,12 +1059,49 @@ RSpec.describe GroupsController do
         expect(group.messageable_level).to eq(1)
         expect(group.default_notification_level).to eq(1)
         expect(group.automatic_membership_email_domains).to eq(nil)
-        expect(group.title).to eq("haha")
+        expect(group.title).to eq(nil)
         expect(group.primary_group).to eq(false)
         expect(group.incoming_email).to eq(nil)
         expect(group.grant_trust_level).to eq(0)
         expect(group.group_category_notification_defaults.first&.category).to eq(category)
         expect(group.group_tag_notification_defaults.first&.tag).to eq(tag)
+      end
+
+      it "should not clear group title when owner updates other settings" do
+        group.update!(title: "Original Title")
+
+        put "/groups/#{group.id}.json",
+            params: {
+              group: {
+                flair_bg_color: "FFF",
+                flair_color: "BBB",
+                flair_icon: "fa-circle-half-stroke",
+              },
+            }
+
+        expect(response.status).to eq(200)
+
+        group.reload
+        expect(group.title).to eq("Original Title")
+        expect(group.flair_bg_color).to eq("FFF")
+      end
+
+      it "should not allow group owner to modify the group title" do
+        group.update!(title: "Original Title")
+
+        put "/groups/#{group.id}.json",
+            params: {
+              group: {
+                title: "Hacked Title",
+                flair_bg_color: "FFF",
+              },
+            }
+
+        expect(response.status).to eq(200)
+
+        group.reload
+        expect(group.title).to eq("Original Title")
+        expect(group.flair_bg_color).to eq("FFF")
       end
 
       it "should not be allowed to update automatic groups" do
@@ -1073,6 +1127,7 @@ RSpec.describe GroupsController do
                 incoming_email: "test@mail.org",
                 primary_group: true,
                 automatic_membership_email_domains: "test.org",
+                title: "Admin Title",
                 grant_trust_level: 2,
                 visibility_level: 1,
                 members_visibility_level: 3,
@@ -1089,6 +1144,7 @@ RSpec.describe GroupsController do
         expect(group.name).to eq("testing")
         expect(group.incoming_email).to eq("test@mail.org")
         expect(group.primary_group).to eq(true)
+        expect(group.title).to eq("Admin Title")
         expect(group.visibility_level).to eq(1)
         expect(group.members_visibility_level).to eq(3)
         expect(group.automatic_membership_email_domains).to eq("test.org")
@@ -1630,12 +1686,29 @@ RSpec.describe GroupsController do
         expect(response.status).to eq(200)
       end
 
-      it "does not send invites if user cannot invite" do
+      it "returns a clear error when group owner without invite permission submits emails" do
         group.add_owner(user)
         sign_in(user)
 
         put "/groups/#{group.id}/members.json", params: { emails: "test@example.com" }
-        expect(response.status).to eq(403)
+        expect(response.status).to eq(422)
+        expect(response.parsed_body["errors"].first).to include("Only usernames")
+      end
+
+      it "rejects emails even when valid usernames are also submitted by owner without invite permission" do
+        group.add_owner(user)
+        sign_in(user)
+
+        expect {
+          put "/groups/#{group.id}/members.json",
+              params: {
+                usernames: other_user.username,
+                emails: "nonexistent@example.com",
+              }
+        }.not_to change { group.users.count }
+
+        expect(response.status).to eq(422)
+        expect(response.parsed_body["errors"].first).to include("Only usernames")
       end
 
       context "when is able to add several members to a group" do
@@ -1710,18 +1783,41 @@ RSpec.describe GroupsController do
           end
         end
 
-        it "sends emails with invitations when `skip_emails` param isn't present" do
+        it "sends invite emails when notify_users is true" do
+          expect_enqueued_with(job: :invite_email) do
+            put "/groups/#{group.id}/members.json",
+                params: {
+                  emails: "something@gmail.com",
+                  notify_users: true,
+                }
+            expect(response.status).to eq(200)
+          end
+        end
+
+        it "does not send invite emails when notify_users is false" do
+          expect_not_enqueued_with(job: :invite_email) do
+            put "/groups/#{group.id}/members.json",
+                params: {
+                  emails: "something@gmail.com",
+                  notify_users: false,
+                }
+            expect(response.status).to eq(200)
+          end
+        end
+
+        it "sends invite emails when neither notify_users nor skip_email is provided" do
           expect_enqueued_with(job: :invite_email) do
             put "/groups/#{group.id}/members.json", params: { emails: "something@gmail.com" }
             expect(response.status).to eq(200)
           end
         end
 
-        it "sends emails with invitations when `skip_emails` is present" do
+        it "does not send invite emails when skip_email is true" do
           expect_not_enqueued_with(job: :invite_email) do
-            put "/groups/#{group.id}/members.json?skip_email=true",
+            put "/groups/#{group.id}/members.json",
                 params: {
                   emails: "something@gmail.com",
+                  skip_email: true,
                 }
             expect(response.status).to eq(200)
           end
@@ -2492,20 +2588,41 @@ RSpec.describe GroupsController do
   describe "#request_membership" do
     fab!(:new_user, :user)
 
+    before { group.update_column(:allow_membership_requests, true) }
+
     it "requires the user to log in" do
       post "/groups/#{group.name}/request_membership.json"
       expect(response.status).to eq(403)
     end
 
-    it "requires a reason" do
+    it "rejects the request when allow_membership_requests is false" do
+      group.update!(allow_membership_requests: false)
+      sign_in(new_user)
+
+      post "/groups/#{group.name}/request_membership.json", params: { reason: "Please add me" }
+
+      expect(response.status).to eq(403)
+      expect(GroupRequest.where(group: group, user: new_user).exists?).to eq(false)
+    end
+
+    it "rejects the request when the user is already a group member" do
       sign_in(user)
+
+      post "/groups/#{group.name}/request_membership.json", params: { reason: "Please add me" }
+
+      expect(response.status).to eq(403)
+      expect(GroupRequest.where(group: group, user: user).exists?).to eq(false)
+    end
+
+    it "requires a reason" do
+      sign_in(new_user)
 
       post "/groups/#{group.name}/request_membership.json"
       expect(response.status).to eq(400)
     end
 
     it "checks for duplicates" do
-      sign_in(user)
+      sign_in(new_user)
 
       post "/groups/#{group.name}/request_membership.json", params: { reason: "Please add me in" }
 
@@ -2517,7 +2634,7 @@ RSpec.describe GroupsController do
     end
 
     it "limits the character count of the reason" do
-      sign_in(user)
+      sign_in(new_user)
 
       post "/groups/#{group.name}/request_membership.json",
            params: {
@@ -2535,7 +2652,7 @@ RSpec.describe GroupsController do
       owner2 = Fabricate(:user, last_seen_at: 1.day.ago)
       [owner1, owner2].each { |owner| group.add_owner(owner) }
 
-      sign_in(user)
+      sign_in(new_user)
 
       post "/groups/#{group.name}/request_membership.json", params: { reason: "Please add me in" }
 
@@ -2547,7 +2664,7 @@ RSpec.describe GroupsController do
 
       expect(body["relative_url"]).to eq(topic.relative_url)
       expect(post.topic.custom_fields["requested_group_id"].to_i).to eq(group.id)
-      expect(post.user).to eq(user)
+      expect(post.user).to eq(new_user)
 
       expect(topic.title).to eq(
         I18n.t("groups.request_membership_pm.title", group_name: group.name),
@@ -2555,7 +2672,7 @@ RSpec.describe GroupsController do
 
       expect(post.raw).to start_with("Please add me in")
       expect(topic.archetype).to eq(Archetype.private_message)
-      expect(topic.allowed_users).to contain_exactly(user, owner1, owner2)
+      expect(topic.allowed_users).to contain_exactly(new_user, owner1, owner2)
       expect(topic.allowed_groups).to eq([])
     end
   end
@@ -2808,10 +2925,7 @@ RSpec.describe GroupsController do
       }
     end
 
-    before do
-      sign_in(user)
-      group.group_users.where(user: user).last.update(owner: user)
-    end
+    before { sign_in(admin) }
 
     context "when validating smtp" do
       let(:protocol) { "smtp" }
@@ -2840,6 +2954,74 @@ RSpec.describe GroupsController do
       end
     end
 
+    context "when user is a non-staff group owner" do
+      let(:protocol) { "smtp" }
+      let(:username) { "test@gmail.com" }
+      let(:password) { "password" }
+      let(:ssl_mode) { Group.smtp_ssl_modes[:starttls] }
+      let(:ssl) { nil }
+      let(:host) { "smtp.somemailsite.com" }
+      let(:port) { 587 }
+
+      before do
+        sign_in(user)
+        group.group_users.where(user: user).last.update(owner: true)
+      end
+
+      it "does not allow testing email settings" do
+        post "/groups/#{group.id}/test_email_settings.json", params: params
+        expect(response.status).to eq(403)
+      end
+    end
+
+    context "when the host resolves to a private IP address" do
+      let(:protocol) { "smtp" }
+      let(:username) { "test@gmail.com" }
+      let(:password) { "password" }
+      let(:ssl_mode) { Group.smtp_ssl_modes[:starttls] }
+      let(:ssl) { nil }
+      let(:host) { "127.0.0.1" }
+      let(:port) { 587 }
+
+      before do
+        FinalDestination::SSRFDetector.stubs(:lookup_and_filter_ips).raises(
+          FinalDestination::SSRFDetector::DisallowedIpError,
+        )
+      end
+
+      it "rejects the request" do
+        post "/groups/#{group.id}/test_email_settings.json", params: params
+        expect(response.status).to eq(400)
+        expect(response.parsed_body["errors"].first).to include(
+          I18n.t("email_settings.invalid_host"),
+        )
+      end
+    end
+
+    context "when the host cannot be resolved" do
+      let(:protocol) { "smtp" }
+      let(:username) { "test@gmail.com" }
+      let(:password) { "password" }
+      let(:ssl_mode) { Group.smtp_ssl_modes[:starttls] }
+      let(:ssl) { nil }
+      let(:host) { "nonexistent.internal.host" }
+      let(:port) { 587 }
+
+      before do
+        FinalDestination::SSRFDetector.stubs(:lookup_and_filter_ips).raises(
+          FinalDestination::SSRFDetector::LookupFailedError,
+        )
+      end
+
+      it "rejects the request" do
+        post "/groups/#{group.id}/test_email_settings.json", params: params
+        expect(response.status).to eq(400)
+        expect(response.parsed_body["errors"].first).to include(
+          I18n.t("email_settings.host_resolve_failed"),
+        )
+      end
+    end
+
     describe "global param validation and rate limit" do
       let(:protocol) { "smtp" }
       let(:host) { "smtp.gmail.com" }
@@ -2858,8 +3040,8 @@ RSpec.describe GroupsController do
         end
       end
 
-      context "when user does not have access to the group" do
-        before { group.group_users.destroy_all }
+      context "when user is a regular user without staff access" do
+        before { sign_in(user) }
         it "errors if the user does not have access to the group" do
           post "/groups/#{group.id}/test_email_settings.json", params: params
 
@@ -2868,13 +3050,86 @@ RSpec.describe GroupsController do
       end
 
       context "when rate limited" do
-        it "rate limits anon searches per user" do
+        it "rate limits per user" do
           RateLimiter.enable
+          RateLimiter.any_instance.stubs(:rate_unlimited?).returns(false)
 
           5.times { post "/groups/#{group.id}/test_email_settings.json", params: params }
           post "/groups/#{group.id}/test_email_settings.json", params: params
           expect(response.status).to eq(429)
         end
+      end
+    end
+  end
+
+  describe "#set_notifications" do
+    fab!(:target_user, :user)
+    fab!(:non_member_user, :user)
+    fab!(:group)
+
+    context "when target user is in group" do
+      before do
+        group.add(moderator)
+        group.add(target_user)
+      end
+
+      it "allows a staff member to change notification level for a user who is a member of the group" do
+        sign_in(moderator)
+
+        group_user = GroupUser.find_by(group_id: group.id, user_id: target_user.id)
+
+        post "/groups/#{group.name}/notifications.json",
+             params: {
+               notification_level: NotificationLevels.all[:muted],
+               user_id: target_user.id,
+             }
+
+        expect(response.status).to eq(200)
+        expect(group_user.reload.notification_level).to eq(NotificationLevels.all[:muted])
+      end
+
+      it "does not allow a staff member to change notification level for a user who is not a member of the group" do
+        sign_in(moderator)
+
+        post "/groups/#{group.name}/notifications.json",
+             params: {
+               notification_level: NotificationLevels.all[:muted],
+               user_id: non_member_user.id,
+             }
+
+        expect(response.status).to eq(400)
+      end
+
+      it "does not allow a regular user to change another user's notification level" do
+        sign_in(target_user)
+
+        mod_group_user = GroupUser.find_by(group_id: group.id, user_id: moderator.id)
+        original_level = mod_group_user.notification_level
+
+        post "/groups/#{group.name}/notifications.json",
+             params: {
+               notification_level: NotificationLevels.all[:muted],
+               user_id: moderator.id,
+             }
+
+        expect(response.status).to eq(200)
+        expect(mod_group_user.reload.notification_level).to eq(original_level)
+      end
+    end
+
+    context "when target user is not in group" do
+      before { group.add(moderator) }
+
+      it "does not allow a staff member to change notification level for a user who is not a member of the group" do
+        sign_in(moderator)
+
+        post "/groups/#{group.name}/notifications.json",
+             params: {
+               notification_level: NotificationLevels.all[:muted],
+               user_id: target_user.id,
+             }
+
+        expect(response.status).to eq(400)
       end
     end
   end

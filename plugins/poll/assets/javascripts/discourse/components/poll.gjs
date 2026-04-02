@@ -2,10 +2,10 @@ import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
+import { trackedObject } from "@ember/reactive/collections";
 import didUpdate from "@ember/render-modifiers/modifiers/did-update";
 import { service } from "@ember/service";
-import { htmlSafe } from "@ember/template";
-import { TrackedObject } from "@ember-compat/tracked-built-ins";
+import { trustHTML } from "@ember/template";
 import icon from "discourse/helpers/d-icon";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
@@ -172,7 +172,7 @@ export default class PollComponent extends Component {
   }
 
   get titleHTML() {
-    return htmlSafe(this.args.titleHTML);
+    return trustHTML(this.args.titleHTML);
   }
 
   get topicArchived() {
@@ -225,7 +225,7 @@ export default class PollComponent extends Component {
 
       this.hasSavedVote = true;
       if (!this.args.post.polls_votes) {
-        this.args.post.polls_votes = new TrackedObject();
+        this.args.post.polls_votes = trackedObject();
       }
       this.args.post.polls_votes[this.poll.name] = this.vote;
       Object.assign(this.poll, poll);
@@ -452,7 +452,7 @@ export default class PollComponent extends Component {
 
     const average = this.voters === 0 ? 0 : round(totalScore / this.voters, -2);
 
-    return htmlSafe(i18n("poll.average_rating", { average }));
+    return trustHTML(i18n("poll.average_rating", { average }));
   }
 
   get availableDisplayMode() {
@@ -643,7 +643,7 @@ export default class PollComponent extends Component {
 
     // This uses the Data Explorer plugin export as CSV route
     // There is detection to check if the plugin is enabled before showing the button
-    ajax(`/admin/plugins/explorer/queries/${queryID}/run.csv`, {
+    ajax(`/admin/plugins/discourse-data-explorer/queries/${queryID}/run.csv`, {
       type: "POST",
       data: {
         // needed for data-explorer route compatibility

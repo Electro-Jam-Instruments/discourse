@@ -5,27 +5,33 @@ import { cloneJSON } from "discourse/lib/object";
 import User from "discourse/models/user";
 
 export function parsePostData(query) {
-  const result = {};
-  if (query) {
-    query.split("&").forEach(function (part) {
-      const item = part.split("=");
-      const firstSeg = decodeURIComponent(item[0]);
-      const m = /^([^\[]+)\[(.+)\]/.exec(firstSeg);
-      const val = decodeURIComponent(item[1]).replace(/\+/g, " ");
-      const isArray = firstSeg.endsWith("[]");
-
-      if (m) {
-        let key = m[1];
-        result[key] = result[key] || {};
-        result[key][m[2].replace("][", ".")] = val;
-      } else if (isArray) {
-        result[firstSeg] ||= [];
-        result[firstSeg].push(val);
-      } else {
-        result[firstSeg] = val;
-      }
-    });
+  if (!query) {
+    return {};
   }
+
+  if (query.startsWith("{") || query.startsWith("[")) {
+    return JSON.parse(query);
+  }
+
+  const result = {};
+  query.split("&").forEach(function (part) {
+    const item = part.split("=");
+    const firstSeg = decodeURIComponent(item[0]);
+    const m = /^([^\[]+)\[(.+)\]/.exec(firstSeg);
+    const val = decodeURIComponent(item[1]).replace(/\+/g, " ");
+    const isArray = firstSeg.endsWith("[]");
+
+    if (m) {
+      let key = m[1];
+      result[key] = result[key] || {};
+      result[key][m[2].replace("][", ".")] = val;
+    } else if (isArray) {
+      result[firstSeg] ||= [];
+      result[firstSeg].push(val);
+    } else {
+      result[firstSeg] = val;
+    }
+  });
   return result;
 }
 
@@ -48,30 +54,38 @@ export function OK(resp = {}, headers = {}) {
 const loggedIn = () => !!User.current();
 const helpers = { response, success, parsePostData };
 
-export let fixturesByUrl;
+export let fixturesByUrl = {};
 
-const instance = new Pretender();
+function replacesFixturesByUrl(newFixtures) {
+  for (const member of Object.keys(fixturesByUrl)) {
+    delete fixturesByUrl[member];
+  }
 
-const oldRegister = instance.register;
-instance.register = (...args) => {
+  Object.assign(fixturesByUrl, newFixtures);
+}
+
+const pretender = new Pretender();
+
+const oldRegister = pretender.register;
+pretender.register = (...args) => {
   args[1] = getURL(args[1]);
-  return oldRegister.call(instance, ...args);
+  return oldRegister.call(pretender, ...args);
 };
 
-export default instance;
+export default pretender;
 
 export function pretenderHelpers() {
   return { parsePostData, response, success };
 }
 
-export function applyDefaultHandlers(pretender) {
+export function applyDefaultHandlers() {
   // Autoload any `*-pretender` files
   Object.keys(requirejs.entries).forEach((e) => {
     let m = e.match(/^.*helpers\/([a-z-]+)\-pretender$/);
     if (m && m[1] !== "create") {
       let result = requirejs(e).default.call(pretender, helpers);
       if (m[1] === "fixture") {
-        fixturesByUrl = result;
+        replacesFixturesByUrl(result);
       }
     }
   });
@@ -204,6 +218,22 @@ export function applyDefaultHandlers(pretender) {
           },
         ],
       },
+    });
+  });
+
+  pretender.get("/tag/:tag_id/info.json", (request) => {
+    return response({
+      tag_info: {
+        id: parseInt(request.params.tag_id, 10) || request.params.tag_id,
+        name: request.params.tag_id,
+        slug: request.params.tag_id,
+        topic_count: 0,
+        staff: false,
+        synonyms: [],
+        tag_group_names: [],
+        category_ids: [],
+      },
+      categories: [],
     });
   });
 
@@ -577,7 +607,7 @@ export function applyDefaultHandlers(pretender) {
 
     // The request sends `permissions` as an object (e.g. {everyone: 1})
     // but the real server never echoes it back. Remove it because the
-    // Category model expects `permissions` to be an array (@trackedArray).
+    // Category model expects `permissions` to be an array (@autoTrackedArray).
     delete category.permissions;
 
     return response({ category });
@@ -1045,6 +1075,10 @@ export function applyDefaultHandlers(pretender) {
     });
   });
 
+  pretender.post("/admin/dashboard/problems.json", () => {
+    return response(200, fixturesByUrl["/admin/dashboard/problems.json"]);
+  });
+
   pretender.get("/admin/customize/watched_words", () => {
     return response(200, fixturesByUrl["/admin/customize/watched_words.json"]);
   });
@@ -1403,9 +1437,9 @@ export function applyDefaultHandlers(pretender) {
 }
 
 export function resetPretender() {
-  instance.handlers = [];
-  instance.handledRequests = [];
-  instance.unhandledRequests = [];
-  instance.passthroughRequests = [];
-  instance.hosts.registries = {};
+  pretender.handlers = [];
+  pretender.handledRequests = [];
+  pretender.unhandledRequests = [];
+  pretender.passthroughRequests = [];
+  pretender.hosts.registries = {};
 }

@@ -1,16 +1,13 @@
 /* eslint-disable ember/no-classic-components */
 import Component from "@ember/component";
 import { hash } from "@ember/helper";
-import { filter } from "@ember/object/computed";
-import { compare } from "@ember/utils";
+import { computed } from "@ember/object";
 import { tagName } from "@ember-decorators/component";
 //  A breadcrumb including category drop downs
 import PluginOutlet from "discourse/components/plugin-outlet";
 import categoryVariables from "discourse/helpers/category-variables";
 import concatClass from "discourse/helpers/concat-class";
 import lazyHash from "discourse/helpers/lazy-hash";
-import discourseComputed from "discourse/lib/decorators";
-import deprecated from "discourse/lib/deprecated";
 import CategoryDrop from "discourse/select-kit/components/category-drop";
 import TagDrop from "discourse/select-kit/components/tag-drop";
 import TagsIntersectionChooser from "discourse/select-kit/components/tags-intersection-chooser";
@@ -21,26 +18,9 @@ export default class BreadCrumbs extends Component {
   editingCategory = false;
   editingCategoryTab = null;
 
-  @filter("categories", function (c) {
-    deprecated(
-      "The parentCategories property of the bread-crumbs component is deprecated",
-      { id: "discourse.breadcrumbs.parentCategories" }
-    );
-    if (
-      c.id === this.site.get("uncategorized_category_id") &&
-      !this.siteSettings.allow_uncategorized_topics
-    ) {
-      // Don't show "uncategorized" if allow_uncategorized_topics setting is false.
-      return false;
-    }
-
-    return !c.get("parentCategory");
-  })
-  parentCategories;
-
-  @discourseComputed("category", "categories", "noSubcategories")
-  categoryBreadcrumbs(category, filteredCategories, noSubcategories) {
-    const ancestors = category?.ancestors || [];
+  @computed("category", "categories", "noSubcategories")
+  get categoryBreadcrumbs() {
+    const ancestors = this.category?.ancestors || [];
     const parentCategories = [undefined, ...ancestors];
     const categories = [...ancestors, undefined];
 
@@ -49,7 +29,7 @@ export default class BreadCrumbs extends Component {
       .map((record) => {
         const [parentCategory, subCategory] = record;
 
-        const options = filteredCategories.filter(
+        const options = this.categories.filter(
           (c) =>
             c.get("parentCategory.id") === (parentCategory && parentCategory.id)
         );
@@ -59,81 +39,20 @@ export default class BreadCrumbs extends Component {
           parentCategory,
           options,
           isSubcategory: !!parentCategory,
-          noSubcategories: !subCategory && noSubcategories,
+          noSubcategories: !subCategory && this.noSubcategories,
           hasOptions: !parentCategory || parentCategory.has_children,
         };
       });
   }
 
-  @discourseComputed("siteSettings.tagging_enabled", "editingCategory")
-  showTagsSection(taggingEnabled, editingCategory) {
-    return taggingEnabled && !editingCategory;
+  @computed("siteSettings.tagging_enabled", "editingCategory")
+  get showTagsSection() {
+    return this.siteSettings?.tagging_enabled && !this.editingCategory;
   }
 
-  @discourseComputed("category")
-  parentCategory(category) {
-    deprecated(
-      "The parentCategory property of the bread-crumbs component is deprecated",
-      { id: "discourse.breadcrumbs.parentCategory" }
-    );
-    return category && category.parentCategory;
-  }
-
-  @discourseComputed("parentCategories")
-  parentCategoriesSorted(parentCategories) {
-    deprecated(
-      "The parentCategoriesSorted property of the bread-crumbs component is deprecated",
-      { id: "discourse.breadcrumbs.parentCategoriesSorted" }
-    );
-    if (this.siteSettings.fixed_category_positions) {
-      return parentCategories;
-    }
-
-    return parentCategories.sort(
-      (a, b) => compare(b?.totalTopicCount, a?.totalTopicCount) // sort descending
-    );
-  }
-
-  @discourseComputed("category")
-  hidden(category) {
-    return this.site.mobileView && !category;
-  }
-
-  @discourseComputed("category", "parentCategory")
-  firstCategory(category, parentCategory) {
-    deprecated(
-      "The firstCategory property of the bread-crumbs component is deprecated",
-      { id: "discourse.breadcrumbs.firstCategory" }
-    );
-    return parentCategory || category;
-  }
-
-  @discourseComputed("category", "parentCategory")
-  secondCategory(category, parentCategory) {
-    deprecated(
-      "The secondCategory property of the bread-crumbs component is deprecated",
-      { id: "discourse.breadcrumbs.secondCategory" }
-    );
-    return parentCategory && category;
-  }
-
-  @discourseComputed("firstCategory", "hideSubcategories")
-  childCategories(firstCategory, hideSubcategories) {
-    deprecated(
-      "The childCategories property of the bread-crumbs component is deprecated",
-      { id: "discourse.breadcrumbs.childCategories" }
-    );
-    if (hideSubcategories) {
-      return [];
-    }
-
-    if (!firstCategory) {
-      return [];
-    }
-
-    return this.categories.filter(
-      (c) => c.get("parentCategory") === firstCategory
-    );
+  @computed("category")
+  get hidden() {
+    return this.site.mobileView && !this.category;
   }
 
   <template>
@@ -160,7 +79,6 @@ export default class BreadCrumbs extends Component {
             message="The argument 'tagId' is deprecated on the outlet 'bread-crumbs-left', use 'tag.name' instead"
             id="discourse.plugin-connector.deprecated-arg.bread-crumbs-left"
             since="2025.12.0-latest"
-            dropFrom="2026.2.0-latest"
             silence="discourse.header-service-topic"
           )
         }}
@@ -235,7 +153,6 @@ export default class BreadCrumbs extends Component {
             message="The argument 'tagId' is deprecated on the outlet 'bread-crumbs-right', use 'tag.name' instead"
             id="discourse.plugin-connector.deprecated-arg.bread-crumbs-right"
             since="2025.12.0-latest"
-            dropFrom="2026.2.0-latest"
             silence="discourse.header-service-topic"
           )
         }}

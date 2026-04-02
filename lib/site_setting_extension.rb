@@ -138,6 +138,10 @@ module SiteSettingExtension
     @mandatory_values ||= {}
   end
 
+  def disallowed_groups
+    @disallowed_groups ||= {}
+  end
+
   def shadowed_settings
     @shadowed_settings ||= Set.new
   end
@@ -334,12 +338,12 @@ module SiteSettingExtension
     filter_area: nil
   )
     locale_setting_hash = {
-      setting: "default_locale",
-      humanized_name: humanized_names("default_locale"),
+      setting: :default_locale,
+      humanized_name: humanized_names(:default_locale),
       default: SiteSettings::DefaultsProvider::DEFAULT_LOCALE,
       category: "required",
       primary_area: "localization",
-      description: description("default_locale"),
+      description: description(:default_locale),
       type: SiteSetting.types[SiteSetting.types[:locale_enum]],
       preview: nil,
       value: self.default_locale,
@@ -357,7 +361,7 @@ module SiteSettingExtension
     defaults
       .all(default_locale)
       .reject do |setting_name, _|
-        plugins[name] && !Discourse.plugins_by_name[plugins[name]].configurable?
+        plugins[setting_name] && !Discourse.plugins_by_name[plugins[setting_name]].configurable?
       end
       .select do |setting_name, _|
         is_hidden = current_hidden_settings.include?(setting_name)
@@ -368,7 +372,7 @@ module SiteSettingExtension
           # change settings use their resolved value (promotion status, admin override, etc.).
           is_hidden =
             !type_supervisor.dependencies[setting_name].all? do |dependency|
-              public_send(dependency)
+              respond_to?(dependency) && public_send(dependency)
             end
         end
 
@@ -466,6 +470,7 @@ module SiteSettingExtension
             secret: secret_settings.include?(s),
             placeholder: placeholder(s),
             mandatory_values: mandatory_values[s],
+            disallowed_groups: disallowed_groups[s],
             requires_confirmation: requires_confirmation_settings[s],
             upcoming_change: only_upcoming_changes ? upcoming_change_metadata[s] : nil,
             themeable: themeable[s],
@@ -477,7 +482,7 @@ module SiteSettingExtension
         opts[:plugin] = plugins[s] if plugins[s]
         opts[:upload] = upload_metadata if upload_metadata
 
-        opts
+        DiscoursePluginRegistry.apply_modifier(:site_setting_result, opts)
       end
       .select do |setting|
         if only_overridden
@@ -695,6 +700,11 @@ module SiteSettingExtension
     if mandatory_values[name.to_sym]
       sanitized_val =
         (mandatory_values[name.to_sym].split("|") | sanitized_val.to_s.split("|")).join("|")
+    end
+
+    if disallowed_groups[name.to_sym]
+      disallowed = disallowed_groups[name.to_sym].split("|")
+      sanitized_val = sanitized_val.to_s.split("|").reject { |v| disallowed.include?(v) }.join("|")
     end
 
     provider.save(name, sanitized_val, type)
@@ -1110,6 +1120,7 @@ module SiteSettingExtension
       defaults.load_setting(name, default, opts.delete(:locale_default))
 
       mandatory_values[name] = opts[:mandatory_values] if opts[:mandatory_values]
+      disallowed_groups[name] = opts[:disallowed_groups] if opts[:disallowed_groups]
 
       requires_confirmation_settings[name] = (
         if SiteSettings::TypeSupervisor::REQUIRES_CONFIRMATION_TYPES.values.include?(

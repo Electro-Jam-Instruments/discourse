@@ -6,6 +6,11 @@
 
 gl:
   js:
+    blocks:
+      ghost:
+        status: "Estado"
+        hidden: "agochado"
+        failed: "fallou"
     number:
       format:
         separator: ","
@@ -243,6 +248,9 @@ gl:
       pill: "Mensaxes relacionadas"
     suggested_topics:
       pm_title: "Mensaxes suxeridas"
+    admin_onboarding_banner:
+      start_posting:
+        back: "Volver"
     about:
       edit: "Editar esta páxina"
       simple_title: "Verbo de"
@@ -364,7 +372,6 @@ gl:
       in_reply_to: "en resposta a"
       explain:
         why: "explica por que este elemento acabou na fila de espera"
-        title: "Puntuación revisábel"
         formula: "Fórmula"
         subtotal: "Subtotal"
         total: "Total"
@@ -378,10 +385,8 @@ gl:
           title: "Os usuarios con alertas que fosen repetidamente aceptadas reciben unha bonificación."
         trust_level_bonus:
           name: "nivel de confianza"
-          title: "Os elementos revisábeis creados por usuarios con maior nivel de confianza teñen unha puntuación superior."
         type_bonus:
           name: "tipo de bonificación"
-          title: "O equipo pode asignar unha bonificación a certos tipos revisábeis para facelos de maior prioridade."
       revise_and_reject_post:
         reason: "Motivo"
         optional: "opcional"
@@ -1107,6 +1112,8 @@ gl:
         tags: "Etiquetas"
         interface: "Interface"
         apps: "Apps"
+      calendar_subscriptions:
+        copied: "Copiado!"
       change_password:
         success: "(correo enviado)"
         in_progress: "(enviando o correo)"
@@ -1549,6 +1556,7 @@ gl:
     form_kit:
       reset: Restabelecer
       optional: opcional
+      required: obrigatorio
       errors:
         required: "Obrigatorio"
     close: "Pechar"
@@ -2099,9 +2107,6 @@ gl:
         confirm: "Confirmar"
         select_all: "Seleccionar todo"
         clear_all: "Borrar todo"
-        unlist_topics: "Retirar temas da listaxe"
-        relist_topics: "Refacer a listaxe de temas"
-        delete: "Eliminar temas"
         delete_topics_count:
           one: "Eliminar tema"
           other: "Eliminar temas"
@@ -2113,26 +2118,20 @@ gl:
         dismiss_new: "Desbotar novas"
         toggle: "cambiar a selección en bloque dos temas"
         actions: "Accións en bloque"
-        close_topics: "Pechar temas"
-        archive_topics: "Arquivar temas"
         move_messages_to_inbox: "Mover á caixa de entrada"
         change_notification_level: "Cambiar o nivel de notificacións"
         choose_new_category: "Seleccionar a nova categoría dos temas:"
-        selected:
-          one: "Seleccionou <b>%{count}</b> tema."
-          other: "Seleccionou <b>%{count}</b> temas."
-        change_tags: "Substituír etiquetas"
-        append_tags: "Anexar etiquetas"
         choose_new_tags: "Seleccione novas etiquetas para estes temas:"
-        choose_append_tags: "Seleccione novas etiquetas para anexar a estes temas:"
         changed_tags: "As etiquetas deses temas cambiaron."
-        remove_tags: "Retirar etiquetas"
         confirm_remove_tags:
           one: "Retiraranse todas as etiquetas deste tema. Está seguro?"
           other: "Retiraranse todas as etiquetas destes <b>%{count}</b> temas. Está seguro?"
         progress:
           one: "Progreso: <strong>%{count}</strong> tema"
           other: "Progreso: <strong>%{count}</strong> temas"
+        error_topic_count:
+          one: "%{count} tema"
+          other: "%{count} temas"
       none:
         unread: "Non ten temas sen ler."
         new: "Non ten novos temas."
@@ -2154,8 +2153,6 @@ gl:
         name: "Mover á caixa de entrada"
       remove_tags:
         name: "Retirar etiquetas"
-      append_tags:
-        name: "Anexar etiquetas"
       replace_tags:
         name: "Substituír etiquetas"
       delete_topics:
@@ -2751,6 +2748,7 @@ gl:
       allow_global_tags_label: "Permitir tamén outras etiquetas"
       required_tag_group:
         delete: "Eliminar"
+        tag_group: "Grupo de etiquetas"
       topic_featured_link_allowed: "Permitir ligazóns de actualidade nesta categoría"
       create_long: "Crear unha nova categoría"
       slug_placeholder: "Inserir guións entre palabras para o url (opcional)"
@@ -3189,6 +3187,18 @@ gl:
       delete_confirm_synonyms:
         one: "Tamén se eliminará o seu sinónimo."
         other: "Tamén se eliminarán os seus %{count} sinónimos."
+      description: "Descrición"
+      settings:
+        title: "Configuración"
+        general: "Xeral"
+        back: "Volver"
+        name: "Nome"
+        slug: "Localizador abreviado"
+        name_placeholder: "Nome da etiqueta"
+        synonyms_subtitle: "Cando se usen as seguintes etiquetas, substituílas por %{name}"
+      localization:
+        name: "Nome"
+        description: "Descrición"
       sort_by: "Ordenar por:"
       sort_by_count: "número"
       sort_by_name: "nome"
@@ -3383,7 +3393,6 @@ gl:
         categories: "Todas as categorías"
   admin_js:
     settings: "Configuración"
-    reset_filter: "Restabelecer"
     admin:
       title: "Administrador de Discourse"
       moderator: "Moderador"
@@ -3396,6 +3405,9 @@ gl:
       reports:
         title: "Listaxe dos informes dispoñíbeis"
         sidebar_title: "Informes"
+        group_traffic: "Tráfico"
+        group_members: "Membros"
+        group_other: "Outro"
       config_sections:
         account:
           title: "Conta"
@@ -3417,7 +3429,6 @@ gl:
         preview: "Visualizar"
         enabled_for_options:
           everyone: "Todos"
-          staff: "Soamente ao equipo"
         impact_roles:
           admins: "Administradores"
           moderators: "Moderadores"
@@ -3497,6 +3508,9 @@ gl:
               title: "Rexistros"
         reports:
           title: "Informes"
+          sub_pages:
+            settings:
+              title: "Configuración"
         badges:
           title: "Insignias"
         permalinks:
@@ -3546,13 +3560,6 @@ gl:
         default_value: "Predeterminado"
       search:
         title: "Buscar"
-        result_types:
-          theme:
-            one: "Tema"
-            other: "Temas"
-          component:
-            one: "Compoñente"
-            other: "Compoñentes"
       dashboard:
         title: "Panel"
         last_updated: "Actualización do panel:"
@@ -3619,7 +3626,7 @@ gl:
           all: "Todo"
           view_table: "táboa"
           view_graph: "gráfica"
-          refresh_report: "Actualizar informe"
+          refresh_report: "Actualizar"
           daily: Diario
           monthly: Mensual
           weekly: Semanal
@@ -3711,6 +3718,7 @@ gl:
         save: "Gardar"
         cancel: "Cancelar"
         continue: "Continuar"
+        copy_key: "Copiar"
         revoke: "Revogar"
         revoked: "Revogada"
       api:
@@ -4098,7 +4106,6 @@ gl:
           add_all: "Engadir todos"
           import_web_tip: "Repositorio que contén o tema"
           direct_install_tip: "Confirma que quere instalar <strong>%{name}</strong> desde o repositorio que se lista a seguir?"
-          import_file_tip: "Ficheiro .tar.gz, .zip ou .dcstyle.json que contén o tema"
           is_private: "O tema está nun repositorio privado de git"
           remote_branch: "Nome da ramificación (opcional)"
           public_key: "Conceder á seguinte clave pública acceso ao repositorio:"
@@ -4778,6 +4785,7 @@ gl:
           title: "Amosar na tarxeta de usuario"
         field_types:
           text: "Texto"
+          date: "Data"
           confirm: "Confirmación"
           dropdown: "Despregábel"
       site_text:

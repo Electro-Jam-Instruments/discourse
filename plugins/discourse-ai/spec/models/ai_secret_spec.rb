@@ -82,6 +82,35 @@ RSpec.describe AiSecret do
       )
       expect(ai_secret.in_use?).to eq(false)
     end
+
+    it "returns true when used by a tool binding" do
+      tool = Fabricate(:ai_tool, secret_contracts: [{ alias: "external_api_key" }])
+      AiToolSecretBinding.create!(
+        ai_tool: tool,
+        alias: "external_api_key",
+        ai_secret_id: ai_secret.id,
+      )
+
+      expect(ai_secret.in_use?).to eq(true)
+    end
+
+    it "returns true when used by an mcp server" do
+      Fabricate(:ai_mcp_server, ai_secret: ai_secret)
+
+      expect(ai_secret.in_use?).to eq(true)
+    end
+
+    it "returns true when used as an OAuth client secret for an mcp server" do
+      Fabricate(
+        :ai_mcp_server,
+        auth_type: "oauth",
+        oauth_client_registration: "manual",
+        oauth_client_secret: ai_secret,
+        oauth_client_id: "manual-client",
+      )
+
+      expect(ai_secret.in_use?).to eq(true)
+    end
   end
 
   describe "ai_secret_id existence validation" do
@@ -111,6 +140,52 @@ RSpec.describe AiSecret do
       usage = ai_secret.used_by
       expect(usage.length).to eq(2)
       expect(usage.map { |u| u[:type] }).to contain_exactly("llm", "embedding")
+    end
+
+    it "lists tools using this secret" do
+      tool =
+        Fabricate(:ai_tool, name: "Weather Tool", secret_contracts: [{ alias: "weather_api_key" }])
+      AiToolSecretBinding.create!(
+        ai_tool: tool,
+        alias: "weather_api_key",
+        ai_secret_id: ai_secret.id,
+      )
+
+      usage = ai_secret.used_by
+      tool_usage = usage.find { |u| u[:type] == "tool" }
+
+      expect(tool_usage).to be_present
+      expect(tool_usage[:name]).to include("Weather Tool")
+    end
+
+    it "lists mcp servers using this secret" do
+      server = Fabricate(:ai_mcp_server, name: "Jira", ai_secret: ai_secret)
+
+      usage = ai_secret.used_by
+      server_usage = usage.find { |u| u[:type] == "mcp_server" }
+
+      expect(server_usage).to be_present
+      expect(server_usage[:id]).to eq(server.id)
+      expect(server_usage[:name]).to eq("Jira")
+    end
+
+    it "lists mcp servers using this secret as an OAuth client secret" do
+      server =
+        Fabricate(
+          :ai_mcp_server,
+          name: "OAuth Jira",
+          auth_type: "oauth",
+          oauth_client_registration: "manual",
+          oauth_client_secret: ai_secret,
+          oauth_client_id: "manual-client",
+        )
+
+      usage = ai_secret.used_by
+      server_usage = usage.find { |u| u[:type] == "mcp_server_oauth_client_secret" }
+
+      expect(server_usage).to be_present
+      expect(server_usage[:id]).to eq(server.id)
+      expect(server_usage[:name]).to eq("OAuth Jira")
     end
   end
 end

@@ -68,10 +68,8 @@ class PostRevisor
         removed_tags = prev_tags - persisted_tag_names
         diff_tags = added_tags | removed_tags
 
-        if diff_tags.present?
-          if !SiteSetting.disable_tags_edit_notifications
-            Jobs.enqueue(:notify_tag_change, post_id: post.id, notified_user_ids:, diff_tags:)
-          end
+        if diff_tags.present? && !self.silent
+          Jobs.enqueue(:notify_tag_change, post_id: post.id, notified_user_ids:, diff_tags:)
 
           PostRevisor.create_small_action_for_tag_changes(
             topic: t,
@@ -86,7 +84,8 @@ class PostRevisor
 
   POST_TRACKED_FIELDS = %w[raw cooked edit_reason user_id wiki post_type locale]
 
-  attr_reader :category_changed, :post_revision
+  # Extensions can inspect revision options via the `:post_edited` event payload.
+  attr_reader :category_changed, :post_revision, :opts
 
   def initialize(post, topic = post.topic)
     @post = post
@@ -120,7 +119,11 @@ class PostRevisor
   end
 
   track_topic_field(:archetype) do |topic_changes, attribute|
-    track_and_revise topic_changes, :archetype, attribute
+    if topic_changes.guardian.can_change_archetype?(topic_changes.topic, attribute)
+      track_and_revise topic_changes, :archetype, attribute
+    else
+      topic_changes.check_result(false)
+    end
   end
 
   track_topic_field(:category_id) do |tc, new_category_id, fields|
@@ -132,7 +135,22 @@ class PostRevisor
       tc.record_change("category_id", current_category.id, nil)
       tc.topic.category_id = nil
     elsif new_category.nil? || tc.guardian.can_move_topic_to_category?(new_category_id)
-      tags = fields[:tags] || tc.topic.tags.map(&:name)
+      tags =
+        if fields[:tags].present?
+          input = fields[:tags]
+          if input.first.is_a?(String)
+            input
+          else
+            ids = input.filter_map { |t| t[:id]&.to_i }
+            names = input.filter_map { |t| t[:id].blank? && t[:name].presence }
+            names += Tag.visible(tc.guardian).where(id: ids).pluck(:name) if ids.present?
+            names
+          end
+        elsif fields.has_key?(:tags)
+          []
+        else
+          tc.topic.tags.map(&:name)
+        end
       if new_category &&
            !DiscourseTagging.validate_category_tags(tc.guardian, tc.topic, new_category, tags)
         tc.check_result(false)
@@ -241,6 +259,7 @@ class PostRevisor
     @fields[:raw] = cleanup_whitespaces(@fields[:raw]) if @fields.has_key?(:raw)
     @fields[:user_id] = @fields[:user_id].to_i if @fields.has_key?(:user_id)
     @fields[:category_id] = @fields[:category_id].to_i if @fields.has_key?(:category_id)
+    @fields.delete(:tags) if @fields.has_key?(:tags) && @fields[:tags].blank? && @topic.tags.empty?
 
     # always reset edit_reason unless provided, do not set to nil else
     # previous reasons are lost
@@ -338,9 +357,14 @@ class PostRevisor
     QuotedPost.extract_from(@post)
     TopicLink.extract_from(@post)
 
-    # Skip resetting highest post number if only changing post ownership
-    Topic.reset_highest(@topic.id) unless @fields.size == 1 && @fields.has_key?("user_id")
+    # Skip heavy post processing operations if the only change was the post ownership (user merges)
+    only_user_id_changed =
+      if @fields.has_key?("user_id")
+        content_tracked_fields = POST_TRACKED_FIELDS - %w[user_id edit_reason]
+        content_tracked_fields.none? { |f| @post.previous_changes.has_key?(f) }
+      end
 
+    Topic.reset_highest(@topic.id) unless only_user_id_changed
     post_process_post
     alert_users
     publish_changes
@@ -445,6 +469,8 @@ class PostRevisor
     @diff_size ||=
       begin
         ONPDiff.new(before, after).short_diff.sum { |str, type| type == :common ? 0 : str.size }
+      rescue ONPDiff::DiffLimitExceeded
+        Float::INFINITY
       end
   end
 
@@ -627,13 +653,15 @@ class PostRevisor
     end
 
     @post_revision =
-      PostRevision.create!(
+      PostRevision.new(
         user_id: @post.last_editor_id,
         post_id: @post.id,
         number: @post.version,
         modifications:,
         hidden: @hidden_revision,
       )
+    @post_revision.silent = @silent
+    @post_revision.save!
   end
 
   def update_revision

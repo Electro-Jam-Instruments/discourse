@@ -16,7 +16,7 @@
   --d-button-default-text-color: var(--primary-900);
   --d-button-default-icon-color: var(--primary-900);
   --d-badge-card-background-color: var(--secondary);
-  --d-table-border-top-height: 0px;
+  --d-table-border-top-height: 1px;
   --category-boxes-text-alignment: left;
   --d-topic-list-data-font-size: var(--font-down-1);
   --d-topic-list-header-text-color: var(--primary-900);
@@ -49,7 +49,8 @@
   .btn-primary,
   .btn.no-text,
   .view-all-drafts,
-  .discourse-reactions-counter .reactions-counter {
+  .discourse-reactions-counter .reactions-counter,
+  #topic-progress-wrapper {
     &:not(
       .sidebar-footer-actions-button,
       #search-button,
@@ -62,7 +63,10 @@
       .user-menu-tab,
       .--with-description,
       .chat-message-react-btn,
-      .profile-tab-btn
+      .profile-tab-btn,
+      .back-button,
+      .composer-actions-btn,
+      .language-switcher-trigger
     ) {
       padding-block: 0;
       height: var(--button-height);
@@ -71,17 +75,33 @@
   }
 
   .btn.no-text.btn-icon {
-    width: var(--button-height);
+    &:not(
+      .user-menu-tab,
+      .user-menu-tab-active,
+      .composer-actions-btn,
+      .dropdown-select-box-header
+    ) {
+      width: var(--button-height);
+    }
+  }
+
+  .container.posts .topic-navigation .btn-toggle-localized-content.--active {
+    --d-button-default-icon-color: var(--tertiary);
+    --d-button-default-icon-color--hover: var(--tertiary);
   }
 
   .discourse-reactions-counter .reactions-counter {
     align-items: center;
   }
 
-  .select-kit .select-kit-header .selected-name .name {
-    @include ellipsis;
+  .user-primary-navigation .group-dropdown {
     max-width: 15ch;
-    display: inline-block;
+
+    .name {
+      display: inline-block;
+
+      @include ellipsis;
+    }
   }
 
   .d-header-icons .btn.icon {
@@ -115,24 +135,6 @@
     color: var(--d-nav-color--active);
   }
 
-  // dropdown menu
-  .dropdown-menu__item .btn,
-  .dropdown-menu__item .sidebar-section-link {
-    &:not(.notifications-tracking-btn, .--with-description) {
-      height: var(--d-sidebar-row-height) !important;
-      padding-inline: var(--d-sidebar-row-horizontal-padding);
-    }
-  }
-
-  .sidebar-section-link-wrapper.dropdown-menu__item .sidebar-section-link,
-  .sidebar-section-link-wrapper .dropdown-menu__item .sidebar-section-link {
-    border-radius: var(--d-border-radius);
-  }
-
-  .dropdown-menu__item {
-    border-radius: var(--d-border-radius);
-  }
-
   .bookmark-menu-content .bookmark-menu__title,
   .bookmark-menu-content .bookmark-menu__row-title {
     padding-block: 0;
@@ -149,27 +151,8 @@
     margin-right: 0;
   }
 
-  .dropdown-menu {
-    display: flex;
-    flex-direction: column;
-    gap: var(--d-sidebar-vertical-gap);
-    padding: var(--space-1);
-  }
-
   .sidebar-section-link-wrapper .sidebar-section-link-prefix .prefix-square {
     border-radius: calc(var(--d-border-radius) / 2);
-  }
-
-  .dropdown-menu__item .btn {
-    display: inline-flex;
-    gap: var(--d-sidebar-section-link-prefix-margin-right);
-    padding-inline: var(--d-sidebar-row-horizontal-padding);
-    border-radius: var(--d-border-radius);
-  }
-
-  .dropdown-menu__item .btn .svg-icon {
-    width: var(--d-sidebar-section-link-prefix-width);
-    margin-right: 0;
   }
 
   .sidebar-more-section-content .sidebar-row {
@@ -255,7 +238,7 @@
   }
 
   // Select Kit
-  .select-kit .select-kit-header,
+  .select-kit .select-kit-header:not(.composer-actions-btn),
   .d-date-input .date-picker {
     height: var(--button-height);
     border: var(--d-button-default-border);
@@ -316,6 +299,9 @@
 
   .extra-info-wrapper .title-wrapper {
     font-size: var(--font-down-1);
+
+    --category-badge-title-color: var(--primary-800);
+    --tag-text-color: var(--primary-800);
   }
 
   .header-sidebar-toggle button,
@@ -358,40 +344,6 @@
   .category-boxes-with-topics .category-box-inner {
     border: var(--d-category-border-box-width) solid var(--content-border-color);
     border-radius: var(--d-border-radius);
-  }
-
-  // Eliminate grey background
-  .search-container .search-header,
-  .search-container .search-filters,
-  .search-container .search-bar,
-  .d-admin-filter,
-  .search-container .search-filters .search-advanced-filters,
-  .reviewable-filters,
-  .admin-site-settings-filter-controls,
-  .admin-site-settings-filter-controls .controls,
-  .admin-site-settings-filter-controls .search.controls {
-    background: unset;
-    background-color: unset;
-  }
-
-  // Misc Spacing
-  .d-admin-filter,
-  .reviewable-filters,
-  .admin-site-settings-filter-controls .controls {
-    padding: 0;
-  }
-
-  .search-container .search-header {
-    padding: var(--space-6);
-    border: 1px solid var(--content-border-color);
-  }
-
-  .admin-nav .nav-stacked {
-    margin: 0;
-  }
-
-  .admin-filter-controls {
-    margin-block: 0;
   }
 
   // Full Calendar

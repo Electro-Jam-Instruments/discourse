@@ -52,6 +52,7 @@ class SiteSerializer < ApplicationSerializer
     :full_name_required_for_signup,
     :full_name_visible_in_signup,
     :admin_config_login_routes,
+    :email_configured,
   )
 
   has_many :archetypes, embed: :objects, serializer: ArchetypeSerializer
@@ -61,10 +62,19 @@ class SiteSerializer < ApplicationSerializer
 
   def user_themes
     cache_fragment("user_themes") do
-      Theme
-        .where("id = :default OR user_selectable", default: SiteSetting.default_theme_id)
-        .order("lower(name)")
-        .pluck(:id, :name, :color_scheme_id, :dark_color_scheme_id)
+      themes =
+        Theme
+          .where("id = :default OR user_selectable", default: SiteSetting.default_theme_id)
+          .order("lower(name)")
+          .pluck(:id, :name, :color_scheme_id, :dark_color_scheme_id)
+
+      modifier_theme_ids =
+        ThemeModifierSet
+          .where(theme_id: themes.map(&:first), only_theme_color_schemes: true)
+          .pluck(:theme_id)
+          .to_set
+
+      themes
         .map do |id, name, color_scheme_id, dark_color_scheme_id|
           {
             theme_id: id,
@@ -72,6 +82,7 @@ class SiteSerializer < ApplicationSerializer
             default: id == SiteSetting.default_theme_id,
             color_scheme_id: color_scheme_id,
             dark_color_scheme_id: dark_color_scheme_id,
+            only_theme_color_schemes: modifier_theme_ids.include?(id),
           }
         end
         .as_json
@@ -80,7 +91,16 @@ class SiteSerializer < ApplicationSerializer
 
   def user_color_schemes
     cache_fragment("user_color_schemes") do
-      schemes = ColorScheme.includes(:color_scheme_colors).where("user_selectable").order(:name)
+      theme_ids_with_modifier =
+        ThemeModifierSet.where(only_theme_color_schemes: true).pluck(:theme_id)
+
+      schemes =
+        ColorScheme
+          .includes(:color_scheme_colors)
+          .where(user_selectable: true)
+          .or(ColorScheme.where(theme_id: theme_ids_with_modifier))
+          .order(:name)
+
       ActiveModel::ArraySerializer.new(
         schemes,
         each_serializer: ColorSchemeSelectableSerializer,
@@ -269,7 +289,7 @@ class SiteSerializer < ApplicationSerializer
   end
 
   def censored_regexp
-    WordWatcher.serialized_regexps_for_action(:censor, engine: :js)
+    WordWatcher.serialized_regexps_for_action(:censor)
   end
 
   def custom_emoji_translation
@@ -285,11 +305,11 @@ class SiteSerializer < ApplicationSerializer
   end
 
   def watched_words_replace
-    WordWatcher.regexps_for_action(:replace, engine: :js)
+    WordWatcher.regexps_for_action(:replace)
   end
 
   def watched_words_link
-    WordWatcher.regexps_for_action(:link, engine: :js)
+    WordWatcher.regexps_for_action(:link)
   end
 
   def categories
@@ -414,6 +434,10 @@ class SiteSerializer < ApplicationSerializer
 
   def include_admin_config_routes?
     scope.is_admin?
+  end
+
+  def email_configured
+    GlobalSetting.smtp_address.present?
   end
 
   def full_name_required_for_signup

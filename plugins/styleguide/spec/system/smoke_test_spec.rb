@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe "Styleguide Smoke Test", type: :system do
+RSpec.describe "Styleguide Smoke Test" do
   fab!(:admin)
 
   # keep this hash updated when adding, removing or renaming components
@@ -18,6 +18,7 @@ RSpec.describe "Styleguide Smoke Test", type: :system do
       { href: "/atoms/date-time-inputs", title: "Date/Time inputs" },
       { href: "/atoms/dropdowns", title: "Dropdowns" },
       { href: "/atoms/topic-link", title: "Topic Link and Status" },
+      { href: "/atoms/segmented-control", title: "Segmented Control (Button toggle group)" },
     ],
     "MOLECULES" => [
       { href: "/molecules/bread-crumbs", title: "Bread Crumbs" },
@@ -112,15 +113,27 @@ RSpec.describe "Styleguide Smoke Test", type: :system do
     sections.each do |section, items|
       items.each do |item|
         it "renders the #{section}: #{item[:title]} page correctly" do
-          # TODO: fix chat and more-topics pages
-          skip_pages = %w[/organisms/chat /organisms/more-topics]
-          skip "Skipping smoke test for #{item[:href]} page" if skip_pages.include?(item[:href])
+          # TODO: fix more-topics page flake
+          skip "Skipping smoke test for more-topics page" if item[:href] == "/organisms/more-topics"
 
           visit "/styleguide/#{item[:href]}"
 
           expect(page).to have_css(".styleguide-contents h1.section-title", text: item[:title])
         end
       end
+    end
+  end
+
+  context "when the styleguide is enabled for everyone" do
+    before do
+      Capybara.reset_sessions!
+      SiteSetting.styleguide_allowed_groups = Group::AUTO_GROUPS[:everyone]
+    end
+
+    it "renders a page using HighlightedCode for anonymous users" do
+      visit "/styleguide/atoms/font-scale"
+      expect(page).to have_css(".styleguide-contents h1.section-title", text: "Font System")
+      expect(page).to have_css("code.hljs")
     end
   end
 

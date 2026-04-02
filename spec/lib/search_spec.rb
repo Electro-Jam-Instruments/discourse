@@ -697,9 +697,8 @@ RSpec.describe Search do
 
       # can search group PMs as well as non admin
       user = Fabricate(:user)
-      group = Fabricate.build(:group)
+      group = Fabricate(:group)
       group.add(user)
-      group.save!
 
       TopicAllowedGroup.create!(group_id: group.id, topic_id: topic.id)
 
@@ -1419,6 +1418,24 @@ RSpec.describe Search do
 
         results = Search.execute("Example Site Title", search_context: post.topic)
         expect(results.posts.map(&:id)).to eq([post.id])
+      end
+
+      describe "searching for author's real name" do
+        before { topic.user.update!(name: "Jane Searcher") }
+
+        it "does not find posts when the enable_names site setting is disabled" do
+          SiteSetting.enable_names = false
+
+          results = Search.execute("Jane Searcher", search_context: topic)
+          expect(results.posts).to be_empty
+        end
+
+        it "finds posts when the enable_names site setting is enabled" do
+          SiteSetting.enable_names = true
+
+          results = Search.execute("Jane Searcher", search_context: topic)
+          expect(results.posts.map(&:id)).to include(post.id)
+        end
       end
     end
 

@@ -46,6 +46,12 @@ cs:
           many: "%{formatted_number} zpráv chatu"
           other: "%{formatted_number} zpráv chatu"
     chat:
+      edit_category:
+        tab_title: "Konverzace"
+        channel: "Kanál"
+        description: "Popis"
+        actions: "Akce"
+        settings: "Nastavení"
       text_copied: Zkopírováno do schránky
       link_copied: Odkaz zkopírován do schránky
       back_to_forum: "Fórum"
@@ -63,6 +69,7 @@ cs:
       starred: "Oblíbené"
       starred_channels: "Oblíbené kanály"
       starred_channels_empty: "Zatím jste neoznačili žádné kanály jako oblíbené. Ty se zde objeví pro rychlejší přístup."
+      pinned: "Připnuto"
       browse_all_channels: "Procházet všechny kanály"
       see_in: "Zobrazit v"
       open_channel_menu: "Otevřít nabídku kanálu"

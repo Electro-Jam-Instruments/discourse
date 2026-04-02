@@ -151,10 +151,11 @@ class PostCreator
       end
 
       if guardian.affected_by_slow_mode?(@topic)
-        tu = TopicUser.find_by(user: @user, topic: @topic)
+        last_posted_at =
+          @topic.posts.where(user_id: @user.id).order(created_at: :desc).pick(:created_at)
 
-        if tu&.last_posted_at
-          threshold = tu.last_posted_at + @topic.slow_mode_seconds.seconds
+        if last_posted_at
+          threshold = last_posted_at + @topic.slow_mode_seconds.seconds
 
           if DateTime.now < threshold
             errors.add(:base, I18n.t(:slow_mode_enabled))
@@ -265,8 +266,10 @@ class PostCreator
   end
 
   def trigger_after_events
-    DiscourseEvent.trigger(:topic_created, @post.topic, @opts, @user) unless @opts[:topic_id]
-    DiscourseEvent.trigger(:post_created, @post, @opts, @user)
+    unless @opts[:topic_id]
+      DiscourseEvent.trigger(:topic_created, @post.topic, @opts, @user, continue_on_error: true)
+    end
+    DiscourseEvent.trigger(:post_created, @post, @opts, @user, continue_on_error: true)
   end
 
   def self.track_post_stats
@@ -290,14 +293,13 @@ class PostCreator
 
     post.word_count = post.raw.scan(/[[:word:]]+/).size
 
-    whisper = post.post_type == Post.types[:whisper]
     increase_posts_count =
       !post.topic&.private_message? || post.post_type != Post.types[:small_action]
     post.post_number ||=
       Topic.next_post_number(
         post.topic_id,
         reply: post.reply_to_post_number.present?,
-        whisper: whisper,
+        post_type: post.post_type,
         post: increase_posts_count,
       )
 

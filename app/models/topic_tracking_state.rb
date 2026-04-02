@@ -61,7 +61,7 @@ class TopicTrackingState
     publish_read(topic.id, 1, topic.user)
   end
 
-  def self.publish_latest(topic, whisper = false)
+  def self.publish_latest(topic)
     return unless topic.regular?
 
     payload = {
@@ -72,15 +72,10 @@ class TopicTrackingState
 
     payload[:tags] = topic.tags.pluck(:id).map { |id| { id: id } } if include_tags_in_report?
 
-    message = { topic_id: topic.id, message_type: LATEST_MESSAGE_TYPE, payload: payload }
+    message = { topic_id: topic.id, message_type: LATEST_MESSAGE_TYPE, payload: }
 
-    group_ids =
-      if whisper
-        [Group::AUTO_GROUPS[:staff], *SiteSetting.whispers_allowed_groups_map].flatten
-      else
-        secure_category_group_ids(topic)
-      end
-    MessageBus.publish(LATEST_MESSAGE_BUS_CHANNEL, message.as_json, group_ids: group_ids)
+    group_ids = secure_category_group_ids(topic)
+    MessageBus.publish(LATEST_MESSAGE_BUS_CHANNEL, message.as_json, group_ids:)
   end
 
   def self.unread_channel_key(user_id)
@@ -180,6 +175,35 @@ class TopicTrackingState
     message = { topic_id: topic.id, message_type: RECOVER_MESSAGE_TYPE }
 
     MessageBus.publish(RECOVER_MESSAGE_BUS_CHANNEL, message.as_json, group_ids: group_ids)
+  end
+
+  # Called when a topic's category changes.
+  # If moving to a more restricted category, users who lost access need to
+  # have the topic removed from their tracking state.
+  def self.publish_category_change(topic, old_category)
+    return if !SiteSetting.experimental_topic_category_change_notification
+    return unless topic.regular?
+
+    old_restricted = old_category&.read_restricted?
+    new_restricted = topic.category&.read_restricted?
+
+    if !old_restricted && new_restricted
+      # Moving from public to restricted category
+      # First, notify ALL users to remove topic (those who lost access)
+      message = { topic_id: topic.id, message_type: DELETE_MESSAGE_TYPE }
+      MessageBus.publish(DELETE_MESSAGE_BUS_CHANNEL, message.as_json, group_ids: nil)
+
+      # Then, notify users who CAN see the new category with updated info
+      publish_latest(topic)
+    elsif old_restricted && !new_restricted
+      # Moving from restricted to public category
+      # Notify all users of the now-visible topic
+      publish_latest(topic)
+    elsif old_category&.id != topic.category_id
+      # Category changed but restriction level didn't change
+      # Just publish the updated category info
+      publish_latest(topic)
+    end
   end
 
   def self.publish_delete(topic)

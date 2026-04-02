@@ -10,7 +10,9 @@ import getURL from "discourse/lib/get-url";
 import Badge from "discourse/models/badge";
 import Category from "discourse/models/category";
 import I18n, { i18n } from "discourse-i18n";
-import DataExplorerBarChart from "./data-explorer-bar-chart";
+import { QUERY_RESULT_MAX_LIMIT } from "discourse/plugins/discourse-data-explorer/discourse/lib/constants";
+import { isNumericColumn, looksLikeDate } from "../lib/chart-helpers";
+import DataExplorerChart from "./data-explorer-chart";
 import QueryRowContent from "./query-row-content";
 import BadgeViewComponent from "./result-types/badge";
 import CategoryViewComponent from "./result-types/category";
@@ -65,8 +67,49 @@ export default class QueryResult extends Component {
     return this.args.content.explain;
   }
 
-  get chartDatasetName() {
-    return this.columnNames[1];
+  get numericColumnIndices() {
+    if (!this.rows?.length || !this.columns?.length) {
+      return [];
+    }
+    const indices = [];
+    for (let i = 1; i < this.columns.length; i++) {
+      if (this.colRender[i]) {
+        continue;
+      }
+      if (
+        typeof this.rows[0][i] === "number" ||
+        isNumericColumn(this.rows, i)
+      ) {
+        indices.push(i);
+      }
+    }
+    return indices;
+  }
+
+  get isMultiSeries() {
+    return this.numericColumnIndices.length > 1;
+  }
+
+  get hasDates() {
+    return this.rows?.length > 0 && looksLikeDate(String(this.rows[0][0]));
+  }
+
+  get chartType() {
+    if (this.isMultiSeries) {
+      return "bar";
+    }
+    return this.hasDates ? "line" : "bar";
+  }
+
+  get isStacked() {
+    return this.isMultiSeries && this.hasDates;
+  }
+
+  get chartDatasets() {
+    return this.numericColumnIndices.map((colIdx) => ({
+      label: this.columnNames[colIdx],
+      values: this.rows.map((r) => Number(r[colIdx])),
+    }));
   }
 
   get columnNames() {
@@ -96,11 +139,6 @@ export default class QueryResult extends Component {
       }
       return { name: type, component: VIEW_COMPONENTS[type] };
     });
-  }
-
-  get chartValues() {
-    // return an array with the second value of this.row
-    return this.rows.map((item) => item[1]);
   }
 
   get colCount() {
@@ -157,14 +195,7 @@ export default class QueryResult extends Component {
   }
 
   get canShowChart() {
-    const hasTwoColumns = this.colCount === 2;
-    const secondColumnContainsNumber =
-      this.resultCount[0] > 0 && typeof this.rows[0][1] === "number";
-    const secondColumnContainsId = this.colRender[1];
-
-    return (
-      hasTwoColumns && secondColumnContainsNumber && !secondColumnContainsId
-    );
+    return this.rows?.length > 0 && this.numericColumnIndices.length > 0;
   }
 
   get chartLabels() {
@@ -253,7 +284,7 @@ export default class QueryResult extends Component {
   _download_url() {
     return this.args.group
       ? `/g/${this.args.group.name}/reports/`
-      : "/admin/plugins/explorer/queries/";
+      : "/admin/plugins/discourse-data-explorer/queries/";
   }
 
   _downloadResult(format) {
@@ -291,7 +322,7 @@ export default class QueryResult extends Component {
 
     addInput("params", JSON.stringify(this.params));
     addInput("explain", this.explainText);
-    addInput("limit", "1000000");
+    addInput("limit", String(QUERY_RESULT_MAX_LIMIT));
 
     ajax("/session/csrf.json").then((csrf) => {
       addInput("authenticity_token", csrf.csrf);
@@ -355,13 +386,14 @@ export default class QueryResult extends Component {
 
       <section>
         {{#if this.chartDisplayed}}
-          <DataExplorerBarChart
+          <DataExplorerChart
             @labels={{this.chartLabels}}
-            @values={{this.chartValues}}
-            @datasetName={{this.chartDatasetName}}
+            @datasets={{this.chartDatasets}}
+            @chartType={{this.chartType}}
+            @stacked={{this.isStacked}}
           />
         {{else}}
-          <table>
+          <table class="query-results-table">
             <thead>
               <tr class="headers">
                 {{#each this.columnNames as |col|}}

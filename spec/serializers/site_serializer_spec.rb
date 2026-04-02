@@ -101,6 +101,28 @@ RSpec.describe SiteSerializer do
     expect(serialized[:user_color_schemes][0][:is_dark]).to eq(true)
   end
 
+  describe "only_theme_color_schemes modifier" do
+    fab!(:theme)
+    fab!(:color_scheme) { Fabricate(:color_scheme, theme_id: theme.id, user_selectable: false) }
+
+    before do
+      theme.update!(user_selectable: true)
+      theme.theme_modifier_set.update!(only_theme_color_schemes: true)
+    end
+
+    it "includes theme color schemes in user_color_schemes when modifier is active" do
+      serialized = described_class.new(Site.new(guardian), scope: guardian, root: false).as_json
+      scheme_ids = serialized[:user_color_schemes].map { |s| s[:id] }
+      expect(scheme_ids).to include(color_scheme.id)
+    end
+
+    it "includes only_theme_color_schemes flag in user_themes" do
+      serialized = described_class.new(Site.new(guardian), scope: guardian, root: false).as_json
+      theme_data = serialized[:user_themes].find { |t| t["theme_id"] == theme.id }
+      expect(theme_data["only_theme_color_schemes"]).to eq(true)
+    end
+  end
+
   it "includes default dark mode scheme" do
     scheme = ColorScheme.last
     Theme.find_default.update!(dark_color_scheme_id: scheme.id)
@@ -512,6 +534,22 @@ RSpec.describe SiteSerializer do
     it "is false when enable_names setting is true and full_name_requirement is hidden_at_signup" do
       SiteSetting.full_name_requirement = "hidden_at_signup"
       expect(site_json[:full_name_visible_in_signup]).to eq(false)
+    end
+  end
+
+  describe "#email_configured" do
+    it "returns true when smtp_address is set" do
+      global_setting :smtp_address, "smtp.example.com"
+
+      serialized = described_class.new(Site.new(guardian), scope: guardian, root: false).as_json
+      expect(serialized[:email_configured]).to eq(true)
+    end
+
+    it "returns false when smtp_address is blank" do
+      global_setting :smtp_address, ""
+
+      serialized = described_class.new(Site.new(guardian), scope: guardian, root: false).as_json
+      expect(serialized[:email_configured]).to eq(false)
     end
   end
 

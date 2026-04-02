@@ -3,7 +3,7 @@ import Controller, { inject as controller } from "@ember/controller";
 import { action } from "@ember/object";
 import { next } from "@ember/runloop";
 import { service } from "@ember/service";
-import { htmlSafe } from "@ember/template";
+import { trustHTML } from "@ember/template";
 import { isEmpty } from "@ember/utils";
 import NotActivatedModal from "discourse/components/modal/not-activated";
 import { ajax } from "discourse/lib/ajax";
@@ -267,7 +267,7 @@ export default class LoginPageController extends Controller {
           this.dialog.alert(result.error);
         } else if (result.reason === "expired") {
           this.setFlash(
-            htmlSafe(
+            trustHTML(
               i18n("login.password_expired", {
                 reset_url: getURL("/password-reset"),
               })

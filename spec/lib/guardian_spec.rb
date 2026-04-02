@@ -505,6 +505,36 @@ RSpec.describe Guardian do
         expect(Guardian.new(admin).can_banner_topic?(topic)).to be_truthy
       end
 
+      it "does not allow staff to banner topics in read-restricted categories" do
+        group = Fabricate(:group)
+        private_category = Fabricate(:private_category, group: group)
+        topic = Fabricate(:topic, category: private_category)
+
+        expect(Guardian.new(admin).can_banner_topic?(topic)).to be_falsey
+      end
+
+      describe "#can_change_archetype?" do
+        fab!(:topic)
+
+        it "allows staff to change archetype to banner" do
+          expect(Guardian.new(admin).can_change_archetype?(topic, Archetype.banner)).to eq(true)
+          expect(Guardian.new(moderator).can_change_archetype?(topic, Archetype.banner)).to eq(true)
+        end
+
+        it "does not allow regular users to change archetype to banner" do
+          expect(Guardian.new(user).can_change_archetype?(topic, Archetype.banner)).to eq(false)
+        end
+
+        it "does not allow regular users to change archetype from banner" do
+          topic.update!(archetype: Archetype.banner)
+          expect(Guardian.new(user).can_change_archetype?(topic, Archetype.default)).to eq(false)
+        end
+
+        it "returns true when archetype is unchanged" do
+          expect(Guardian.new(user).can_change_archetype?(topic, topic.archetype)).to eq(true)
+        end
+      end
+
       it "respects category group moderator settings" do
         group_user = Fabricate(:group_user)
         user_gm = group_user.user
@@ -1379,6 +1409,30 @@ RSpec.describe Guardian do
       Fabricate(:category_moderation_group, category: topic.category, group:)
       expect(Guardian.new(user).can_close_topic?(topic)).to eq(true)
     end
+
+    context "with TL4 users" do
+      it "returns true for visible topic" do
+        expect(Guardian.new(trust_level_4).can_close_topic?(topic)).to eq(true)
+      end
+
+      it "returns false for private category topic" do
+        private_category = Fabricate(:private_category, group: group)
+        private_topic = Fabricate(:topic, category: private_category)
+        expect(Guardian.new(trust_level_4).can_close_topic?(private_topic)).to eq(false)
+      end
+
+      it "returns false for private message" do
+        pm_topic = Fabricate(:private_message_topic)
+        expect(Guardian.new(trust_level_4).can_close_topic?(pm_topic)).to eq(false)
+      end
+
+      it "returns true with access to private category" do
+        group.add(trust_level_4)
+        private_category = Fabricate(:private_category, group: group)
+        private_topic = Fabricate(:topic, category: private_category)
+        expect(Guardian.new(trust_level_4).can_close_topic?(private_topic)).to eq(true)
+      end
+    end
   end
 
   describe "#can_archive_topic?" do
@@ -1399,6 +1453,56 @@ RSpec.describe Guardian do
       GroupUser.create!(group_id: group.id, user_id: user.id)
       Fabricate(:category_moderation_group, category: topic.category, group:)
       expect(Guardian.new(user).can_archive_topic?(topic)).to eq(true)
+    end
+
+    context "with TL4 users" do
+      it "returns true for visible topic" do
+        expect(Guardian.new(trust_level_4).can_archive_topic?(topic)).to eq(true)
+      end
+
+      it "returns false for private category topic" do
+        private_category = Fabricate(:private_category, group: group)
+        private_topic = Fabricate(:topic, category: private_category)
+        expect(Guardian.new(trust_level_4).can_archive_topic?(private_topic)).to eq(false)
+      end
+
+      it "returns false for private message" do
+        pm_topic = Fabricate(:private_message_topic)
+        expect(Guardian.new(trust_level_4).can_archive_topic?(pm_topic)).to eq(false)
+      end
+
+      it "returns true with access to private category" do
+        group.add(trust_level_4)
+        private_category = Fabricate(:private_category, group: group)
+        private_topic = Fabricate(:topic, category: private_category)
+        expect(Guardian.new(trust_level_4).can_archive_topic?(private_topic)).to eq(true)
+      end
+    end
+  end
+
+  describe "#can_pin_unpin_topic?" do
+    context "with TL4 users" do
+      it "returns true for visible topic" do
+        expect(Guardian.new(trust_level_4).can_pin_unpin_topic?(topic)).to eq(true)
+      end
+
+      it "returns false for private category topic" do
+        private_category = Fabricate(:private_category, group: group)
+        private_topic = Fabricate(:topic, category: private_category)
+        expect(Guardian.new(trust_level_4).can_pin_unpin_topic?(private_topic)).to eq(false)
+      end
+
+      it "returns true with access to private category" do
+        group.add(trust_level_4)
+        private_category = Fabricate(:private_category, group: group)
+        private_topic = Fabricate(:topic, category: private_category)
+        expect(Guardian.new(trust_level_4).can_pin_unpin_topic?(private_topic)).to eq(true)
+      end
+
+      it "returns false for private message" do
+        pm_topic = Fabricate(:private_message_topic)
+        expect(Guardian.new(trust_level_4).can_pin_unpin_topic?(pm_topic)).to eq(false)
+      end
     end
   end
 
@@ -2405,6 +2509,23 @@ RSpec.describe Guardian do
       expect(admin_guardian.can_export_entity?("staff_action")).to be_truthy
     end
 
+    it "respects moderators_view_ips for screened_ip export" do
+      SiteSetting.moderators_view_ips = false
+      expect(moderator_guardian.can_export_entity?("screened_ip")).to be_falsey
+      expect(admin_guardian.can_export_entity?("screened_ip")).to be_truthy
+
+      SiteSetting.moderators_view_ips = true
+      expect(moderator_guardian.can_export_entity?("screened_ip")).to be_truthy
+    end
+
+    it "only allows admins to export admin-only reports" do
+      expect(user_guardian.can_export_entity?("report", nil, { name: "top_uploads" })).to be_falsey
+      expect(
+        moderator_guardian.can_export_entity?("report", nil, { name: "top_uploads" }),
+      ).to be_falsey
+      expect(admin_guardian.can_export_entity?("report", nil, { name: "top_uploads" })).to be_truthy
+    end
+
     it "does not allow anonymous to export" do
       expect(anonymous_guardian.can_export_entity?("user_archive")).to be_falsey
     end
@@ -2640,10 +2761,9 @@ RSpec.describe Guardian do
 
   describe "#can_see_group?" do
     it "Correctly handles owner visible groups" do
-      group = Group.new(name: "group", visibility_level: Group.visibility_levels[:owners])
+      group = Fabricate(:group, visibility_level: Group.visibility_levels[:owners])
 
       group.add(member)
-      group.save!
 
       group.add_owner(owner)
       group.reload
@@ -2657,10 +2777,9 @@ RSpec.describe Guardian do
     end
 
     it "Correctly handles staff visible groups" do
-      group = Group.new(name: "group", visibility_level: Group.visibility_levels[:staff])
+      group = Fabricate(:group, visibility_level: Group.visibility_levels[:staff])
 
       group.add(member)
-      group.save!
 
       group.add_owner(owner)
       group.reload
@@ -2674,10 +2793,9 @@ RSpec.describe Guardian do
     end
 
     it "Correctly handles member visible groups" do
-      group = Group.new(name: "group", visibility_level: Group.visibility_levels[:members])
+      group = Fabricate(:group, visibility_level: Group.visibility_levels[:members])
 
       group.add(member)
-      group.save!
 
       group.add_owner(owner)
       group.reload
@@ -2691,9 +2809,8 @@ RSpec.describe Guardian do
     end
 
     it "Correctly handles logged-on-user visible groups" do
-      group = Group.new(name: "group", visibility_level: Group.visibility_levels[:logged_on_users])
+      group = Fabricate(:group, visibility_level: Group.visibility_levels[:logged_on_users])
       group.add(member)
-      group.save!
 
       group.add_owner(owner)
       group.reload
@@ -2715,10 +2832,9 @@ RSpec.describe Guardian do
 
   describe "#can_see_group_members?" do
     it "Correctly handles group members visibility for owner" do
-      group = Group.new(name: "group", members_visibility_level: Group.visibility_levels[:owners])
+      group = Fabricate(:group, members_visibility_level: Group.visibility_levels[:owners])
 
       group.add(member)
-      group.save!
 
       group.add_owner(owner)
       group.reload
@@ -2732,10 +2848,9 @@ RSpec.describe Guardian do
     end
 
     it "Correctly handles group members visibility for staff" do
-      group = Group.new(name: "group", members_visibility_level: Group.visibility_levels[:staff])
+      group = Fabricate(:group, members_visibility_level: Group.visibility_levels[:staff])
 
       group.add(member)
-      group.save!
 
       group.add_owner(owner)
       group.reload
@@ -2749,10 +2864,9 @@ RSpec.describe Guardian do
     end
 
     it "Correctly handles group members visibility for member" do
-      group = Group.new(name: "group", members_visibility_level: Group.visibility_levels[:members])
+      group = Fabricate(:group, members_visibility_level: Group.visibility_levels[:members])
 
       group.add(member)
-      group.save!
 
       group.add_owner(owner)
       group.reload
@@ -2766,13 +2880,8 @@ RSpec.describe Guardian do
     end
 
     it "Correctly handles group members visibility for logged-on-user" do
-      group =
-        Group.new(
-          name: "group",
-          members_visibility_level: Group.visibility_levels[:logged_on_users],
-        )
+      group = Fabricate(:group, members_visibility_level: Group.visibility_levels[:logged_on_users])
       group.add(member)
-      group.save!
 
       group.add_owner(owner)
       group.reload
@@ -2794,10 +2903,9 @@ RSpec.describe Guardian do
 
   describe "#can_see_groups?" do
     it "correctly handles owner visible groups" do
-      group = Group.new(name: "group", visibility_level: Group.visibility_levels[:owners])
+      group = Fabricate(:group, visibility_level: Group.visibility_levels[:owners])
 
       group.add(member)
-      group.save!
 
       group.add_owner(owner)
       group.reload
@@ -2811,12 +2919,10 @@ RSpec.describe Guardian do
     end
 
     it "correctly handles the case where the user does not own every group" do
-      group = Group.new(name: "group", visibility_level: Group.visibility_levels[:owners])
-      group2 = Group.new(name: "group2", visibility_level: Group.visibility_levels[:owners])
-      group2.save!
+      group = Fabricate(:group, visibility_level: Group.visibility_levels[:owners])
+      group2 = Fabricate(:group, visibility_level: Group.visibility_levels[:owners])
 
       group.add(member)
-      group.save!
 
       group.add_owner(owner)
       group.reload
@@ -2830,10 +2936,9 @@ RSpec.describe Guardian do
     end
 
     it "correctly handles staff visible groups" do
-      group = Group.new(name: "group", visibility_level: Group.visibility_levels[:staff])
+      group = Fabricate(:group, visibility_level: Group.visibility_levels[:staff])
 
       group.add(member)
-      group.save!
 
       group.add_owner(owner)
       group.reload
@@ -2847,10 +2952,9 @@ RSpec.describe Guardian do
     end
 
     it "correctly handles member visible groups" do
-      group = Group.new(name: "group", visibility_level: Group.visibility_levels[:members])
+      group = Fabricate(:group, visibility_level: Group.visibility_levels[:members])
 
       group.add(member)
-      group.save!
 
       group.add_owner(owner)
       group.reload
@@ -2864,10 +2968,9 @@ RSpec.describe Guardian do
     end
 
     it "correctly handles logged-on-user visible groups" do
-      group = Group.new(name: "group", visibility_level: Group.visibility_levels[:logged_on_users])
+      group = Fabricate(:group, visibility_level: Group.visibility_levels[:logged_on_users])
 
       group.add(member)
-      group.save!
 
       group.add_owner(owner)
       group.reload
@@ -2881,12 +2984,10 @@ RSpec.describe Guardian do
     end
 
     it "correctly handles the case where the user is not a member of every group" do
-      group1 = Group.new(name: "group", visibility_level: Group.visibility_levels[:members])
-      group2 = Group.new(name: "group2", visibility_level: Group.visibility_levels[:members])
-      group2.save!
+      group1 = Fabricate(:group, visibility_level: Group.visibility_levels[:members])
+      group2 = Fabricate(:group, visibility_level: Group.visibility_levels[:members])
 
       group1.add(member)
-      group1.save!
 
       group1.add_owner(owner)
       group1.reload

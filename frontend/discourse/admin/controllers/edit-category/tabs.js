@@ -1,19 +1,43 @@
 import { tracked } from "@glimmer/tracking";
 import Controller from "@ember/controller";
-import { action, getProperties } from "@ember/object";
+import { action, computed, getProperties } from "@ember/object";
 import { and } from "@ember/object/computed";
 import { next } from "@ember/runloop";
 import { service } from "@ember/service";
 import { popupAjaxError } from "discourse/lib/ajax-error";
 import { AUTO_GROUPS } from "discourse/lib/constants";
-import discourseComputed from "discourse/lib/decorators";
-import { trackedArray } from "discourse/lib/tracked-tools";
+import { registeredEditCategoryTabs } from "discourse/lib/edit-category-tabs";
+import getURL from "discourse/lib/get-url";
+import { autoTrackedArray } from "discourse/lib/tracked-tools";
 import DiscourseURL from "discourse/lib/url";
 import { defaultHomepage } from "discourse/lib/utilities";
 import Category from "discourse/models/category";
 import { i18n } from "discourse-i18n";
 
-const FIELD_LIST = [
+// Only fields managed through FormKit in the legacy edit-category flow.
+// Other legacy tab components (settings, tags, etc.) write directly to the model.
+const LEGACY_FORMKIT_FIELDS = [
+  "name",
+  "slug",
+  "parent_category_id",
+  "color",
+  "text_color",
+  "style_type",
+  "emoji",
+  "icon",
+  "locale",
+  "localizations",
+  "email_in",
+  "email_in_enabled",
+  "email_in_allow_strangers",
+  "mailinglist_mirror",
+  "topic_template",
+  "topic_title_placeholder",
+  "form_template_ids",
+];
+
+// All fields managed through FormKit in the simplified creation flow.
+const SIMPLIFIED_FIELD_LIST = [
   "name",
   "slug",
   "parent_category_id",
@@ -23,6 +47,7 @@ const FIELD_LIST = [
   "style_type",
   "emoji",
   "icon",
+  "locale",
   "localizations",
   "position",
   "num_featured_topics",
@@ -44,10 +69,22 @@ const FIELD_LIST = [
   "subcategory_list_style",
   "read_only_banner",
   "email_in",
+  "email_in_enabled",
   "email_in_allow_strangers",
   "mailinglist_mirror",
   "allowed_tag_groups",
   "allowed_tags",
+  "required_tag_groups",
+  "minimum_required_tags",
+  "allow_global_tags",
+  "default_slow_mode_seconds",
+  "topic_template",
+  "topic_title_placeholder",
+  "form_template_ids",
+  "uploaded_logo",
+  "uploaded_logo_dark",
+  "uploaded_background",
+  "uploaded_background_dark",
 ];
 
 const SHOW_ADVANCED_TABS_KEY = "category_edit_show_advanced_tabs";
@@ -56,15 +93,19 @@ export default class EditCategoryTabsController extends Controller {
   @service currentUser;
   @service dialog;
   @service site;
+  @service siteSettings;
   @service router;
   @service keyValueStore;
+  @service toasts;
 
   @tracked breadcrumbCategories = this.site.get("categoriesList");
   @tracked
   showAdvancedTabs =
     this.keyValueStore.getItem(SHOW_ADVANCED_TABS_KEY) === "true";
+  @tracked formData;
   @tracked selectedTab = "general";
-  @trackedArray panels = [];
+  @tracked formApi = null;
+  @autoTrackedArray panels = [];
   saving = false;
   deleting = false;
   showTooltip = false;
@@ -76,33 +117,77 @@ export default class EditCategoryTabsController extends Controller {
 
   @and("showTooltip", "model.cannot_delete_reason") showDeleteReason;
 
-  get formData() {
-    const data = getProperties(this.model, ...FIELD_LIST);
+  /**
+   * Callbacks registered by tab components that are invoked when the form
+   * is reset, allowing child components to clean up their own state.
+   * @type {Function[]}
+   */
+  afterResetCallbacks = [];
 
-    if (!this.model.styleType) {
-      data.style_type = "icon";
+  @action
+  initFormData() {
+    const enableSimplifiedCategoryCreation =
+      this.siteSettings.enable_simplified_category_creation;
+    const data = getProperties(
+      this.model,
+      ...(enableSimplifiedCategoryCreation
+        ? SIMPLIFIED_FIELD_LIST
+        : LEGACY_FORMKIT_FIELDS)
+    );
+
+    if (this.siteSettings.content_localization_enabled && !data.locale) {
+      data.locale = this.siteSettings.default_locale;
     }
 
-    return data;
+    if (enableSimplifiedCategoryCreation) {
+      if (!this.model.styleType) {
+        data.style_type = "icon";
+      }
+
+      data.required_tag_groups = Array.from(
+        data.required_tag_groups ?? [],
+        (rtg) => ({ ...rtg })
+      );
+      data.category_setting = { ...(this.model.category_setting ?? {}) };
+      data.custom_fields = { ...(this.model.custom_fields ?? {}) };
+
+      data.category_type_site_settings = {};
+
+      Object.values(this.model.categoryTypes ?? {}).forEach((categoryType) => {
+        categoryType.configuration_schema.category_custom_fields?.forEach(
+          (field) => {
+            data.custom_fields[field.key] ??= field.default;
+          }
+        );
+
+        categoryType.configuration_schema.site_settings?.forEach((setting) => {
+          data.category_type_site_settings[setting.key] = this.model.id
+            ? setting.current
+            : setting.default;
+        });
+      });
+    }
+
+    this.formData = data;
   }
 
-  @discourseComputed("saving", "deleting")
-  deleteDisabled(saving, deleting) {
-    return deleting || saving || false;
+  @computed("saving", "deleting")
+  get deleteDisabled() {
+    return this.deleting || this.saving || false;
   }
 
-  @discourseComputed("name")
-  categoryName(name) {
-    name = name || "";
+  @computed("name")
+  get categoryName() {
+    const name = this.name || "";
     return name.trim().length > 0 ? name : i18n("preview");
   }
 
-  @discourseComputed("saving", "model.id")
-  saveLabel(saving, id) {
-    if (saving) {
+  @computed("saving", "model.id")
+  get saveLabel() {
+    if (this.saving) {
       return "saving";
     }
-    return id ? "category.save" : "category.create";
+    return this.model?.id ? "category.save" : "category.create_category";
   }
 
   get baseTitle() {
@@ -112,17 +197,56 @@ export default class EditCategoryTabsController extends Controller {
       });
     }
 
+    const types = Object.values(this.model.categoryTypes ?? {});
+    if (types.length > 0) {
+      return i18n("category.create_with_type", {
+        typeName: types[0].title,
+      });
+    }
+
     return i18n("category.create");
+  }
+
+  get isFormDirty() {
+    return this.formApi?.isDirty ?? false;
+  }
+
+  @action
+  onRegisterFormApi(api) {
+    this.formApi = api;
   }
 
   @action
   setSelectedTab(tab) {
+    if (this.selectedTab === tab) {
+      return;
+    }
+
     this.selectedTab = tab;
     this.showAdvancedTabs = this.showAdvancedTabs || tab !== "general";
   }
 
+  /**
+   * Runs all registered validators, then performs built-in validation for
+   * required fields (name, emoji, icon) when submitting from a non-general tab.
+   * Both `addError` and `removeError` are passed to validators so they can
+   * manage errors bidirectionally.
+   *
+   * @param {Object} data - The current form draft data.
+   * @param {Object} helpers
+   * @param {Function} helpers.addError - Adds a validation error for a field.
+   * @param {Function} helpers.removeError - Removes a validation error for a field.
+   */
   @action
-  validateForm(data, { addError }) {
+  validateForm(data, { addError, removeError }) {
+    if (!this.siteSettings.enable_simplified_category_creation) {
+      return;
+    }
+
+    for (const validator of this.validators) {
+      validator(data, { addError, removeError });
+    }
+
     if (this.selectedTab === "general") {
       return;
     }
@@ -163,9 +287,34 @@ export default class EditCategoryTabsController extends Controller {
     this.validators.push(validator);
   }
 
+  /**
+   * Registers a callback that will be invoked when the form is reset.
+   * Tab components use this to synchronize their internal state (e.g.,
+   * clearing local selections) when the user resets the form.
+   *
+   * @param {Function} callback - The function to call on form reset.
+   */
+  @action
+  registerAfterReset(callback) {
+    this.afterResetCallbacks.push(callback);
+  }
+
+  /**
+   * Called by FormKit's `@onReset` hook. Invokes all registered
+   * after-reset callbacks so tab components can react to the reset.
+   */
+  @action
+  onFormReset() {
+    this.afterResetCallbacks.forEach((callback) => callback());
+  }
+
   @action
   isLeavingForm(transition) {
-    return !transition.targetName.startsWith("editCategory.tabs");
+    const name = transition.targetName;
+    return (
+      !name.startsWith("editCategory.tabs") &&
+      !name.startsWith("newCategory.tabs")
+    );
   }
 
   _wouldLoseAccess(category = this.model) {
@@ -192,7 +341,9 @@ export default class EditCategoryTabsController extends Controller {
       return;
     }
 
-    this.model.setProperties(data);
+    // eslint-disable-next-line no-unused-vars
+    const { visibility, ...categoryData } = data;
+    this.model.setProperties(categoryData);
 
     // If permissions is empty or not set, ensure it's an empty array (public category)
     if (!this.model.permissions || this.model.permissions.length === 0) {
@@ -224,6 +375,12 @@ export default class EditCategoryTabsController extends Controller {
       }
 
       this.set("saving", false);
+      this.initFormData();
+
+      this.toasts.success({
+        duration: "short",
+        data: { message: i18n("saved") },
+      });
 
       if (!this.model.id) {
         this.router.transitionTo(
@@ -245,6 +402,10 @@ export default class EditCategoryTabsController extends Controller {
 
   @action
   deleteCategory() {
+    if (this.deleteDisabled) {
+      return;
+    }
+
     this.set("deleting", true);
     this.dialog.deleteConfirm({
       title: i18n("category.delete_confirm"),
@@ -267,6 +428,10 @@ export default class EditCategoryTabsController extends Controller {
 
   @action
   toggleDeleteTooltip() {
+    if (this.deleteDisabled) {
+      return;
+    }
+
     this.toggleProperty("showTooltip");
   }
 
@@ -285,9 +450,23 @@ export default class EditCategoryTabsController extends Controller {
       this.showAdvancedTabs.toString()
     );
 
-    // Always ensure we're on general tab after toggling
-    next(() => {
-      this.selectedTab = "general";
-    });
+    // When collapsing, reset to general unless current tab is still visible
+    if (!this.showAdvancedTabs && this.selectedTab !== "general") {
+      const primaryTab = registeredEditCategoryTabs.find(
+        (tab) => tab.id === this.selectedTab && tab.primary
+      );
+      if (!primaryTab) {
+        next(() => {
+          this.selectedTab = "general";
+          if (this.router.currentRouteName?.startsWith("newCategory")) {
+            DiscourseURL.routeTo(getURL("/new-category/general"));
+          } else if (this.parentParams?.slug) {
+            DiscourseURL.routeTo(
+              getURL(`/c/${this.parentParams.slug}/edit/general`)
+            );
+          }
+        });
+      }
+    }
   }
 }

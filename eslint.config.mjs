@@ -44,10 +44,10 @@ export default [
       "plugins/discourse-math/public",
       "public/",
       "vendor/",
-      "frontend/discourse/tests/fixtures",
       "**/node_modules/",
       "spec/",
       "frontend/discourse/dist/",
+      "frontend/discourse-types/dts-generator.js",
       "tmp/",
       "eslint-rules/", // Don't lint the linting rules themselves
     ],
