@@ -58,6 +58,7 @@
 // First row in grid, allows keyboard navigation to topic title/category/tags
 .topic-header-row[role="row"] {
   padding: 0.5em 0;
+
   // Ensure focused rows scroll into view below the sticky header
   scroll-margin-top: calc(var(--header-offset) + 1em);
 

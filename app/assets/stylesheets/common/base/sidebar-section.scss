@@ -36,8 +36,9 @@
 
     &:focus-within {
       background: var(--d-sidebar-highlight-background);
+
       // Full-row focus ring when any element in the header toolbar is focused
-      outline: 2px solid var(--tertiary);
+      outline: 2px solid var(--token-color-background-accent-bolder);
       outline-offset: -2px;
     }
 
@@ -131,6 +132,7 @@
 
       &:focus {
         background: transparent;
+
         // Remove individual focus outline - wrapper handles full-row focus
         outline: none;
       }
