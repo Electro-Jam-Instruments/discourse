@@ -263,3 +263,45 @@ For focus-related code specifically:
 - Check `document.activeElement` before stealing focus
 - Multiple modifiers must coordinate - check if focus is in another region
 - Never assume timing will make race conditions go away
+
+### 6. Keyboard Behaviour Requires a Visible Focus Indicator
+
+**Adding roving tabindex or arrow-key navigation to a component is only half
+the work. It is not done until that component has a CSS focus style.**
+
+This was missed for the entire toolbar pattern: six components got
+`role="toolbar"` with full keyboard handling in JavaScript, and not one of them
+got a focus rule in SCSS. They silently fell back to the browser's default
+ring, which renders as a thin dark outline that is nearly invisible on dark
+backgrounds. Nobody noticed until it was tested on a real page.
+
+When adding or reviewing keyboard navigation:
+
+- Every element that can receive focus via roving tabindex needs a
+  `:focus-visible` rule using the `--d-grid-focus-*` tokens
+- Grep for the role you just added (`[role="toolbar"]`, `[role="grid"]`) in
+  `app/assets/stylesheets` and confirm a focus rule exists
+- Apply it to **all** components sharing the pattern, not just the one being
+  worked on
+
+### 7. Verify Focus Styles by Measuring, Not by Looking
+
+A missing focus rule does not fail loudly - the browser draws its own ring, so
+something appears and the page looks approximately right. Screenshots do not
+distinguish "our 2px ring" from "Chrome's default 0.67px ring".
+
+Check the computed style on a keyboard-focused element:
+
+```js
+// Must be real keyboard focus - programmatic .focus() does not trigger
+// :focus-visible, and will report outline-style: none, which is misleading.
+const c = getComputedStyle(document.activeElement);
+c.outlineStyle;  // "auto" means OUR RULE IS NOT APPLYING
+c.outlineWidth;  // "0.67px" is the UA default; ours is 2px
+```
+
+`outline-style: auto` is the browser default. When set, Chrome ignores
+`outline-color` entirely, so a rule that only sets the colour will appear to do
+nothing and the ring will render dark regardless of the value.
+
+Tab to the element with a real keypress before measuring.
