@@ -2,13 +2,13 @@ import Component from "@glimmer/component";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
-import { htmlSafe } from "@ember/template";
+import { trustHTML } from "@ember/template";
 import PluginOutlet from "discourse/components/plugin-outlet";
 import PrivateMessageGlyph from "discourse/components/private-message-glyph";
 import TopicCategory from "discourse/components/topic-category";
 import TopicStatus from "discourse/components/topic-status";
-import icon from "discourse/helpers/d-icon";
 import lazyHash from "discourse/helpers/lazy-hash";
+import dIcon from "discourse/ui-kit/helpers/d-icon";
 import { i18n } from "discourse-i18n";
 
 /**
@@ -165,7 +165,7 @@ export default class PostStreamHeaderRow extends Component {
             class="fancy-title"
             tabindex="-1"
           >
-            {{htmlSafe @topic.fancyTitle}}
+            {{trustHTML @topic.fancyTitle}}
           </a>
 
           {{#if this.canEdit}}
@@ -177,7 +177,7 @@ export default class PostStreamHeaderRow extends Component {
               aria-label={{i18n "topic.edit_title"}}
               tabindex="-1"
             >
-              {{icon "pencil"}}
+              {{dIcon "pencil"}}
             </button>
           {{/if}}
 
