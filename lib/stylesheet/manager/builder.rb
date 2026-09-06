@@ -3,7 +3,7 @@
 class Stylesheet::Manager::Builder
   attr_reader :theme
 
-  def initialize(target: :desktop, theme: nil, color_scheme: nil, manager:)
+  def initialize(target:, theme: nil, color_scheme: nil, manager:)
     @target = target
     @theme = theme
     @color_scheme = color_scheme
@@ -46,7 +46,6 @@ class Stylesheet::Manager::Builder
           source_map_file: source_map_url_relative_from_stylesheet,
           color_scheme_id: @color_scheme&.id,
           load_paths: load_paths,
-          strict_deprecations: %i[desktop mobile admin wizard].include?(@target),
         )
       rescue SassC::SyntaxError, SassC::NotRenderedError, AssetProcessor::TranspileError => e
         if Stylesheet::Manager::THEME_REGEX.match?(@target.to_s)
@@ -73,6 +72,15 @@ class Stylesheet::Manager::Builder
       Rails.logger.warn "Completely unexpected error adding item to cache #{e}"
     end
     css
+  end
+
+  def hydrate_from_cache!
+    relation = StylesheetCache.where(target: qualified_target, digest: digest)
+    return false if !relation.exists?
+
+    StylesheetCache.write_to_disk(relation, stylesheet_fullpath)
+    StylesheetCache.write_to_disk(relation, source_map_fullpath, source_map: true)
+    true
   end
 
   def current_hostname
@@ -131,7 +139,7 @@ class Stylesheet::Manager::Builder
   end
 
   def stylesheet_filename(with_digest = true)
-    digest_string = "_#{self.digest}" if with_digest
+    digest_string = "_#{digest}" if with_digest
     "#{qualified_target}#{digest_string}.css"
   end
 
@@ -154,14 +162,12 @@ class Stylesheet::Manager::Builder
   # digest encodes the things that trigger a recompile
   def digest
     @digest ||=
-      begin
-        if is_theme?
-          theme_digest
-        elsif is_color_scheme?
-          color_scheme_digest
-        else
-          default_digest
-        end
+      if is_theme?
+        theme_digest
+      elsif is_color_scheme?
+        color_scheme_digest
+      else
+        default_digest
       end
   end
 
@@ -187,7 +193,7 @@ class Stylesheet::Manager::Builder
   def theme_digest
     Digest::SHA1.hexdigest(
       scss_digest.to_s + color_scheme_digest.to_s + settings_digest + uploads_digest +
-        current_hostname,
+        current_hostname + Stylesheet::Manager.fs_asset_cachebuster,
     )
   end
 
@@ -199,6 +205,7 @@ class Stylesheet::Manager::Builder
     DiscoursePluginRegistry.stylesheets.each { |_, paths| assets += paths.to_a }
     DiscoursePluginRegistry.mobile_stylesheets.each { |_, paths| assets += paths.to_a }
     DiscoursePluginRegistry.desktop_stylesheets.each { |_, paths| assets += paths.to_a }
+    DiscoursePluginRegistry.admin_stylesheets.each { |_, paths| assets += paths.to_a }
     Digest::SHA1.hexdigest(assets.sort.join)
   end
 

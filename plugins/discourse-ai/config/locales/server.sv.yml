@@ -9,19 +9,24 @@ sv:
     overall_sentiment:
       yaxis: "Datum"
     emotion_neutral:
-      title: "\U0001F610 Neutralt"
+      title: "😐 Neutralt"
   discourse_ai:
     tools:
       presets:
         image_generation_custom:
           name: "Anpassad"
     ai_bot:
+      read_post:
+        unknown_post: "inlägg"
       tool_summary:
+        suspend_user: "Stäng av användare"
+        silence_user: "Tysta användare"
         search: "Sök"
         time: "Tid"
         summarize: "Sammanfatta"
       tool_help:
         delete_topic: "Ta bort ett ämne"
+        create_category: "Skapa en ny kategori"
       close_topic:
         errors:
           not_found: "Ämnet hittades inte."
@@ -31,10 +36,13 @@ sv:
       delete_topic:
         errors:
           not_found: "Ämnet hittades inte."
-      edit_tags:
+      change_topic_tags:
         errors:
           not_found: "Ämnet hittades inte."
       edit_category:
+        errors:
+          not_found: "Kategorin hittades inte."
+      change_topic_category:
         errors:
           not_found: "Ämnet hittades inte."
           category_not_found: "Kategorin hittades inte."
@@ -62,7 +70,7 @@ sv:
     sentiment:
       reports:
         post_emotion:
-          neutral: "Neutralt \U0001F610"
+          neutral: "Neutralt 😐"
         sentiment_analysis:
           neutral: "Neutralt"
     ai_staff_action_logger:

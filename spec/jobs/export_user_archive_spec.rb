@@ -36,10 +36,6 @@ RSpec.describe Jobs::ExportUserArchive do
     [data_rows, csv_out]
   end
 
-  def make_component_json
-    JSON.parse(MultiJson.dump(job.public_send(:"#{component}_export")))
-  end
-
   describe "#execute" do
     before do
       _ = post
@@ -85,8 +81,7 @@ RSpec.describe Jobs::ExportUserArchive do
       expect(system_message.first_post.raw).to eq(
         I18n.t(
           "system_messages.csv_export_succeeded.text_body_template",
-          download_link:
-            "[#{upload.original_filename}|attachment](#{upload.short_url}) (#{upload.human_filesize})",
+          download_link: UploadMarkdown.new(upload).attachment_markdown,
         ).chomp,
       )
 
@@ -145,8 +140,7 @@ RSpec.describe Jobs::ExportUserArchive do
         expect(system_message.first_post.raw).to eq(
           I18n.t(
             "system_messages.csv_export_succeeded.text_body_template",
-            download_link:
-              "[#{upload.original_filename}|attachment](#{upload.short_url}) (#{upload.human_filesize})",
+            download_link: UploadMarkdown.new(upload).attachment_markdown,
           ).chomp,
         )
       end
@@ -259,7 +253,7 @@ RSpec.describe Jobs::ExportUserArchive do
     it "properly includes the profile fields" do
       _serializer = job.preferences_export
       # puts MultiJson.dump(serializer, indent: 4)
-      output = make_component_json
+      output = JSON.parse(MultiJson.dump(job.public_send(:"#{component}_export")))
       payload = output["user"]
 
       expect(payload["website"]).to match("doe.example.com")

@@ -12,16 +12,12 @@ import { i18n } from "discourse-i18n";
 
 export default class PluginsExplorerController extends Controller {
   @service dialog;
-  @service appEvents;
   @service router;
   @service store;
-  @service toasts;
 
   @tracked sortByProperty = "last_run_at";
   @tracked sortDescending = true;
   @tracked params;
-  @tracked createFormData = { name: "" };
-  @tracked showCreate;
   @tracked loading = false;
   @tracked searchLoading = false;
 
@@ -38,7 +34,7 @@ export default class PluginsExplorerController extends Controller {
 
   addCreatedRecord(record) {
     this.model.content.push(record);
-    this.router.transitionTo("adminPlugins.show.explorer.details", record.id);
+    this.router.transitionTo("adminPlugins.show.explorer.edit", record.id);
   }
 
   async _importQuery(file) {
@@ -72,38 +68,6 @@ export default class PluginsExplorerController extends Controller {
   }
 
   @bind
-  dragMove(e) {
-    if (!e.movementY && !e.movementX) {
-      return;
-    }
-
-    const editPane = document.querySelector(".query-editor");
-    const target = editPane.querySelector(".panels-flex");
-    const grippie = editPane.querySelector(".grippie");
-
-    // we need to get the initial height / width of edit pane
-    // before we manipulate the size
-    if (!this.initialPaneWidth && !this.originalPaneHeight) {
-      this.originalPaneWidth = target.clientWidth;
-      this.originalPaneHeight = target.clientHeight;
-    }
-
-    const newHeight = Math.max(
-      this.originalPaneHeight,
-      target.clientHeight + e.movementY
-    );
-    const newWidth = Math.max(
-      this.originalPaneWidth,
-      target.clientWidth + e.movementX
-    );
-
-    target.style.height = newHeight + "px";
-    target.style.width = newWidth + "px";
-    grippie.style.width = newWidth + "px";
-    this.appEvents.trigger("ace:resize");
-  }
-
-  @bind
   scrollTop() {
     window.scrollTo(0, 0);
   }
@@ -130,17 +94,6 @@ export default class PluginsExplorerController extends Controller {
     } finally {
       this.loading = false;
     }
-  }
-
-  @action
-  displayCreate() {
-    this.showCreate = true;
-    this.createFormData = { name: "" };
-  }
-
-  @action
-  hideCreate() {
-    this.showCreate = false;
   }
 
   @action
@@ -228,25 +181,5 @@ export default class PluginsExplorerController extends Controller {
         (query.group_ids || []).map((id) => groupNames[id])
       );
     });
-  }
-
-  @action
-  async create({ name }) {
-    try {
-      this.loading = true;
-      const result = await this.store
-        .createRecord("query", { name: name.trim() })
-        .save();
-      this.toasts.success({
-        data: { message: i18n("explorer.query_created") },
-      });
-      this.showCreate = false;
-      this.createFormData = { name: "" };
-      this.addCreatedRecord(result.target);
-    } catch (error) {
-      popupAjaxError(error);
-    } finally {
-      this.loading = false;
-    }
   }
 }

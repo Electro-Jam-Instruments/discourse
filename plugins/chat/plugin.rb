@@ -16,7 +16,8 @@ register_asset "stylesheets/common/index.scss"
 register_asset "stylesheets/desktop/index.scss", :desktop
 register_asset "stylesheets/mobile/index.scss", :mobile
 
-register_svg_icon "comments"
+register_service_worker "service-worker/chat-service-worker-extensions.js"
+
 register_svg_icon "comment-slash"
 register_svg_icon "comment-dots"
 register_svg_icon "lock"
@@ -28,6 +29,7 @@ register_svg_icon "circle-stop"
 register_svg_icon "filter"
 register_svg_icon "filter-circle-xmark"
 register_svg_icon "sort"
+register_svg_icon "thumbtack-slash"
 
 # route: /admin/plugins/chat
 add_admin_route "chat.admin.title", "chat", use_new_show_route: true
@@ -44,9 +46,8 @@ module ::Chat
 end
 
 require_relative "lib/chat/engine"
-
 after_initialize do
-  register_seedfu_fixtures(Rails.root.join("plugins", "chat", "db", "fixtures"))
+  register_seedfu_fixtures(Rails.root.join("plugins/chat/db/fixtures"))
 
   UserNotifications.append_view_path(File.expand_path("../app/views", __FILE__))
 
@@ -86,16 +87,73 @@ after_initialize do
   UserUpdater::OPTION_ATTR.push(:chat_enabled)
   UserUpdater::OPTION_ATTR.push(:chat_quick_reaction_type)
   UserUpdater::OPTION_ATTR.push(:chat_quick_reactions_custom)
-  UserUpdater::OPTION_ATTR.push(:only_chat_push_notifications)
   UserUpdater::OPTION_ATTR.push(:chat_sound)
   UserUpdater::OPTION_ATTR.push(:ignore_channel_wide_mention)
   UserUpdater::OPTION_ATTR.push(:show_thread_title_prompts)
+  UserUpdater::OPTION_ATTR.push(:chat_announce_new_messages)
+  UserUpdater::OPTION_ATTR.push(:chat_new_message_sound)
   UserUpdater::OPTION_ATTR.push(:chat_email_frequency)
   UserUpdater::OPTION_ATTR.push(:chat_header_indicator_preference)
   UserUpdater::OPTION_ATTR.push(:chat_separate_sidebar_mode)
   UserUpdater::OPTION_ATTR.push(:chat_send_shortcut)
 
+  # When a user opts into chat-only push notifications, suppress every push that
+  # isn't a chat message/mention. Registered here (rather than in core) so it's
+  # only active while chat is enabled, and runs alongside core's other filters.
+  register_push_notification_filter do |user, payload|
+    if user.user_option.push_notification_level_chat_only? && user.user_option.chat_enabled
+      payload[:notification_type].in?(::Notification.types.values_at(:chat_mention, :chat_message))
+    else
+      true
+    end
+  end
+
   register_reviewable_type Chat::ReviewableMessage
+
+  if respond_to?(:register_discourse_workflows_node)
+    register_discourse_workflows_node do
+      require_relative "lib/discourse_workflows/nodes/chat_channel_selection"
+      require_relative "lib/discourse_workflows/nodes/send_chat_message/v1"
+      require_relative "lib/discourse_workflows/nodes/chat_approval/v1"
+      require_relative "lib/discourse_workflows/nodes/chat_approval/v2"
+      require_relative "lib/discourse_workflows/nodes/chat_message_created/v1"
+
+      [
+        DiscourseWorkflows::Nodes::SendChatMessage::V1,
+        DiscourseWorkflows::Nodes::ChatApproval::V1,
+        DiscourseWorkflows::Nodes::ChatApproval::V2,
+        DiscourseWorkflows::Nodes::ChatMessageCreated::V1,
+      ]
+    end
+
+    on(:chat_message_interaction) do |interaction|
+      next unless SiteSetting.enable_discourse_workflows
+
+      action_id = interaction.action.is_a?(Hash) ? interaction.action["action_id"].to_s : ""
+      next if action_id.blank?
+      resume_request =
+        DiscourseWorkflows::InteractiveResume.from_action_id(
+          action_id,
+          expected_node_type: "action:chat_approval",
+          allowed_actions:
+            DiscourseWorkflows::Nodes::ChatApproval::V1::ACTION_IDS +
+              DiscourseWorkflows::Nodes::ChatApproval::V2::ACTION_IDS,
+        )
+      next if resume_request.blank?
+
+      if DiscourseWorkflows::Nodes::ChatApproval::V1::ACTION_IDS.include?(resume_request.action)
+        Jobs.enqueue(
+          Jobs::Chat::ResumeWorkflowApproval,
+          action_id: action_id,
+          channel_id: interaction.message.chat_channel_id,
+        )
+      else
+        next if interaction.id.blank?
+
+        Jobs.enqueue(Jobs::Chat::ResumeWorkflowApprovalInteraction, interaction_id: interaction.id)
+      end
+    end
+  end
 
   reloadable_patch do |plugin|
     Site.preloaded_category_custom_fields << Chat::HAS_CHAT_ENABLED
@@ -107,6 +165,7 @@ after_initialize do
     Category.prepend Chat::CategoryExtension
     Reviewable.prepend Chat::ReviewableExtension
     Bookmark.prepend Chat::BookmarkExtension
+    Upload.prepend Chat::UploadExtension
     User.prepend Chat::UserExtension
     Group.prepend Chat::GroupExtension
     Plugin::Instance.prepend Chat::PluginInstanceExtension
@@ -132,7 +191,7 @@ after_initialize do
         "data LIKE ? OR data LIKE ?",
         "%#{upload.sha1}%",
         "%#{upload.base62_sha1}%",
-      ).exists?
+      ).exists? || Chat::MessageHotlinkedMedia.where(upload_id: upload.id).exists?
   end
 
   add_to_serializer(:user_card, :can_chat_user) do
@@ -207,7 +266,7 @@ after_initialize do
 
   add_to_serializer(:current_user, :has_joinable_public_channels) do
     Chat::ChannelFetcher.secured_public_channel_search(
-      self.scope,
+      scope,
       following: false,
       limit: 1,
       status: :open,
@@ -235,7 +294,7 @@ after_initialize do
       @has_chat_enabled =
         SiteSetting.chat_enabled && scope.can_chat? && object.user_option.chat_enabled
     end,
-  ) { Chat::ChannelFetcher.unreads_total(self.scope) }
+  ) { Chat::ChannelFetcher.unreads_total(scope) }
 
   add_to_serializer(:user_option, :chat_enabled) { object.chat_enabled }
 
@@ -244,10 +303,6 @@ after_initialize do
     :chat_sound,
     include_condition: -> { object.chat_sound.present? },
   ) { object.chat_sound }
-
-  add_to_serializer(:user_option, :only_chat_push_notifications) do
-    object.only_chat_push_notifications
-  end
 
   add_to_serializer(:user_option, :ignore_channel_wide_mention) do
     object.ignore_channel_wide_mention
@@ -258,6 +313,16 @@ after_initialize do
   add_to_serializer(:current_user_option, :show_thread_title_prompts) do
     object.show_thread_title_prompts
   end
+
+  add_to_serializer(:user_option, :chat_announce_new_messages) { object.chat_announce_new_messages }
+
+  add_to_serializer(:current_user_option, :chat_announce_new_messages) do
+    object.chat_announce_new_messages
+  end
+
+  add_to_serializer(:user_option, :chat_new_message_sound) { object.chat_new_message_sound }
+
+  add_to_serializer(:current_user_option, :chat_new_message_sound) { object.chat_new_message_sound }
 
   add_to_serializer(:user_option, :chat_email_frequency) { object.chat_email_frequency }
 
@@ -275,9 +340,11 @@ after_initialize do
     object.chat_separate_sidebar_mode
   end
 
-  add_to_serializer(:user_option, :chat_send_shortcut) { object.chat_send_shortcut }
+  # TODO(2027-01): compatibility alias for cached JS bundles that still read
+  # chat_send_shortcut; remove alongside the chat_send_shortcut column drop.
+  add_to_serializer(:user_option, :chat_send_shortcut) { object.send_shortcut }
 
-  add_to_serializer(:current_user_option, :chat_send_shortcut) { object.chat_send_shortcut }
+  add_to_serializer(:current_user_option, :chat_send_shortcut) { object.send_shortcut }
 
   add_to_serializer(:user_option, :chat_quick_reaction_type) { object.chat_quick_reaction_type }
   add_to_serializer(:current_user_option, :chat_quick_reaction_type) do
@@ -350,14 +417,6 @@ after_initialize do
       config.allowed_group_ids = chat_channel.allowed_group_ids
       config.allowed_user_ids = chat_channel.allowed_user_ids
       config.public = !chat_channel.read_restricted?
-    end
-  end
-
-  register_push_notification_filter do |user, payload|
-    if user.user_option.only_chat_push_notifications && user.user_option.chat_enabled
-      payload[:notification_type].in?(::Notification.types.values_at(:chat_mention, :chat_message))
-    else
-      true
     end
   end
 
@@ -547,5 +606,3 @@ after_initialize do
     DiscoursePluginRegistry.discourse_dev_populate_reviewable_types.add DiscourseDev::ReviewableMessage
   end
 end
-
-Dir[Rails.root.join("plugins/chat/spec/support/**/*.rb")].each { |f| require f } if Rails.env.test?

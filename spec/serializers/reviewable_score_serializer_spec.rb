@@ -58,12 +58,65 @@ RSpec.describe ReviewableScoreSerializer do
         end
     end
 
+    context "with a fast_typer reason" do
+      it "includes the recorded typing duration" do
+        reviewable = Fabricate(:reviewable_queued_post, payload: { "typing_duration_msecs" => 500 })
+        score = ReviewableScore.new(reviewable:, reason: "fast_typer")
+        serialized = described_class.new(score, scope: Guardian.new(admin), root: nil)
+
+        expect(serialized.reason).to include("(0.5 seconds)")
+      end
+
+      it "drops trailing decimals when the duration is a whole number of seconds" do
+        reviewable =
+          Fabricate(:reviewable_queued_post, payload: { "typing_duration_msecs" => 3000 })
+        score = ReviewableScore.new(reviewable:, reason: "fast_typer")
+        serialized = described_class.new(score, scope: Guardian.new(admin), root: nil)
+
+        expect(serialized.reason).to include("(3 seconds)")
+      end
+
+      it "falls back to a message without a typing duration when none was recorded" do
+        serialized = serialized_score("fast_typer")
+
+        expect(serialized.reason).to include("typed their first post suspiciously fast,")
+        expect(serialized.reason).not_to include("second")
+      end
+    end
+
     context "with custom reasons" do
       it "serializes it without doing any translation" do
         custom = "completely custom flag reason"
         serialized = serialized_score(custom)
 
-        expect(serialized.reason).to eq(custom)
+        expect(serialized.reason).to match_html("<p>#{custom}</p>")
+      end
+
+      it "cooks and sanitizes basic Markdown without post-specific transformations" do
+        custom = <<~MARKDOWN
+          **Details**
+
+          - first
+          - second
+
+          first<br>second
+
+          @#{admin.username} :smile:
+
+          <script>alert("unsafe")</script>
+        MARKDOWN
+
+        serialized = serialized_score(custom)
+
+        expect(serialized.reason).to match_html(<<~HTML)
+          <p><strong>Details</strong></p>
+          <ul>
+            <li>first</li>
+            <li>second</li>
+          </ul>
+          <p>first<br>second</p>
+          <p>@#{admin.username} :smile:</p>
+        HTML
       end
     end
 
@@ -99,6 +152,30 @@ RSpec.describe ReviewableScoreSerializer do
         expect(queued_reviewable.payload["raw"]).to eq(raw)
       end
 
+      it "renders matched words containing HTML and Markdown syntax literally" do
+        words = [
+          "<notifications@example.discoursemail.com>",
+          "[urgent](https://example.com)",
+          "**spam**",
+        ]
+        score =
+          ReviewableScore.new(
+            reviewable: reviewable,
+            reason: "watched_word",
+            context: words.join(","),
+          )
+        serialized = described_class.new(score, scope: admin.guardian, root: nil)
+        reason =
+          I18n.t(
+            "reviewables.reasons.watched_word",
+            link: link,
+            words: CGI.escapeHTML(words.join(", ")),
+            count: words.length,
+          )
+
+        expect(serialized.reason).to match_html("<p>#{reason}</p>")
+      end
+
       it "uses the no-context message if the post has no watched words" do
         reviewable.target = Fabricate(:post, raw: "This post contains no bad words.")
 
@@ -106,13 +183,10 @@ RSpec.describe ReviewableScoreSerializer do
 
         Fabricate(:watched_word, action: WatchedWord.actions[:flag], word: "superbad")
 
-        expect(score.reason).to eq(
-          I18n.t(
-            "reviewables.reasons.no_context.watched_word",
-            link: link,
-            default: "watched_word",
-          ),
-        )
+        reason =
+          I18n.t("reviewables.reasons.no_context.watched_word", link:, default: "watched_word")
+
+        expect(score.reason).to match_html("<p>#{reason}</p>")
       end
     end
   end

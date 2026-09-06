@@ -1,5 +1,4 @@
 import { computed } from "@ember/object";
-import { and } from "@ember/object/computed";
 import { trustHTML } from "@ember/template";
 import { tagName } from "@ember-decorators/component";
 import { i18n } from "discourse-i18n";
@@ -7,11 +6,9 @@ import AdComponent from "./ad-component";
 
 @tagName("")
 export default class AmazonProductLinks extends AdComponent {
-  @and("showAmazonAds", "showToGroups", "showAfterPost", "showOnCurrentPage")
-  showAd;
-
   init() {
     const data = {
+      "above-site-header": {},
       "topic-list-top": {},
       "topic-above-post-stream": {},
       "topic-above-suggested": {},
@@ -19,6 +16,35 @@ export default class AmazonProductLinks extends AdComponent {
     };
     const mobileView = this.site.get("mobileView");
     const placement = this.get("placement");
+
+    if (!mobileView && this.siteSettings.amazon_above_site_header_src_code) {
+      data["above-site-header"]["user_input"] =
+        this.siteSettings.amazon_above_site_header_src_code;
+      data["above-site-header"]["amazon_width"] = parseInt(
+        this.siteSettings.amazon_above_site_header_ad_width_code,
+        10
+      );
+      data["above-site-header"]["amazon_height"] = parseInt(
+        this.siteSettings.amazon_above_site_header_ad_height_code,
+        10
+      );
+    }
+
+    if (
+      mobileView &&
+      this.siteSettings.amazon_mobile_above_site_header_src_code
+    ) {
+      data["above-site-header"]["user_input_mobile"] =
+        this.siteSettings.amazon_mobile_above_site_header_src_code;
+      data["above-site-header"]["mobile_amazon_width"] = parseInt(
+        this.siteSettings.amazon_mobile_above_site_header_ad_width_code,
+        10
+      );
+      data["above-site-header"]["mobile_amazon_height"] = parseInt(
+        this.siteSettings.amazon_mobile_above_site_header_ad_height_code,
+        10
+      );
+    }
 
     if (!mobileView && this.siteSettings.amazon_topic_list_top_src_code) {
       data["topic-list-top"]["user_input"] =
@@ -143,6 +169,21 @@ export default class AmazonProductLinks extends AdComponent {
     this.set("mobile_amazon_height", data[placement]["mobile_amazon_height"]);
     this.set("mobile_amazon_width", data[placement]["mobile_amazon_width"]);
     super.init();
+  }
+
+  @computed(
+    "showAmazonAds",
+    "showToGroups",
+    "showAfterPost",
+    "showOnCurrentPage"
+  )
+  get showAd() {
+    return (
+      this.showAmazonAds &&
+      this.showToGroups &&
+      this.showAfterPost &&
+      this.showOnCurrentPage
+    );
   }
 
   @computed("amazon_width", "amazon_height")

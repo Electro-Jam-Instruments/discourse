@@ -7,6 +7,11 @@
 el:
   js:
     styleguide:
+      example:
+        kind:
+          component: "Συστατικό"
+      categories:
+        syntax: Σύνταξη
       sections:
         bem:
           title: "BEM"
@@ -26,6 +31,8 @@ el:
           title: "Χρώματα"
         dialog:
           title: "Διάλογος"
+        drag_and_drop:
+          locked: "Κλειδωμένη"
         icons:
           title: "Εικονίδια"
         forms:
@@ -40,6 +47,8 @@ el:
           title: "Γραμμή πλοήγησης"
         categories_list:
           title: "Λίστα Κατηγοριών"
+        topic_statuses:
+          title: "Καταστάσεις Θέματος"
         topic_timer_info:
           title: "Χρονοδιακόπτες Θεμάτων"
         post:
@@ -52,6 +61,31 @@ el:
           title: "Περισσότερα Θέματα"
         post_menu:
           title: "Μενού ανάρτησης"
+        roving_focus:
+          toolbar:
+            bold: "Έντονη γραφή"
+            italic: "Πλάγια γραφή"
+            copy: "Αντιγραφή"
+          tags:
+            remove: "Αφαίρεση %{tag}"
+            design: "Σχεδιασμός"
+            support: "Υποστήριξη"
+          adjacent:
+            label: "Φίλτρα"
+            field: "Αναζήτηση"
+            placeholder: "Αναζητήστε θέματα"
+            open: "Άνοιγμα"
+            recent: "Πρόσφατα"
+          combobox:
+            daily: "Ημερήσια"
+            weekly: "Εβδομαδιαία"
+            monthly: "Μηνιαία"
+            never: "Ποτέ"
+          tree:
+            components: "Συστατικά"
+            select: "Επιλογή"
+        otp:
+          title: "OTP"
         empty_state:
           title: "Κενή κατάσταση"
         tooltips:

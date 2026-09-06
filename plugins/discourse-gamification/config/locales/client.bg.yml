@@ -12,6 +12,10 @@ bg:
         link_to_settings: "Настройки"
         refresh: "Обнови"
         name: "Име "
+        section:
+          groups: "Групи"
+        weight:
+          solution: "Решение"
         period:
           all_time: "От началото"
           yearly: "Годишно"
@@ -35,3 +39,8 @@ bg:
       custom_range_from: "От"
       admin:
         name: "Име "
+    discourse_workflows:
+      gamification_score:
+        username: "Потребител"
+        date: "Дата"
+        description: "Описание"

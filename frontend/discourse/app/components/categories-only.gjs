@@ -5,9 +5,9 @@ import { action, computed } from "@ember/object";
 import { tagName } from "@ember-decorators/component";
 import ParentCategoryRow from "discourse/components/parent-category-row";
 import PluginOutlet from "discourse/components/plugin-outlet";
-import icon from "discourse/helpers/d-icon";
 import lazyHash from "discourse/helpers/lazy-hash";
 import gridNavigation from "discourse/modifiers/grid-navigation";
+import dIcon from "discourse/ui-kit/helpers/d-icon";
 import { i18n } from "discourse-i18n";
 
 @tagName("")
@@ -147,10 +147,12 @@ export default class CategoriesOnly extends Component {
               aria-rowindex="1"
               aria-label={{this.categoryHeaderLabel}}
             >
-              <th class="category" role="columnheader"><span
+              <th class="category topic-list-data default" role="columnheader"><span
                   id="categories-only-category"
                 >{{i18n "categories.category"}}</span></th>
-              <th class="topics" role="columnheader">{{i18n "categories.topics"}}</th>
+              <th class="topics topic-list-data num" role="columnheader">{{i18n
+                  "categories.topics"
+                }}</th>
               {{#if this.showTopics}}
                 <th class="latest" role="columnheader">{{i18n "categories.latest"}}</th>
               {{/if}}
@@ -198,7 +200,7 @@ export default class CategoriesOnly extends Component {
                   "categories.muted"
                 }}</h3>
               {{#if this.mutedToggleIcon}}
-                {{icon this.mutedToggleIcon}}
+                {{dIcon this.mutedToggleIcon}}
               {{/if}}
             </a>
             {{#if this.site.mobileView}}
@@ -233,10 +235,12 @@ export default class CategoriesOnly extends Component {
                     aria-rowindex="1"
                     aria-label={{this.categoryHeaderLabel}}
                   >
-                    <th class="category" role="columnheader"><span
+                    <th class="category topic-list-data default" role="columnheader"><span
                         id="categories-only-category-muted"
                       >{{i18n "categories.category"}}</span></th>
-                    <th class="topics" role="columnheader">{{i18n "categories.topics"}}</th>
+                    <th class="topics topic-list-data num" role="columnheader">{{i18n
+                  "categories.topics"
+                }}</th>
                     {{#if this.showTopics}}
                       <th class="latest" role="columnheader">{{i18n "categories.latest"}}</th>
                     {{/if}}

@@ -12,6 +12,8 @@ export const ADMIN_SEARCH_RESULT_TYPES = [
 
 export const SITE_SETTING_REQUIRES_CONFIRMATION_TYPES = {
   simple: "simple",
+  simple_on_enable: "simple_on_enable",
+  simple_on_disable: "simple_on_disable",
   user_option: "user_option",
 };
 
@@ -69,7 +71,6 @@ export const DEFAULT_USER_PREFERENCES = [
   "default_other_external_links_in_new_tab",
   "default_other_enable_quoting",
   "default_other_enable_smart_lists",
-  "default_other_enable_defer",
   "default_other_dynamic_favicon",
   "default_other_like_notification_frequency",
   "default_other_skip_new_user_tips",

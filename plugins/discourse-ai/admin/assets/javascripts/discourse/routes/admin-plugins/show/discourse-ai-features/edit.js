@@ -14,8 +14,6 @@ export default class AdminPluginsShowDiscourseAiFeaturesEdit extends DiscourseRo
     const { site_settings } = await ajax("/admin/config/site_settings.json", {
       data: {
         filter_area: `ai-features/${currentFeature.module_name}`,
-        plugin: "discourse-ai",
-        category: "discourse_ai",
       },
     });
 
@@ -33,13 +31,6 @@ export default class AdminPluginsShowDiscourseAiFeaturesEdit extends DiscourseRo
 
       if (setting.type === "bool") {
         value = value === "true" || value === true;
-      }
-
-      if (setting.type === "enum" && typeof value === "string") {
-        const numValue = parseInt(value, 10);
-        if (!isNaN(numValue) && numValue.toString() === value) {
-          value = numValue;
-        }
       }
 
       currentFeature.formData[setting.setting] = value;

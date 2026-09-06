@@ -1,6 +1,6 @@
 import { tracked } from "@glimmer/tracking";
-import EmberObject, { computed } from "@ember/object";
-import { alias } from "@ember/object/computed";
+import EmberObject, { computed, set } from "@ember/object";
+import { trustHTML } from "@ember/template";
 import BufferedProxy from "ember-buffered-proxy/proxy";
 import {
   DEFAULT_USER_PREFERENCES,
@@ -9,7 +9,18 @@ import {
 import SettingObjectHelper from "discourse/admin/lib/setting-object-helper";
 import { ajax } from "discourse/lib/ajax";
 import { bind } from "discourse/lib/decorators";
+import { applyValueTransformer } from "discourse/lib/transformer";
 import { i18n } from "discourse-i18n";
+
+/**
+ * `true` when a value is the *enabled* state of a bool site setting: boolean
+ * `true`, the string `"true"`, or any value whose `String()` is exactly `"true"`.
+ * This is not general JS truthiness: `"false"` is not enabled, and is safe
+ * for `null` / `undefined` (unlike calling `.toString()` on the value).
+ */
+export function isSettingValueTrue(value) {
+  return String(value) === "true";
+}
 
 const AUTO_REFRESH_ON_SAVE = [
   "logo",
@@ -73,16 +84,67 @@ export default class SiteSetting extends EmberObject {
 
   settingObjectHelper = new SettingObjectHelper(this);
 
-  @alias("settingObjectHelper.overridden") overridden;
-  @alias("settingObjectHelper.computedValueProperty") computedValueProperty;
-  @alias("settingObjectHelper.computedNameProperty") computedNameProperty;
-  @alias("settingObjectHelper.validValues") validValues;
-  @alias("settingObjectHelper.allowsNone") allowsNone;
-  @alias("settingObjectHelper.anyValue") anyValue;
-
   constructor() {
     super(...arguments);
     this.buffered = BufferedProxy.create({ content: this });
+  }
+
+  @computed("settingObjectHelper.overridden")
+  get overridden() {
+    return this.settingObjectHelper?.overridden;
+  }
+
+  set overridden(value) {
+    set(this, "settingObjectHelper.overridden", value);
+  }
+
+  @computed("settingObjectHelper.computedValueProperty")
+  get computedValueProperty() {
+    return this.settingObjectHelper?.computedValueProperty;
+  }
+
+  set computedValueProperty(value) {
+    set(this, "settingObjectHelper.computedValueProperty", value);
+  }
+
+  @computed("settingObjectHelper.computedNameProperty")
+  get computedNameProperty() {
+    return this.settingObjectHelper?.computedNameProperty;
+  }
+
+  set computedNameProperty(value) {
+    set(this, "settingObjectHelper.computedNameProperty", value);
+  }
+
+  @computed("settingObjectHelper.validValues")
+  get validValues() {
+    return this.settingObjectHelper?.validValues;
+  }
+
+  set validValues(value) {
+    set(this, "settingObjectHelper.validValues", value);
+  }
+
+  @computed("settingObjectHelper.allowsNone")
+  get allowsNone() {
+    return applyValueTransformer(
+      "site-setting-allows-none",
+      this.settingObjectHelper?.allowsNone,
+      { siteSetting: this }
+    );
+  }
+
+  set allowsNone(value) {
+    set(this, "settingObjectHelper.allowsNone", value);
+  }
+
+  @computed("settingObjectHelper.anyValue")
+  get anyValue() {
+    return this.settingObjectHelper?.anyValue;
+  }
+
+  set anyValue(value) {
+    set(this, "settingObjectHelper.anyValue", value);
   }
 
   @computed("setting")
@@ -97,11 +159,68 @@ export default class SiteSetting extends EmberObject {
     };
   }
 
+  get settingSubtype() {
+    if (this.list_type) {
+      return;
+    }
+
+    if (this.textarea) {
+      return "textarea";
+    }
+
+    if (this.secret) {
+      return "password";
+    }
+  }
+
+  get definition() {
+    return {
+      key: this.setting,
+      label: this.humanized_name || this.setting,
+      description: trustHTML(this.description),
+      type: this.type,
+      list_type: this.list_type,
+      subtype: this.settingSubtype,
+      min: this.min,
+      max: this.max,
+      choices: this.choices,
+      valid_values: this.validValues,
+      allows_none: !!this.allowsNone,
+      allow_any: this.allow_any,
+      mandatory_values: this.mandatory_values,
+      disallowed_groups: this.disallowed_groups,
+      currentSavedValue: this.value,
+    };
+  }
+
+  get pendingValue() {
+    return this.buffered.get("value");
+  }
+
+  commit() {
+    this.validationMessage = null;
+    this.buffered.applyChanges();
+  }
+
+  rollback() {
+    this.buffered.discardChanges();
+  }
+
   get requiresConfirmation() {
-    return (
-      this.requires_confirmation ===
-      SITE_SETTING_REQUIRES_CONFIRMATION_TYPES.simple
-    );
+    switch (this.requires_confirmation) {
+      case SITE_SETTING_REQUIRES_CONFIRMATION_TYPES.simple:
+        return true;
+      case SITE_SETTING_REQUIRES_CONFIRMATION_TYPES.simple_on_enable: {
+        const val = this.buffered?.get("value");
+        return isSettingValueTrue(val);
+      }
+      case SITE_SETTING_REQUIRES_CONFIRMATION_TYPES.simple_on_disable: {
+        const val = this.buffered?.get("value");
+        return !isSettingValueTrue(val);
+      }
+      default:
+        return false;
+    }
   }
 
   get requiresReload() {

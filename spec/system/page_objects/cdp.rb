@@ -2,6 +2,34 @@
 
 module PageObjects
   class CDP
+    class PausedRequest
+      def initialize
+        @request_started = Queue.new
+        @resume_request = Queue.new
+        @resumed = false
+      end
+
+      def intercept(route, _request)
+        @request_started << true
+        @resume_request.pop
+        route.continue
+      end
+
+      def wait
+        return if @request_started.pop(timeout: Capybara.default_max_wait_time)
+
+        raise Capybara::ExpectationNotMet, "Timed out waiting for the paused request"
+      end
+
+      def resume
+        return if @resumed
+
+        @resumed = true
+        @resume_request << true
+      end
+    end
+    private_constant :PausedRequest
+
     include Capybara::DSL
     include SystemHelpers
     include RSpec::Matchers
@@ -71,91 +99,108 @@ module PageObjects
 
     def with_network_disconnected
       page.driver.with_playwright_page do |pw_page|
-        begin
-          cdp_client = pw_page.context.new_cdp_session(pw_page)
+        cdp_client = pw_page.context.new_cdp_session(pw_page)
 
-          cdp_client.send_message(
-            "Network.emulateNetworkConditions",
-            params: {
-              offline: true,
-              latency: 0,
-              downloadThroughput: -1,
-              uploadThroughput: -1,
-            },
-          )
+        cdp_client.send_message(
+          "Network.emulateNetworkConditions",
+          params: {
+            offline: true,
+            latency: 0,
+            downloadThroughput: -1,
+            uploadThroughput: -1,
+          },
+        )
 
-          yield
-        ensure
-          cdp_client.send_message(
-            "Network.emulateNetworkConditions",
-            params: {
-              offline: false,
-              latency: 0,
-              downloadThroughput: -1,
-              uploadThroughput: -1,
-            },
-          )
-        end
+        yield
+      ensure
+        cdp_client.send_message(
+          "Network.emulateNetworkConditions",
+          params: {
+            offline: false,
+            latency: 0,
+            downloadThroughput: -1,
+            uploadThroughput: -1,
+          },
+        )
       end
     end
 
     def with_slow_download
       page.driver.with_playwright_page do |pw_page|
-        begin
-          cdp_client = pw_page.context.new_cdp_session(pw_page)
+        cdp_client = pw_page.context.new_cdp_session(pw_page)
 
-          cdp_client.send_message(
-            "Network.emulateNetworkConditions",
-            params: {
-              offline: false,
-              latency: 20_000,
-              downloadThroughput: 1,
-              uploadThroughput: -1,
-            },
-          )
+        cdp_client.send_message(
+          "Network.emulateNetworkConditions",
+          params: {
+            offline: false,
+            latency: 20_000,
+            downloadThroughput: 1,
+            uploadThroughput: -1,
+          },
+        )
 
-          yield
-        ensure
-          cdp_client.send_message(
-            "Network.emulateNetworkConditions",
-            params: {
-              offline: false,
-              latency: 0,
-              downloadThroughput: -1,
-              uploadThroughput: -1,
-            },
-          )
-        end
+        yield
+      ensure
+        cdp_client.send_message(
+          "Network.emulateNetworkConditions",
+          params: {
+            offline: false,
+            latency: 0,
+            downloadThroughput: -1,
+            uploadThroughput: -1,
+          },
+        )
       end
     end
 
     def with_slow_upload
       page.driver.with_playwright_page do |pw_page|
-        begin
-          cdp_client = pw_page.context.new_cdp_session(pw_page)
+        cdp_client = pw_page.context.new_cdp_session(pw_page)
 
-          cdp_client.send_message(
-            "Network.emulateNetworkConditions",
-            params: {
-              offline: false,
-              latency: 20_000,
-              downloadThroughput: -1,
-              uploadThroughput: 1,
-            },
-          )
+        cdp_client.send_message(
+          "Network.emulateNetworkConditions",
+          params: {
+            offline: false,
+            latency: 20_000,
+            downloadThroughput: -1,
+            uploadThroughput: 1,
+          },
+        )
 
-          yield
-        ensure
-          cdp_client.send_message(
-            "Network.emulateNetworkConditions",
-            params: {
-              offline: false,
-              latency: 0,
-              downloadThroughput: -1,
-              uploadThroughput: -1,
-            },
-          )
-        end
+        yield
+      ensure
+        cdp_client.send_message(
+          "Network.emulateNetworkConditions",
+          params: {
+            offline: false,
+            latency: 0,
+            downloadThroughput: -1,
+            uploadThroughput: -1,
+          },
+        )
+      end
+    end
+
+    # Holds matching requests in-flight for the duration of the block.
+    def with_pending_requests(pattern)
+      page.driver.with_playwright_page do |pw_page|
+        pw_page.route(pattern, ->(_route, _request) {})
+        yield
+      ensure
+        pw_page.unroute(pattern)
+      end
+    end
+
+    def with_paused_request(pattern)
+      paused_request = PausedRequest.new
+      handler = paused_request.method(:intercept)
+
+      page.driver.with_playwright_page do |pw_page|
+        pw_page.route(pattern, handler, times: 1)
+        yield(paused_request)
+      ensure
+        paused_request.resume
+        pw_page.unroute(pattern, handler:)
       end
     end
   end

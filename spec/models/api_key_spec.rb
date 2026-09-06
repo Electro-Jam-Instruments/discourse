@@ -18,6 +18,18 @@ RSpec.describe ApiKey do
     expect(api_key.errors).to contain_exactly("Api key scopes at least one must be selected")
   end
 
+  it "validates read-only mode uses the global read scope" do
+    api_key = ApiKey.new(scope_mode: "read_only")
+
+    expect(api_key).not_to be_valid
+
+    api_key.api_key_scopes = [ApiKeyScope.new(resource: "topics", action: "write")]
+    expect(api_key).not_to be_valid
+
+    api_key.api_key_scopes = [ApiKeyScope.new(resource: "global", action: "read")]
+    expect(api_key).to be_valid
+  end
+
   it "generates a key when saving" do
     api_key = ApiKey.new
     api_key.save!
@@ -194,6 +206,12 @@ RSpec.describe ApiKey do
       it "rejects non-user creation requests" do
         request.path_parameters = { controller: "topics", action: "create" }
         expect(key.request_allowed?(env)).to eq(false)
+      end
+
+      it "always allows about#index" do
+        request.path_parameters = { controller: "about", action: "index" }
+        request.request_method = "GET"
+        expect(key.request_allowed?(env)).to eq(true)
       end
     end
 

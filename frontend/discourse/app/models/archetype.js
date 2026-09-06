@@ -1,9 +1,22 @@
-import { gt, not } from "@ember/object/computed";
-import { propertyEqual } from "discourse/lib/computed";
-import RestModel from "discourse/models/rest";
+import RestCompatModel from "discourse/data/rest-compat";
+import { ArchetypeSchema } from "discourse/data/schemas/archetype";
+import { defineFieldForwarders } from "discourse/data/warp-rest-model";
+import { deepEqual } from "discourse/lib/object";
 
-export default class Archetype extends RestModel {
-  @gt("options.length", 0) hasOptions;
-  @propertyEqual("id", "site.default_archetype") isDefault;
-  @not("isDefault") notDefault;
+export default class Archetype extends RestCompatModel {
+  static type = "archetype";
+
+  get hasOptions() {
+    return this.options?.length > 0;
+  }
+
+  get isDefault() {
+    return deepEqual(this.id, this.site?.default_archetype);
+  }
+
+  get notDefault() {
+    return !this.isDefault;
+  }
 }
+
+defineFieldForwarders(Archetype, ArchetypeSchema);

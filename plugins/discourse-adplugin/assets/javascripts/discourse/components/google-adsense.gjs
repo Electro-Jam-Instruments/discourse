@@ -3,9 +3,9 @@ import { scheduleOnce } from "@ember/runloop";
 import { trustHTML } from "@ember/template";
 import { tagName } from "@ember-decorators/component";
 import RSVP from "rsvp";
-import concatClass from "discourse/helpers/concat-class";
 import { isTesting } from "discourse/lib/environment";
 import loadScript from "discourse/lib/load-script";
+import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
 import { i18n } from "discourse-i18n";
 import AdComponent from "./ad-component";
 
@@ -63,6 +63,10 @@ function loadAdsense() {
 }
 
 const DESKTOP_SETTINGS = {
+  "above-site-header": {
+    code: "adsense_above_site_header_code",
+    sizes: "adsense_above_site_header_ad_sizes",
+  },
   "topic-list-top": {
     code: "adsense_topic_list_top_code",
     sizes: "adsense_topic_list_top_ad_sizes",
@@ -82,6 +86,10 @@ const DESKTOP_SETTINGS = {
 };
 
 const MOBILE_SETTINGS = {
+  "above-site-header": {
+    code: "adsense_mobile_above_site_header_code",
+    sizes: "adsense_mobile_above_site_header_ad_size",
+  },
   "topic-list-top": {
     code: "adsense_mobile_topic_list_top_code",
     sizes: "adsense_mobile_topic_list_top_ad_size",
@@ -258,7 +266,7 @@ export default class GoogleAdsense extends AdComponent {
 
   <template>
     <div
-      class={{concatClass
+      class={{dConcatClass
         "google-adsense"
         this.classForSlot
         (if this.isResponsive "adsense-responsive")

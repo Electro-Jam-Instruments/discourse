@@ -204,6 +204,13 @@ RSpec.describe Discourse do
       plugin1.register_asset_filter { |type, request, opts| false }
       expect(Discourse.find_plugin_css_assets({}).length).to eq(1)
     end
+
+    it "includes admin plugin css assets when include_admin is true" do
+      plugin2.enabled = true
+
+      expect(Discourse.find_plugin_css_assets(include_admin: true).length).to eq(4)
+      expect(Discourse.find_plugin_css_assets({}).length).to eq(2)
+    end
   end
 
   describe "authenticators" do
@@ -272,6 +279,36 @@ RSpec.describe Discourse do
     it "returns the system user otherwise" do
       SiteSetting.site_contact_username = ""
       expect(Discourse.site_contact_user.username).to eq("system")
+    end
+  end
+
+  describe "#site_contact_group" do
+    fab!(:group) { Fabricate(:group, name: "support") }
+
+    it "returns nothing when the setting is blank" do
+      SiteSetting.site_contact_group_name = ""
+      expect(Discourse.site_contact_group).to eq(nil)
+    end
+
+    it "resolves the stored group id" do
+      SiteSetting.site_contact_group_name = group.id.to_s
+      expect(Discourse.site_contact_group).to eq(group)
+    end
+
+    it "returns nothing when the group no longer exists" do
+      SiteSetting.site_contact_group_name = group.id.to_s
+      group.destroy!
+      expect(Discourse.site_contact_group).to eq(nil)
+    end
+
+    it "resolves a group name regardless of case" do
+      SiteSetting.stubs(:site_contact_group_name).returns("SUPPORT")
+      expect(Discourse.site_contact_group).to eq(group)
+    end
+
+    it "does not read a group id out of a value that merely starts with a digit" do
+      SiteSetting.stubs(:site_contact_group_name).returns("0support")
+      expect(Discourse.site_contact_group).to eq(nil)
     end
   end
 
@@ -546,11 +583,11 @@ RSpec.describe Discourse do
     end
   end
 
-  describe "Utils.execute_command" do
+  describe ".execute_command" do
     it "works for individual commands" do
       expect(Discourse::Utils.execute_command("pwd").strip).to eq(Rails.root.to_s)
       expect(Discourse::Utils.execute_command("pwd", chdir: "plugins").strip).to eq(
-        "#{Rails.root}/plugins",
+        "#{Rails.root.join("plugins")}",
       )
     end
 
@@ -576,12 +613,12 @@ RSpec.describe Discourse do
 
       result =
         Discourse::Utils.execute_command(chdir: "plugins") do |runner|
-          expect(runner.exec("pwd").strip).to eq("#{Rails.root}/plugins")
+          expect(runner.exec("pwd").strip).to eq("#{Rails.root.join("plugins")}")
           runner.exec("pwd")
         end
 
       # Should return output of block
-      expect(result.strip).to eq("#{Rails.root}/plugins")
+      expect(result.strip).to eq("#{Rails.root.join("plugins")}")
     end
 
     it "does not leak chdir between threads" do
@@ -621,6 +658,52 @@ RSpec.describe Discourse do
       expect do
         Discourse::Utils.execute_command("false", "'foo'", failure_message: "oops")
       end.to raise_error(RuntimeError, "false 'foo'\noops")
+    end
+  end
+
+  describe ".atomic_ln_s" do
+    it "creates the destination symlink pointing at the source" do
+      Dir.mktmpdir do |dir|
+        source = File.join(dir, "source")
+        Dir.mkdir(source)
+        destination = File.join(dir, "link")
+
+        Discourse::Utils.atomic_ln_s(source, destination)
+
+        expect(File.symlink?(destination)).to eq(true)
+        expect(File.readlink(destination)).to eq(source)
+      end
+    end
+
+    it "replaces an existing symlink at the destination" do
+      Dir.mktmpdir do |dir|
+        source = File.join(dir, "source")
+        Dir.mkdir(source)
+        old_target = File.join(dir, "old")
+        Dir.mkdir(old_target)
+        destination = File.join(dir, "link")
+        File.symlink(old_target, destination)
+
+        Discourse::Utils.atomic_ln_s(source, destination)
+
+        expect(File.readlink(destination)).to eq(source)
+      end
+    end
+
+    it "falls back to a copy when tmp and destination are on different filesystems" do
+      # rename(2) raises EXDEV across filesystem boundaries (e.g. containers
+      # where Rails.root/tmp is a separate mount). The link must still land.
+      Dir.mktmpdir do |dir|
+        source = File.join(dir, "source")
+        Dir.mkdir(source)
+        destination = File.join(dir, "link")
+        allow(File).to receive(:rename).and_raise(Errno::EXDEV)
+
+        Discourse::Utils.atomic_ln_s(source, destination)
+
+        expect(File.symlink?(destination)).to eq(true)
+        expect(File.readlink(destination)).to eq(source)
+      end
     end
   end
 
@@ -683,18 +766,12 @@ RSpec.describe Discourse do
       )
     end
 
-    it "invalidates all JS and CSS caches" do
+    it "invalidates all theme settings and CSS caches" do
       Stylesheet::Manager.clear_theme_cache!
 
       old_upload_url = Discourse.store.cdn_url(upload.url)
 
-      js_file_script =
-        Nokogiri::HTML5
-          .fragment(Theme.lookup_field(theme.id, :extra_js, nil))
-          .css("link[rel=modulepreload]")
-          .first
-      file_js = JavascriptCache.find_by(digest: js_file_script[:href][/\h{40}/]).content
-      expect(file_js).to include(old_upload_url)
+      expect(theme.cached_settings["theme_uploads"]["imajee"]).to eq(old_upload_url)
 
       css_link_tag =
         Nokogiri::HTML5
@@ -709,13 +786,7 @@ RSpec.describe Discourse do
       SiteSetting.s3_cdn_url = "https://new.s3.cdn.com/gg"
       new_upload_url = Discourse.store.cdn_url(upload.url)
 
-      js_file_script =
-        Nokogiri::HTML5
-          .fragment(Theme.lookup_field(theme.id, :extra_js, nil))
-          .css("link[rel=modulepreload]")
-          .first
-      file_js = JavascriptCache.find_by(digest: js_file_script[:href][/\h{40}/]).content
-      expect(file_js).to include(old_upload_url)
+      expect(theme.cached_settings["theme_uploads"]["imajee"]).to eq(old_upload_url)
 
       css_link_tag =
         Nokogiri::HTML5
@@ -729,13 +800,7 @@ RSpec.describe Discourse do
 
       Discourse.clear_all_theme_cache!
 
-      js_file_script =
-        Nokogiri::HTML5
-          .fragment(Theme.lookup_field(theme.id, :extra_js, nil))
-          .css("link[rel=modulepreload]")
-          .first
-      file_js = JavascriptCache.find_by(digest: js_file_script[:href][/\h{40}/]).content
-      expect(file_js).to include(new_upload_url)
+      expect(theme.cached_settings["theme_uploads"]["imajee"]).to eq(new_upload_url)
 
       css_link_tag =
         Nokogiri::HTML5
@@ -746,6 +811,77 @@ RSpec.describe Discourse do
           .first
       css = StylesheetCache.find_by(digest: css_link_tag[:href][/\h{40}/]).content
       expect(css).to include("url(#{new_upload_url})")
+    end
+  end
+
+  describe ".anonymous_locale" do
+    def locale_for(cookie: nil, path: "/")
+      env = cookie ? { "HTTP_COOKIE" => "locale=#{cookie}" } : {}
+      Discourse.anonymous_locale(ActionDispatch::Request.new(Rack::MockRequest.env_for(path, env)))
+    end
+
+    before do
+      SiteSetting.default_locale = "en"
+      SiteSetting.allow_user_locale = true
+    end
+
+    it "ignores the locale cookie by default" do
+      expect(locale_for(cookie: "es")).to eq("en")
+    end
+
+    context "when set_locale_from_cookie is enabled" do
+      before { SiteSetting.set_locale_from_cookie = true }
+
+      it "honours any available locale, even one that is not a supported content locale" do
+        SiteSetting.content_localization_supported_locales = "fr"
+
+        expect(locale_for(cookie: "es")).to eq("es")
+      end
+    end
+
+    context "when the language switcher is enabled" do
+      before do
+        SiteSetting.set_locale_from_cookie = false
+        SiteSetting.content_localization_supported_locales = "es|fr"
+        SiteSetting.content_localization_enabled = true
+        SiteSetting.content_localization_language_switcher = "all"
+      end
+
+      it "honours the locale cookie without set_locale_from_cookie" do
+        expect(locale_for(cookie: "es")).to eq("es")
+      end
+
+      it "honours the default locale, which the switcher also offers" do
+        expect(locale_for(cookie: "en")).to eq("en")
+      end
+
+      it "ignores an available locale that is not configured for this site" do
+        expect(locale_for(cookie: "ja")).to eq("en")
+      end
+
+      it "ignores the cookie once the switcher is turned off" do
+        SiteSetting.content_localization_language_switcher = "none"
+
+        expect(locale_for(cookie: "es")).to eq("en")
+      end
+
+      it "ignores the cookie when content localization is disabled" do
+        SiteSetting.content_localization_enabled = false
+
+        expect(locale_for(cookie: "es")).to eq("en")
+      end
+
+      it "ignores the cookie when user locales are not allowed" do
+        SiteSetting.allow_user_locale = false
+
+        expect(locale_for(cookie: "es")).to eq("en")
+      end
+
+      it "still prefers the locale param over the cookie" do
+        SiteSetting.set_locale_from_param = true
+
+        expect(locale_for(cookie: "es", path: "/?tl=fr")).to eq("fr")
+      end
     end
   end
 end

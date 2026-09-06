@@ -1,25 +1,18 @@
 import Component from "@glimmer/component";
-import { tracked } from "@glimmer/tracking";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
-import concatClass from "discourse/helpers/concat-class";
-import routeAction from "discourse/helpers/route-action";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
 import VoteButton from "./vote-button";
 import VoteCount from "./vote-count";
 
 export default class VoteBox extends Component {
-  @service siteSettings;
   @service currentUser;
 
-  @tracked votesAlert;
-  @tracked allowClick = true;
+  #sendVote(url, userVoted) {
+    const topic = this.args.topic;
 
-  @action
-  addVote() {
-    let topic = this.args.topic;
-    return ajax("/voting/vote", {
+    return ajax(url, {
       type: "POST",
       data: {
         topic_id: topic.id,
@@ -27,59 +20,32 @@ export default class VoteBox extends Component {
     })
       .then((result) => {
         topic.vote_count = result.vote_count;
-        topic.user_voted = true;
+        topic.user_voted = userVoted;
         this.currentUser.votes_exceeded = !result.can_vote;
         this.currentUser.vote_limit = result.vote_limit;
         this.currentUser.votes_left = result.votes_left;
-        this.votesAlert = result.alert;
-        this.allowClick = true;
       })
       .catch(popupAjaxError);
+  }
+
+  @action
+  addVote() {
+    return this.#sendVote("/voting/vote", true);
   }
 
   @action
   removeVote() {
-    const topic = this.args.topic;
-
-    return ajax("/voting/unvote", {
-      type: "POST",
-      data: {
-        topic_id: topic.id,
-      },
-    })
-      .then((result) => {
-        topic.vote_count = result.vote_count;
-        topic.user_voted = false;
-        this.currentUser.votes_exceeded = !result.can_vote;
-        this.currentUser.vote_limit = result.vote_limit;
-        this.currentUser.votes_left = result.votes_left;
-        this.allowClick = true;
-      })
-      .catch(popupAjaxError);
-  }
-
-  @action
-  closeVotesAlert() {
-    this.votesAlert = null;
+    return this.#sendVote("/voting/unvote", false);
   }
 
   <template>
-    <div
-      class={{concatClass
-        "voting-wrapper"
-        (if this.siteSettings.topic_voting_show_who_voted "show-pointer")
-      }}
-    >
-      <VoteCount @topic={{@topic}} @showLogin={{routeAction "showLogin"}} />
+    <div class="voting-wrapper">
       <VoteButton
         @topic={{@topic}}
-        @allowClick={{this.allowClick}}
-        @showVoteOptions={{this.showVoteOptions}}
         @addVote={{this.addVote}}
-        @showLogin={{routeAction "showLogin"}}
         @removeVote={{this.removeVote}}
       />
-
+      <VoteCount @topic={{@topic}} />
     </div>
   </template>
 }

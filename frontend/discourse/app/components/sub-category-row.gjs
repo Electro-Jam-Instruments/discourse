@@ -1,9 +1,9 @@
 import CategoryListItem from "discourse/components/category-list-item";
 import CategoryTitleLink from "discourse/components/category-title-link";
-import DecoratedHtml from "discourse/components/decorated-html";
 import SubCategoryItem from "discourse/components/sub-category-item";
 import borderColor from "discourse/helpers/border-color";
-import dirSpan from "discourse/helpers/dir-span";
+import DDecoratedHtml from "discourse/ui-kit/d-decorated-html";
+import dDirSpan from "discourse/ui-kit/helpers/d-dir-span";
 
 export default class SubCategoryRow extends CategoryListItem {
   <template>
@@ -17,9 +17,9 @@ export default class SubCategoryRow extends CategoryListItem {
           <td>
             <CategoryTitleLink @tagName="h4" @category={{this.category}} />
             <div class="subcategories-list">
-              {{#if this.category.subcategories}}
+              {{#if this.displayedSubcategories}}
                 <div class="subcategories">
-                  {{#each this.category.subcategories as |subcategory|}}
+                  {{#each this.displayedSubcategories as |subcategory|}}
                     <SubCategoryItem
                       @category={{subcategory}}
                       @listType={{this.listType}}
@@ -48,17 +48,17 @@ export default class SubCategoryRow extends CategoryListItem {
             <CategoryTitleLink @tagName="h4" @category={{this.category}} />
             {{#if this.category.description_excerpt}}
               <div class="category-description subcategory-description">
-                <DecoratedHtml
-                  @html={{dirSpan
+                <DDecoratedHtml
+                  @html={{dDirSpan
                     this.category.description_excerpt
                     htmlSafe="true"
                   }}
                 />
               </div>
             {{/if}}
-            {{#if this.category.subcategories}}
+            {{#if this.displayedSubcategories}}
               <div class="subcategories">
-                {{#each this.category.subcategories as |subsubcategory|}}
+                {{#each this.displayedSubcategories as |subsubcategory|}}
                   <SubCategoryItem
                     @category={{subsubcategory}}
                     @hideUnread="true"

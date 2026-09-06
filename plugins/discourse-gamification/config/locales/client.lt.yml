@@ -12,6 +12,8 @@ lt:
         link_to_settings: "Nustatymai"
         refresh: "Atnaujinti"
         name: "Vardas"
+        section:
+          groups: "Grupės"
         period:
           all_time: "Per visą laiką"
           yearly: "Kasmet"
@@ -35,3 +37,8 @@ lt:
       custom_range_from: "Nuo"
       admin:
         name: "Vardas"
+    discourse_workflows:
+      gamification_score:
+        username: "Narys"
+        date: "Data"
+        description: "Aprašymas"

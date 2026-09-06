@@ -1,5 +1,5 @@
 import Component from "@glimmer/component";
-import { tracked } from "@glimmer/tracking";
+import { cached, tracked } from "@glimmer/tracking";
 import { fn } from "@ember/helper";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
@@ -7,11 +7,11 @@ import { getOwner } from "@ember/owner";
 import didInsert from "@ember/render-modifiers/modifiers/did-insert";
 import { service } from "@ember/service";
 import BookmarkIcon from "discourse/components/bookmark-icon";
-import DButton from "discourse/components/d-button";
-import DModal from "discourse/components/d-modal";
 import EmojiPickerDetached from "discourse/components/emoji-picker/detached";
-import concatClass from "discourse/helpers/concat-class";
 import { and, or } from "discourse/truth-helpers";
+import DButton from "discourse/ui-kit/d-button";
+import DModal from "discourse/ui-kit/d-modal";
+import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
 import ChatMessageReaction from "discourse/plugins/chat/discourse/components/chat-message-reaction";
 import ChatUserAvatar from "discourse/plugins/chat/discourse/components/chat-user-avatar";
 import ChatMessageInteractor from "discourse/plugins/chat/discourse/lib/chat-message-interactor";
@@ -32,6 +32,7 @@ export default class ChatMessageActionsMobile extends Component {
     return this.chat.activeMessage.context;
   }
 
+  @cached
   get messageInteractor() {
     return new ChatMessageInteractor(
       getOwner(this),
@@ -102,7 +103,7 @@ export default class ChatMessageActionsMobile extends Component {
               <span
                 {{on "touchstart" this.expandReply passive=true}}
                 role="button"
-                class={{concatClass
+                class={{dConcatClass
                   "selected-message-reply"
                   (if this.hasExpandedReply "is-expanded")
                 }}
@@ -130,7 +131,10 @@ export default class ChatMessageActionsMobile extends Component {
           }}
             <div class="main-actions">
               {{#if this.messageInteractor.canReact}}
-                {{#each this.messageInteractor.emojiReactions as |reaction|}}
+                {{#each
+                  this.messageInteractor.emojiReactions key="emoji"
+                  as |reaction|
+                }}
                   <ChatMessageReaction
                     @reaction={{reaction}}
                     @onReaction={{this.react}}

@@ -4,7 +4,7 @@ import { concat } from "@ember/helper";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { trustHTML } from "@ember/template";
-import concatClass from "discourse/helpers/concat-class";
+import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
 import { i18n } from "discourse-i18n";
 import LazyIframe from "./lazy-iframe";
 
@@ -39,8 +39,9 @@ export default class LazyVideo extends Component {
       data-video-id={{@videoAttributes.id}}
       data-video-title={{@videoAttributes.title}}
       data-video-start-time={{@videoAttributes.startTime}}
+      data-video-list-id={{@videoAttributes.listId}}
       data-provider-name={{@videoAttributes.providerName}}
-      class={{concatClass
+      class={{dConcatClass
         "lazy-video-container"
         (concat @videoAttributes.providerName "-onebox")
         (if this.isLoaded "video-loaded")
@@ -52,6 +53,7 @@ export default class LazyVideo extends Component {
           @title={{@videoAttributes.title}}
           @videoId={{@videoAttributes.id}}
           @startTime={{@videoAttributes.startTime}}
+          @listId={{@videoAttributes.listId}}
         />
       {{else}}
         <div
@@ -64,7 +66,7 @@ export default class LazyVideo extends Component {
             title=@videoAttributes.title
           }}
           style={{this.thumbnailStyle}}
-          class={{concatClass "video-thumbnail" @videoAttributes.providerName}}
+          class={{dConcatClass "video-thumbnail" @videoAttributes.providerName}}
         >
           <img
             src={{@videoAttributes.thumbnail}}
@@ -73,7 +75,7 @@ export default class LazyVideo extends Component {
             class={{concat @videoAttributes.providerName "-thumbnail"}}
           />
           <div
-            class={{concatClass
+            class={{dConcatClass
               "icon"
               (concat @videoAttributes.providerName "-icon")
             }}

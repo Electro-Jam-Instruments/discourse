@@ -2,16 +2,14 @@ import Component from "@glimmer/component";
 import { array, concat, fn } from "@ember/helper";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
-import { trustHTML } from "@ember/template";
 import { modifier } from "ember-modifier";
-import DButton from "discourse/components/d-button";
-import DropdownMenu from "discourse/components/dropdown-menu";
 import DMenu from "discourse/float-kit/components/d-menu";
-import concatClass from "discourse/helpers/concat-class";
-import icon from "discourse/helpers/d-icon";
-import { iconHTML } from "discourse/lib/icon-library";
-import { translateModKey } from "discourse/lib/utilities";
-import { PLATFORM_KEY_MODIFIER } from "discourse/services/keyboard-shortcuts";
+import { formatShortcut } from "discourse/lib/shortcut-format";
+import DButton from "discourse/ui-kit/d-button";
+import DDropdownMenu from "discourse/ui-kit/d-dropdown-menu";
+import DShortcut from "discourse/ui-kit/d-shortcut";
+import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
+import dIcon from "discourse/ui-kit/helpers/d-icon";
 import { i18n } from "discourse-i18n";
 
 export default class ToolbarPopupMenuOptions extends Component {
@@ -66,76 +64,49 @@ export default class ToolbarPopupMenuOptions extends Component {
 
   #convertMenuOption(content) {
     if (content.condition !== false) {
-      const label = this.#calculateLabel(content);
-      const title = this.#calculateTitle(content);
+      const shortcutKeys = content.shortcut
+        ? `mod+${content.shortcut}`
+        : undefined;
+      const labelText = this.#calculateLabelText(content);
+      const title = this.#calculateTitle(content, labelText, shortcutKeys);
 
       return Object.defineProperties(
         {},
-        Object.getOwnPropertyDescriptors({ ...content, label, title })
+        Object.getOwnPropertyDescriptors({
+          ...content,
+          labelText,
+          title,
+          shortcutKeys,
+        })
       );
     }
   }
 
-  #calculateTitle(content) {
-    if (content.label && !content.title && !content.translatedTitle) {
-      return this.#calculateLabel(content, { textOnly: true });
-    }
-
-    if (!content.translatedTitle && !content.title) {
-      return;
-    }
-
-    const title = content.translatedTitle
-      ? content.translatedTitle
-      : i18n(content.title);
-
-    if (content.shortcut) {
-      return `${title} (${translateModKey(
-        PLATFORM_KEY_MODIFIER + "+" + content.shortcut
-      )})`;
-    }
-
-    return title;
-  }
-
-  #calculateLabel(content, opts = {}) {
+  #calculateLabelText(content) {
     if (!content.label && !content.translatedLabel) {
       return;
     }
 
-    const label = content.translatedLabel
+    return content.translatedLabel
       ? content.translatedLabel
       : i18n(content.label);
+  }
 
-    if (opts.textOnly) {
-      if (content.shortcut) {
-        return `${label} (${translateModKey(
-          PLATFORM_KEY_MODIFIER + "+" + content.shortcut
-        )})`;
-      }
+  /**
+   * A labelled row draws its shortcut, so its title carries none; an
+   * icon-only row has nowhere else to show it.
+   */
+  #calculateTitle(content, labelText, shortcutKeys) {
+    const title = content.translatedTitle
+      ? content.translatedTitle
+      : content.title
+        ? i18n(content.title)
+        : labelText;
 
-      return label;
+    if (labelText || !shortcutKeys || !this.capabilities.hasKeyboard) {
+      return title;
     }
-
-    let htmlLabel = `<span class="d-button-label__text">${label}</span>`;
-    if (content.shortcut) {
-      const separator = this.capabilities.isApple ? "" : " ";
-      const platformClass = this.capabilities.isApple ? "--apple" : "";
-      htmlLabel += ` <kbd class="shortcut ${platformClass} ${
-        content.alwaysShowShortcut ? "--always-visible" : ""
-      }">${translateModKey(
-        PLATFORM_KEY_MODIFIER + "+" + content.shortcut,
-        separator
-      )}</kbd>`;
-    }
-
-    if (content.showActiveIcon) {
-      htmlLabel += iconHTML("check", {
-        class: "d-button-label__active-icon",
-      });
-    }
-
-    return trustHTML(htmlLabel);
+    return `${title} (${formatShortcut(shortcutKeys).label})`;
   }
 
   get convertedContent() {
@@ -162,6 +133,15 @@ export default class ToolbarPopupMenuOptions extends Component {
     return config.icon;
   }
 
+  get triggerLabel() {
+    const label = this.args.triggerLabel;
+    if (typeof label === "function") {
+      return label({ state: this.textManipulationState });
+    }
+
+    return label;
+  }
+
   <template>
     <DMenu
       @identifier={{concat "toolbar-menu__" @class}}
@@ -174,29 +154,55 @@ export default class ToolbarPopupMenuOptions extends Component {
       @offset={{5}}
       @onKeydown={{@onKeydown}}
       tabindex="-1"
-      @triggerClass={{concatClass "toolbar__button" @class}}
+      @triggerClass={{dConcatClass "toolbar__button" @class}}
       @class="toolbar-popup-menu-options"
       title={{@title}}
     >
       <:trigger>
-        {{icon (this.getIcon this.args)}}
+        {{dIcon (this.getIcon this.args)}}
+        {{#if this.triggerLabel}}
+          <span class="toolbar-popup-menu-options__trigger-label">
+            {{this.triggerLabel}}
+          </span>
+        {{/if}}
       </:trigger>
       <:content>
-        <DropdownMenu {{this.trackScrollability}} as |dropdown|>
+        <DDropdownMenu {{this.trackScrollability}} as |dropdown|>
+          {{#if @header}}
+            <li class="dropdown-menu__header">{{@header}}</li>
+          {{/if}}
           {{#each this.convertedContent as |option|}}
             <dropdown.item>
-              <DButton
-                @translatedLabel={{option.label}}
-                @translatedTitle={{option.title}}
-                @icon={{this.getIcon option}}
-                @action={{fn this.onSelect option}}
-                data-name={{option.name}}
-                class={{concatClass (if (this.getActive option) "--active")}}
-                aria-keyshortcuts={{option.ariaKeyshortcuts}}
-              />
+              <DShortcut @keys={{option.shortcutKeys}} as |shortcut|>
+                <DButton
+                  class={{dConcatClass (if (this.getActive option) "--active")}}
+                  data-name={{option.name}}
+                  aria-keyshortcuts={{shortcut.aria}}
+                  @action={{fn this.onSelect option}}
+                  @icon={{this.getIcon option}}
+                  @translatedTitle={{option.title}}
+                >
+                  {{#if option.labelText}}
+                    <span class="d-button-label">
+                      <span class="d-button-label__text">
+                        {{option.labelText}}
+                      </span>
+                      <shortcut.Kbd
+                        class={{dConcatClass
+                          "shortcut"
+                          (if option.alwaysShowShortcut "--always-visible")
+                        }}
+                      />
+                      {{#if option.showActiveIcon}}
+                        {{dIcon "check" class="d-button-label__active-icon"}}
+                      {{/if}}
+                    </span>
+                  {{/if}}
+                </DButton>
+              </DShortcut>
             </dropdown.item>
           {{/each}}
-        </DropdownMenu>
+        </DDropdownMenu>
       </:content>
     </DMenu>
   </template>

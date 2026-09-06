@@ -1,19 +1,22 @@
 import { cached, tracked } from "@glimmer/tracking";
-import EmberObject, { computed, get } from "@ember/object";
-import { alias, and, equal, not, or } from "@ember/object/computed";
+import EmberObject, { computed, get, set } from "@ember/object";
+import { dependentKeyCompat } from "@ember/object/compat";
 import { service } from "@ember/service";
 import { isEmpty } from "@ember/utils";
 import { Promise } from "rsvp";
 import { resolveShareUrl } from "discourse/helpers/share-url";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
-import { propertyEqual } from "discourse/lib/computed";
+import {
+  clearModelFields,
+  modelFieldNames,
+  registerModelField,
+  stampModelClass,
+} from "discourse/lib/model-extensions";
+import { deepEqual } from "discourse/lib/object";
 import { cook } from "discourse/lib/text";
 import { fancyTitle } from "discourse/lib/topic-fancy-title";
-import {
-  defineTrackedProperty,
-  enumerateTrackedKeys,
-} from "discourse/lib/tracked-tools";
+import { enumerateTrackedKeys } from "discourse/lib/tracked-tools";
 import { applyValueTransformer } from "discourse/lib/transformer";
 import { userPath } from "discourse/lib/url";
 import { postUrl } from "discourse/lib/utilities";
@@ -25,8 +28,6 @@ import Site from "discourse/models/site";
 import User from "discourse/models/user";
 import { i18n } from "discourse-i18n";
 
-const pluginTrackedProperties = new Set();
-
 /**
  * @internal
  * Adds a tracked property to the post model.
@@ -36,7 +37,8 @@ const pluginTrackedProperties = new Set();
  * @param {string} propertyKey - The key of the property to track.
  */
 export function _addTrackedPostProperty(propertyKey) {
-  pluginTrackedProperties.add(propertyKey);
+  stampModelClass(Post, "post");
+  registerModelField("post", propertyKey);
 }
 
 /**
@@ -45,7 +47,7 @@ export function _addTrackedPostProperty(propertyKey) {
  * USE ONLY FOR TESTING PURPOSES.
  */
 export function clearAddedTrackedPostProperties() {
-  pluginTrackedProperties.clear();
+  clearModelFields("post");
 }
 
 export default class Post extends RestModel {
@@ -144,7 +146,6 @@ export default class Post extends RestModel {
   @tracked badges_granted;
   @tracked bookmarked;
   @tracked can_delete;
-  @tracked can_edit;
   @tracked can_permanently_delete;
   @tracked can_recover;
   @tracked can_see_hidden_post;
@@ -155,6 +156,7 @@ export default class Post extends RestModel {
   @tracked customShare = null;
   @tracked deleted_at;
   @tracked deleted_by;
+  @tracked deleted_post_placeholder;
   @tracked excerpt;
   @tracked expandedExcerpt;
   @tracked group_moderator;
@@ -168,6 +170,8 @@ export default class Post extends RestModel {
   @tracked likeAction;
   @tracked link_counts;
   @tracked localization_outdated;
+  @tracked localizedCooked;
+  @tracked localized_oneboxes;
   @tracked locked;
   @tracked moderator;
   @tracked name;
@@ -192,6 +196,7 @@ export default class Post extends RestModel {
   @tracked user_custom_fields;
   @tracked user_deleted;
   @tracked user_id;
+  @tracked user_locale;
   @tracked user_suspended;
   @tracked user_title;
   @tracked username;
@@ -199,29 +204,78 @@ export default class Post extends RestModel {
   @tracked via_email;
   @tracked wiki;
   @tracked yours;
+  @tracked _can_edit;
+  // for compatibility with existing code
+  // mark fist post as deleted if topic was deleted
+  // post is either highlighted as deleted or hidden/removed from the post stream
+  // post or content still can be recovered
 
-  @alias("can_edit") canEdit; // for compatibility with existing code
-  @equal("trust_level", 0) new_user;
-  @equal("post_number", 1) firstPost;
-  @and("firstPost", "topic.deleted_at") deletedViaTopic; // mark fist post as deleted if topic was deleted
-  @or("deleted_at", "deletedViaTopic") deleted; // post is either highlighted as deleted or hidden/removed from the post stream
-  @not("deleted") notDeleted;
-  @or("deleted_at", "user_deleted") recoverable; // post or content still can be recovered
-  @propertyEqual("topic.details.created_by.id", "user_id") topicOwner;
-  @alias("topic.details.created_by.id") topicCreatedById;
-
-  constructor() {
-    super(...arguments);
-
-    // adds tracked properties defined by plugin to the instance
-    pluginTrackedProperties.forEach((propertyKey) => {
-      defineTrackedProperty(this, propertyKey);
+  @dependentKeyCompat
+  get can_edit() {
+    return applyValueTransformer("post-can-edit", this._can_edit, {
+      post: this,
     });
   }
 
+  set can_edit(value) {
+    this._can_edit = value;
+  }
+
+  @dependentKeyCompat
+  get canEdit() {
+    return this.can_edit;
+  }
+
+  set canEdit(value) {
+    this.can_edit = value;
+  }
+
+  @dependentKeyCompat
+  get new_user() {
+    return this.trust_level === 0;
+  }
+
+  @dependentKeyCompat
+  get firstPost() {
+    return this.post_number === 1;
+  }
+
+  @computed("firstPost", "topic.deleted_at")
+  get deletedViaTopic() {
+    return this.firstPost && this.topic?.deleted_at;
+  }
+
+  @computed("deleted_at", "deletedViaTopic")
+  get deleted() {
+    return this.deleted_at || this.deletedViaTopic;
+  }
+
+  @computed("deleted")
+  get notDeleted() {
+    return !this.deleted;
+  }
+
+  @dependentKeyCompat
+  get recoverable() {
+    return this.deleted_at || this.user_deleted;
+  }
+
+  @computed("topic.details.created_by.id", "user_id")
+  get topicOwner() {
+    return deepEqual(this.topic?.details?.created_by?.id, this.user_id);
+  }
+
+  @computed("topic.details.created_by.id")
+  get topicCreatedById() {
+    return this.topic?.details?.created_by?.id;
+  }
+
+  set topicCreatedById(value) {
+    set(this, "topic.details.created_by.id", value);
+  }
+
   get shareUrl() {
-    const url = this.customShare || resolveShareUrl(this.url, this.currentUser);
-    return applyValueTransformer("post-share-url", url, { post: this });
+    return this.customShare || resolveShareUrl(this.url, this.currentUser);
   }
 
   @computed("name", "username")
@@ -401,10 +455,16 @@ export default class Post extends RestModel {
     return this.post_type === this.site.post_types.moderator_action;
   }
 
+  get isWarning() {
+    return this.topic?.is_warning;
+  }
+
   get isSmallAction() {
-    return (
+    return applyValueTransformer(
+      "post-is-small-action",
       this.post_type === this.site.post_types.small_action ||
-      this.action_code === "split_topic"
+        this.action_code === "split_topic",
+      { post: this }
     );
   }
 
@@ -462,6 +522,7 @@ export default class Post extends RestModel {
       flair_group_id: this.flair_group_id,
       flair_name: this.flair_name,
       flair_url: this.flair_url,
+      locale: this.user_locale,
       moderator: this.moderator,
       primary_group_name: this.primary_group_name,
       status: this.user_status,
@@ -505,8 +566,13 @@ export default class Post extends RestModel {
 
   // Expands the first post's content, if embedded and shortened.
   async expand() {
-    const post = await ajax(`/posts/${this.id}/expand-embed`);
-    this.cooked = `<section class="expanded-embed">${post.cooked}</section>`;
+    try {
+      const post = await ajax(`/posts/${this.id}/expand-embed`);
+      this.cooked = `<section class="expanded-embed">${post.cooked}</section>`;
+    } catch (error) {
+      popupAjaxError.call(this, error);
+      throw error;
+    }
   }
 
   // Recover a deleted post
@@ -626,7 +692,7 @@ export default class Post extends RestModel {
     [
       ...Object.keys(otherPost),
       ...enumerateTrackedKeys(otherPost),
-      ...pluginTrackedProperties,
+      ...modelFieldNames("post"),
     ].forEach((key) => {
       let value = otherPost[key],
         oldValue = this[key];
@@ -662,6 +728,22 @@ export default class Post extends RestModel {
     return ajax(`/posts/${this.id}/cooked.json`).then((result) => {
       this.setProperties({ cooked: result.cooked, cooked_hidden: false });
     });
+  }
+
+  async toggleLocalizedContent() {
+    if (this.localizedCooked) {
+      this.setProperties({
+        cooked: this.localizedCooked,
+        localizedCooked: null,
+      });
+    } else {
+      const result = await ajax(`/posts/${this.id}/cooked.json`);
+
+      this.setProperties({
+        localizedCooked: this.cooked,
+        cooked: result.cooked,
+      });
+    }
   }
 
   rebake() {

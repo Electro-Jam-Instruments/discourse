@@ -12,6 +12,11 @@ da:
         link_to_settings: "Indstillinger"
         refresh: "Genindlæs"
         name: "Navn"
+        section:
+          groups: "Grupper"
+        weight:
+          post_created: "Indlæg oprettet"
+          solution: "Løsning"
         period:
           all_time: "Alt"
           yearly: "Årligt"
@@ -35,3 +40,8 @@ da:
       custom_range_from: "Fra"
       admin:
         name: "Navn"
+    discourse_workflows:
+      gamification_score:
+        username: "Bruger"
+        date: "Dato"
+        description: "Beskrivelse"

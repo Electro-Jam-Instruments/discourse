@@ -3,7 +3,7 @@ import { test } from "qunit";
 import { acceptance } from "discourse/tests/helpers/qunit-helpers";
 import { i18n } from "discourse-i18n";
 
-acceptance("Data Explorer Plugin | List Queries", function (needs) {
+acceptance("List Queries", function (needs) {
   needs.user();
   needs.settings({ data_explorer_enabled: true });
 
@@ -61,7 +61,7 @@ acceptance("Data Explorer Plugin | List Queries", function (needs) {
     await visit("/admin/plugins/discourse-data-explorer/queries");
 
     assert
-      .dom(".admin-filter-controls__input")
+      .dom(".d-filter-controls__input")
       .hasAttribute(
         "placeholder",
         i18n("explorer.search_placeholder"),

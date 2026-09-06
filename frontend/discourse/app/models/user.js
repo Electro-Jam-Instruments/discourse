@@ -1,8 +1,7 @@
 /* eslint-disable ember/no-observers */
 import { tracked } from "@glimmer/tracking";
-import EmberObject, { computed, get, getProperties } from "@ember/object";
+import EmberObject, { computed, get, getProperties, set } from "@ember/object";
 import { dependentKeyCompat } from "@ember/object/compat";
-import { alias, equal, filterBy, gt, mapBy, or } from "@ember/object/computed";
 import Evented from "@ember/object/evented";
 import { getOwner, setOwner } from "@ember/owner";
 import { trackedArray } from "@ember/reactive/collections";
@@ -18,7 +17,6 @@ import {
   removeValueFromArray,
   uniqueItemsFromArray,
 } from "discourse/lib/array-tools";
-import { url } from "discourse/lib/computed";
 import {
   AUTO_GROUPS,
   INTERFACE_COLOR_MODES,
@@ -36,6 +34,10 @@ import PreloadStore from "discourse/lib/preload-store";
 import singleton from "discourse/lib/singleton";
 import { emojiUnescape } from "discourse/lib/text";
 import { autoTrackedArray } from "discourse/lib/tracked-tools";
+import {
+  applyBehaviorTransformer,
+  applyValueTransformer,
+} from "discourse/lib/transformer";
 import { userPath } from "discourse/lib/url";
 import { defaultHomepage, escapeExpression } from "discourse/lib/utilities";
 import Badge from "discourse/models/badge";
@@ -56,6 +58,7 @@ export const SECOND_FACTOR_METHODS = {
   TOTP: 1,
   BACKUP_CODE: 2,
   SECURITY_KEY: 3,
+  PASSKEY: 4,
 };
 
 export const MAX_SECOND_FACTOR_NAME_LENGTH = 300;
@@ -123,10 +126,10 @@ let userOptionFields = [
   "email_messages_level",
   "email_previous_replies",
   "enable_allowed_pm_users",
-  "enable_defer",
   "enable_markdown_monospace_font",
   "enable_quoting",
   "enable_smart_lists",
+  "enable_upcoming_change_available_notifications",
   "external_links_in_new_tab",
   "hide_presence",
   "hide_profile",
@@ -139,7 +142,11 @@ let userOptionFields = [
   "new_topic_duration_minutes",
   "notification_level_when_replying",
   "notify_on_linked_posts",
+  "push_notification_level",
   "seen_popups",
+  "send_shortcut",
+  "automatically_translate",
+  "show_original_content",
   "sidebar_link_to_filtered_list",
   "sidebar_show_count_of_new_items",
   "skip_new_user_tips",
@@ -147,7 +154,7 @@ let userOptionFields = [
   "theme_ids",
   "timezone",
   "title_count_mode",
-  "topics_unread_when_closed",
+  "understood_languages",
   "watched_precedence_over_muted",
 ];
 
@@ -194,8 +201,18 @@ export default class User extends RestModel.extend(Evented) {
     if (userJson) {
       userJson.isCurrent = true;
 
+      // Calling user.groups is deprecated, see discourse.user.groups,
+      // it is replaced by visibleGroups
+      if (
+        !Object.hasOwn(userJson, "visibleGroups") &&
+        Object.hasOwn(userJson, "groups")
+      ) {
+        userJson.visibleGroups = userJson.groups;
+        delete userJson.groups;
+      }
+
       if (userJson.primary_group_id) {
-        const primaryGroup = userJson.groups.find(
+        const primaryGroup = userJson.visibleGroups.find(
           (group) => group.id === userJson.primary_group_id
         );
         if (primaryGroup) {
@@ -240,7 +257,6 @@ export default class User extends RestModel.extend(Evented) {
   @userOption("hide_profile") hide_profile;
   @userOption("hide_presence") hide_presence;
   @userOption("title_count_mode") title_count_mode;
-  @userOption("enable_defer") enable_defer;
   @userOption("timezone") timezone;
   @userOption("skip_new_user_tips") skip_new_user_tips;
   @userOption("default_calendar") default_calendar;
@@ -252,25 +268,124 @@ export default class User extends RestModel.extend(Evented) {
   @userOption("treat_as_new_topic_start_date") treat_as_new_topic_start_date;
   @userOption("composition_mode") composition_mode;
 
-  @gt("private_messages_stats.all", 0) hasPMs;
-  @gt("private_messages_stats.mine", 0) hasStartedPMs;
-  @gt("private_messages_stats.unread", 0) hasUnreadPMs;
-  @url("id", "username_lower", "/admin/users/%@1/%@2") adminPath;
-  @equal("trust_level", 0) isBasic;
-  @equal("trust_level", 3) isRegular;
-  @equal("trust_level", 4) isLeader;
-  @or("staff", "isLeader") canManageTopic;
-  @alias("sidebar_category_ids") sidebarCategoryIds;
-  @alias("sidebar_sections") sidebarSections;
-  @mapBy("sidebarTags", "name") sidebarTagNames;
-  @filterBy("groups", "has_messages", true) groupsWithMessages;
-  @alias("can_pick_theme_with_custom_homepage") canPickThemeWithCustomHomepage;
-  @alias("can_edit_tags") canEditTags;
-  @alias("can_change_post_owner") canChangePostOwner;
-
   numGroupsToDisplay = 2;
 
   statusManager = new UserStatusManager(this);
+
+  @tracked _location;
+
+  @computed("private_messages_stats.all")
+  get hasPMs() {
+    return this.private_messages_stats?.all > 0;
+  }
+
+  @computed("private_messages_stats.mine")
+  get hasStartedPMs() {
+    return this.private_messages_stats?.mine > 0;
+  }
+
+  @computed("private_messages_stats.unread")
+  get hasUnreadPMs() {
+    return this.private_messages_stats?.unread > 0;
+  }
+
+  @computed("id", "username_lower")
+  get adminPath() {
+    return getURL(`/admin/users/${this.id}/${this.username_lower}`);
+  }
+
+  @computed("trust_level")
+  get isBasic() {
+    return this.trust_level === 0;
+  }
+
+  @computed("trust_level")
+  get isRegular() {
+    return this.trust_level === 3;
+  }
+
+  @computed("trust_level")
+  get isLeader() {
+    return this.trust_level === 4;
+  }
+
+  @computed("staff", "isLeader")
+  get canManageTopic() {
+    return this.staff || this.isLeader;
+  }
+
+  @computed("can_set_topic_timer", "canManageTopic")
+  get canSetTopicTimer() {
+    return this.can_set_topic_timer ?? this.canManageTopic;
+  }
+
+  @computed("sidebar_category_ids")
+  get sidebarCategoryIds() {
+    return this.sidebar_category_ids;
+  }
+
+  set sidebarCategoryIds(value) {
+    set(this, "sidebar_category_ids", value);
+  }
+
+  @dependentKeyCompat
+  get sidebarSections() {
+    return this.sidebar_sections;
+  }
+
+  set sidebarSections(value) {
+    this.sidebar_sections = value;
+  }
+
+  @dependentKeyCompat
+  get location() {
+    return applyValueTransformer("user-location", this._location, {
+      user: this,
+    });
+  }
+
+  set location(value) {
+    this._location = value;
+  }
+
+  @computed("sidebarTags.@each.name")
+  get sidebarTagNames() {
+    return this.sidebarTags?.map?.((item) => item.name) ?? [];
+  }
+
+  @computed("visibleGroups.@each.has_messages")
+  get groupsWithMessages() {
+    return (
+      this.visibleGroups?.filter?.((item) => item.has_messages === true) ?? []
+    );
+  }
+
+  @computed("can_pick_theme_with_custom_homepage")
+  get canPickThemeWithCustomHomepage() {
+    return this.can_pick_theme_with_custom_homepage;
+  }
+
+  set canPickThemeWithCustomHomepage(value) {
+    set(this, "can_pick_theme_with_custom_homepage", value);
+  }
+
+  @computed("can_edit_tags")
+  get canEditTags() {
+    return this.can_edit_tags;
+  }
+
+  set canEditTags(value) {
+    set(this, "can_edit_tags", value);
+  }
+
+  @computed("can_change_post_owner")
+  get canChangePostOwner() {
+    return this.can_change_post_owner;
+  }
+
+  set canChangePostOwner(value) {
+    set(this, "can_change_post_owner", value);
+  }
 
   @computed("user_option.composition_mode")
   get useRichEditor() {
@@ -313,6 +428,18 @@ export default class User extends RestModel.extend(Evented) {
   // prevents staff property to be overridden
   set staff(value) {}
 
+  get groups() {
+    deprecated(
+      "Calling user.groups is deprecated, use user.visibleGroups instead, it more accurately reflects what this array of groups represents, not all of the user's group memberships may be serialized to the client. For permission checks, check the user's groups server-side and add an attribute to the User/CurrentUserSerializer, or use `resolve_group_memberships: true` for theme settings.",
+      {
+        id: "discourse.user.groups",
+        since: "2026.8.0-latest.1",
+        url: "https://meta.discourse.org/t/-/411124",
+      }
+    );
+    return this.visibleGroups;
+  }
+
   @computed("has_unseen_features")
   get hasUnseenFeatures() {
     return this.staff && this.get("has_unseen_features");
@@ -323,8 +450,12 @@ export default class User extends RestModel.extend(Evented) {
     return this.staff && this.get("has_new_upcoming_changes");
   }
 
-  destroySession() {
-    return ajax(`/session/${this.username}`, { type: "DELETE" });
+  destroySession(pushSubscription) {
+    const data = {};
+    if (pushSubscription) {
+      data.push_subscription = pushSubscription;
+    }
+    return ajax(`/session/${this.username}`, { type: "DELETE", data });
   }
 
   @computed("username_lower")
@@ -363,7 +494,9 @@ export default class User extends RestModel.extend(Evented) {
   @computed()
   get path() {
     // no need to observe, requires a hard refresh to update
-    return userPath(this.username_lower);
+    return applyValueTransformer("user-path", userPath(this.username_lower), {
+      user: this,
+    });
   }
 
   @computed()
@@ -415,7 +548,7 @@ export default class User extends RestModel.extend(Evented) {
       return userPath(`${username}/messages`);
     } else if (groups) {
       const firstAllowedGroup = groups.find((allowedGroup) =>
-        this.groups.some((userGroup) => userGroup.id === allowedGroup.id)
+        this.visibleGroups.some((userGroup) => userGroup.id === allowedGroup.id)
       );
 
       if (firstAllowedGroup) {
@@ -794,9 +927,9 @@ export default class User extends RestModel.extend(Evented) {
     );
   }
 
-  @computed("groups.[]")
+  @computed("visibleGroups.[]")
   get filteredGroups() {
-    const groups = this.groups || [];
+    const groups = this.visibleGroups || [];
 
     return groups.filter((group) => {
       return !group.automatic || group.id === AUTO_GROUPS.moderators.id;
@@ -864,16 +997,13 @@ export default class User extends RestModel.extend(Evented) {
         );
       }
 
-      if (!isEmpty(json.user.groups) && !isEmpty(json.user.group_users)) {
-        const groups = [];
-
-        for (let i = 0; i < json.user.groups.length; i++) {
-          const group = Group.create(json.user.groups[i]);
-          group.group_user = json.user.group_users[i];
-          groups.push(group);
-        }
-
-        json.user.groups = groups;
+      if (Object.hasOwn(json.user, "groups")) {
+        json.user.visibleGroups = json.user.groups.map((groupJson, index) => {
+          const group = Group.create(groupJson);
+          group.group_user = json.user.group_users?.[index];
+          return group;
+        });
+        delete json.user.groups;
       }
 
       if (json.user.invited_by) {
@@ -1192,11 +1322,11 @@ export default class User extends RestModel.extend(Evented) {
     return group.get("can_admin_group") || group.get("is_group_owner");
   }
 
-  @computed("groups.@each.title", "badges.[]")
+  @computed("visibleGroups.@each.title", "badges.[]")
   get availableTitles() {
     const titles = [];
 
-    (this.groups || []).forEach((group) => {
+    (this.visibleGroups || []).forEach((group) => {
       if (get(group, "title")) {
         titles.push(get(group, "title"));
       }
@@ -1218,12 +1348,12 @@ export default class User extends RestModel.extend(Evented) {
       });
   }
 
-  @computed("groups.[]")
+  @computed("visibleGroups.[]")
   get availableFlairs() {
     const flairs = [];
 
-    if (this.groups) {
-      this.groups.forEach((group) => {
+    if (this.visibleGroups) {
+      this.visibleGroups.forEach((group) => {
         if (group.flair_url) {
           flairs.push({
             id: group.id,
@@ -1425,7 +1555,7 @@ User.reopenClass({
     return result;
   },
 
-  createAccount(attrs) {
+  async createAccount(attrs) {
     let data = {
       name: attrs.accountName,
       email: attrs.accountEmail,
@@ -1441,10 +1571,15 @@ User.reopenClass({
       data.invite_code = attrs.inviteCode;
     }
 
-    return ajax(userPath(), {
-      data,
-      type: "POST",
-    });
+    return applyBehaviorTransformer(
+      "create-account",
+      () =>
+        ajax(userPath(), {
+          data,
+          type: "POST",
+        }),
+      { data }
+    );
   },
 
   _saveTimezone(user) {
@@ -1458,6 +1593,11 @@ User.reopenClass({
   create(args) {
     args = args || {};
     this.deleteStatusTrackingFields(args);
+
+    if (Object.hasOwn(args, "groups")) {
+      args.visibleGroups = args.groups;
+      delete args.groups;
+    }
 
     return this._super(args);
   },

@@ -23,7 +23,7 @@ const setDefaultState = (ctx, options) => {
   ctx.setProperties(properties);
 };
 
-module("Integration | Component | select-kit/multi-select", function (hooks) {
+module("Integration | Component | SelectKit | MultiSelect", function (hooks) {
   setupRenderingTest(hooks);
 
   hooks.beforeEach(function () {
@@ -134,5 +134,62 @@ module("Integration | Component | select-kit/multi-select", function (hooks) {
     assert
       .dom(".selected-content")
       .doesNotExist("doesn't render an empty content div");
+  });
+
+  test("useHeaderSelectedCount=true", async function (assert) {
+    setDefaultState(this, { value: [1, 2] });
+
+    await render(
+      <template>
+        <MultiSelect
+          @value={{this.value}}
+          @content={{this.content}}
+          @options={{hash useHeaderSelectedCount=true}}
+        />
+      </template>
+    );
+
+    assert
+      .dom(".multi-select-header__selected-count")
+      .hasText("2", "shows the number of selected items in the header");
+
+    await this.subject.expand();
+    await this.subject.selectRowByValue(3);
+
+    assert
+      .dom(".multi-select-header__selected-count")
+      .hasText("3", "updates the count when the selection changes");
+  });
+
+  test("useHeaderSelectedCount=true with no selection", async function (assert) {
+    setDefaultState(this);
+
+    await render(
+      <template>
+        <MultiSelect
+          @value={{this.value}}
+          @content={{this.content}}
+          @options={{hash useHeaderSelectedCount=true}}
+        />
+      </template>
+    );
+
+    assert
+      .dom(".multi-select-header__selected-count")
+      .doesNotExist("doesn't render a count when nothing is selected");
+  });
+
+  test("useHeaderSelectedCount=false", async function (assert) {
+    setDefaultState(this, { value: [1, 2] });
+
+    await render(
+      <template>
+        <MultiSelect @value={{this.value}} @content={{this.content}} />
+      </template>
+    );
+
+    assert
+      .dom(".multi-select-header__selected-count")
+      .doesNotExist("doesn't render a count by default");
   });
 });

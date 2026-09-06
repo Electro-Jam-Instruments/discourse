@@ -1,9 +1,15 @@
-import DButton from "discourse/components/d-button";
+import DButton from "discourse/ui-kit/d-button";
 import HouseAdsListSetting from "./house-ads-list-setting";
 
 const HouseAdsSettingsPanel = <template>
   <section class="house-ads-settings" ...attributes>
     <form class="form-horizontal">
+      <HouseAdsListSetting
+        @name="above_site_header"
+        @value={{@adSettings.above_site_header}}
+        @allAds={{@houseAds}}
+        @adSettings={{@adSettings}}
+      />
       <HouseAdsListSetting
         @name="topic_list_top"
         @value={{@adSettings.topic_list_top}}
@@ -31,6 +37,12 @@ const HouseAdsSettingsPanel = <template>
       <HouseAdsListSetting
         @name="topic_list_between"
         @value={{@adSettings.topic_list_between}}
+        @allAds={{@houseAds}}
+        @adSettings={{@adSettings}}
+      />
+      <HouseAdsListSetting
+        @name="nested_roots_between"
+        @value={{@adSettings.nested_roots_between}}
         @allAds={{@houseAds}}
         @adSettings={{@adSettings}}
       />

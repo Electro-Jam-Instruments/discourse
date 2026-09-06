@@ -17,25 +17,32 @@ RSpec.describe CategorySetting do
       .allow_nil
   end
 
-  it "removes category_posting_review_groups when approval is disabled" do
-    category =
-      Fabricate(
-        :category,
-        category_setting_attributes: {
-          require_topic_approval: true,
-          require_reply_approval: true,
-        },
-      )
-    expect(category.category_posting_review_groups.count).to eq(2)
+  describe "nested replies conversion state" do
+    fab!(:category)
 
-    category.require_topic_approval = false
-    category.save!
+    it "clears the conversion custom field when nested replies are disabled" do
+      category.category_setting.update!(nested_replies_default: true)
+      category.mark_nested_replies_conversion_completed!
 
-    expect(category.category_posting_review_groups.pluck(:post_type)).to eq(%w[reply])
+      expect { category.category_setting.update!(nested_replies_default: false) }.to change {
+        category.reload.nested_replies_conversion_completed?
+      }.from(true).to(false)
 
-    category.require_reply_approval = false
-    category.save!
+      expect(
+        CategoryCustomField.exists?(
+          category_id: category.id,
+          name: NestedReplies::CONVERSION_COMPLETED_CUSTOM_FIELD,
+        ),
+      ).to eq(false)
+    end
 
-    expect(category.category_posting_review_groups.count).to eq(0)
+    it "keeps the conversion custom field when nested replies stay enabled" do
+      category.category_setting.update!(nested_replies_default: true)
+      category.mark_nested_replies_conversion_completed!
+
+      expect { category.category_setting.update!(auto_bump_cooldown_days: 2) }.not_to change {
+        category.reload.nested_replies_conversion_completed?
+      }
+    end
   end
 end

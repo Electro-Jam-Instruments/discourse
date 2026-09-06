@@ -4,8 +4,8 @@ import {
   SCROLLER_HEIGHT,
   timelineDate,
 } from "discourse/components/topic-timeline/container";
-import draggable from "discourse/modifiers/draggable";
 import { and, not } from "discourse/truth-helpers";
+import dPointerDrag from "discourse/ui-kit/modifiers/d-pointer-drag";
 import { i18n } from "discourse-i18n";
 import BackButton from "./back-button";
 
@@ -25,10 +25,14 @@ export default class TopicTimelineScroller extends Component {
 
   <template>
     <div
-      {{draggable
-        didStartDrag=@didStartDrag
-        didEndDrag=@didEndDrag
-        dragMove=@dragMove
+      {{! Position is committed continuously as the pointer moves, so discarding
+          on cancel would snap the topic back to where the drag began. }}
+      {{dPointerDrag
+        onDragStart=@didStartDrag
+        onDrag=@dragMove
+        onDragEnd=@didEndDrag
+        cancelCommits=true
+        bodyClass="dragging"
       }}
       style={{this.style}}
       class="timeline-scroller"

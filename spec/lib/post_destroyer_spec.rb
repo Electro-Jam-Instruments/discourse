@@ -172,6 +172,25 @@ RSpec.describe PostDestroyer do
       expect(post_action).to be_present
     end
 
+    it "creates a staff log entry when recovering the first post" do
+      first_post = create_post
+      PostDestroyer.new(moderator, first_post).destroy
+
+      expect { PostDestroyer.new(moderator, first_post).recover }.to change {
+        UserHistory.where(action: UserHistory.actions[:recover_topic]).count
+      }.by(1)
+    end
+
+    it "creates a staff log entry when recovering a reply" do
+      reply = create_post(topic: post.topic)
+
+      PostDestroyer.new(moderator, reply).destroy
+
+      expect { PostDestroyer.new(moderator, reply).recover }.to change {
+        UserHistory.where(action: UserHistory.actions[:recover_post]).count
+      }.by(1)
+    end
+
     it "works with topics and posts with no user" do
       post = Fabricate(:post)
       UserDestroyer.new(Discourse.system_user).destroy(post.user, delete_posts: true)
@@ -420,55 +439,53 @@ RSpec.describe PostDestroyer do
 
   describe "basic destroying" do
     it "as the creator of the post, doesn't delete the post" do
-      begin
-        post2 = create_post
-        user_stat = post2.user.user_stat
+      post2 = create_post
+      user_stat = post2.user.user_stat
 
-        called = 0
-        topic_destroyed = ->(topic, user) do
-          expect(topic).to eq(post2.topic)
-          expect(user).to eq(post2.user)
-          called += 1
-        end
-
-        DiscourseEvent.on(:topic_destroyed, &topic_destroyed)
-
-        @orig = post2.cooked
-        # Guardian.new(post2.user).can_delete_post?(post2) == false
-        PostDestroyer.new(post2.user, post2).destroy
-        post2.reload
-
-        expect(post2.deleted_at).to be_blank
-        expect(post2.deleted_by).to be_blank
-        expect(post2.user_deleted).to eq(true)
-        expect(post2.raw).to eq(I18n.t("js.topic.deleted_by_author_simple"))
-        expect(post2.version).to eq(2)
-        expect(called).to eq(1)
-        expect(user_stat.reload.post_count).to eq(0)
-        expect(user_stat.reload.topic_count).to eq(1)
-
-        called = 0
-        topic_recovered = ->(topic, user) do
-          expect(topic).to eq(post2.topic)
-          expect(user).to eq(post2.user)
-          called += 1
-        end
-
-        DiscourseEvent.on(:topic_recovered, &topic_recovered)
-
-        # lets try to recover
-        PostDestroyer.new(post2.user, post2).recover
-        post2.reload
-        expect(post2.version).to eq(3)
-        expect(post2.user_deleted).to eq(false)
-        expect(post2.cooked).to eq(@orig)
-        expect(called).to eq(1)
-        expect(user_stat.reload.post_count).to eq(0)
-        expect(user_stat.reload.topic_count).to eq(1)
-      ensure
-        DiscourseEvent.off(:topic_destroyed, &topic_destroyed)
-        DiscourseEvent.off(:topic_recovered, &topic_recovered)
+      called = 0
+      topic_destroyed = ->(topic, user) do
+        expect(topic).to eq(post2.topic)
+        expect(user).to eq(post2.user)
+        called += 1
       end
+
+      DiscourseEvent.on(:topic_destroyed, &topic_destroyed)
+
+      @orig = post2.cooked
+      # Guardian.new(post2.user).can_delete_post?(post2) == false
+      PostDestroyer.new(post2.user, post2).destroy
+      post2.reload
+
+      expect(post2.deleted_at).to be_blank
+      expect(post2.deleted_by).to be_blank
+      expect(post2.user_deleted).to eq(true)
+      expect(post2.raw).to eq(I18n.t("js.topic.deleted_by_author_simple"))
+      expect(post2.version).to eq(2)
+      expect(called).to eq(1)
+      expect(user_stat.reload.post_count).to eq(0)
+      expect(user_stat.reload.topic_count).to eq(1)
+
+      called = 0
+      topic_recovered = ->(topic, user) do
+        expect(topic).to eq(post2.topic)
+        expect(user).to eq(post2.user)
+        called += 1
+      end
+
+      DiscourseEvent.on(:topic_recovered, &topic_recovered)
+
+      # lets try to recover
+      PostDestroyer.new(post2.user, post2).recover
+      post2.reload
+      expect(post2.version).to eq(3)
+      expect(post2.user_deleted).to eq(false)
+      expect(post2.cooked).to eq(@orig)
+      expect(called).to eq(1)
+      expect(user_stat.reload.post_count).to eq(0)
+      expect(user_stat.reload.topic_count).to eq(1)
+    ensure
+      DiscourseEvent.off(:topic_destroyed, &topic_destroyed)
+      DiscourseEvent.off(:topic_recovered, &topic_recovered)
     end
 
     it "maintains history when a user destroys a hidden post" do
@@ -508,6 +525,23 @@ RSpec.describe PostDestroyer do
       expect(history.created_by).to eq(Discourse.system_user)
     end
 
+    it "resolves reviewables whose type is no longer defined when the author deletes their post" do
+      reply = create_post(topic: post.topic)
+      reviewable = PostActionCreator.spam(coding_horror, reply).reviewable
+      reviewable.update_columns(type: "ReviewableDoesntExist", type_source: "some-plugin")
+
+      PostDestroyer.new(reply.user, reply).destroy
+
+      expect(reply.reload.user_deleted).to eq(true)
+
+      reviewable = Reviewable.find(reviewable.id)
+      expect(reviewable).to be_a(Reviewable::UnknownType)
+      expect(reviewable).to be_ignored
+      expect(reviewable.type_source).to eq("some-plugin")
+      expect(reviewable.reviewable_scores.first.reviewed_by_id).to eq(Discourse.system_user.id)
+      expect(reviewable.reviewable_histories.last.reviewable_history_type).to eq("transitioned")
+    end
+
     it "does not restore reviewable when manually ignored by moderator" do
       reply = create_post(topic: post.topic)
       result = PostActionCreator.spam(coding_horror, reply)
@@ -531,6 +565,25 @@ RSpec.describe PostDestroyer do
       expect(reviewable.reload).to be_ignored
     end
 
+    it "resolves reviewable when author deletes their post via perform_delete (delete_removed_posts_after = 0)" do
+      SiteSetting.delete_removed_posts_after = 0
+
+      reply = create_post(topic: post.topic)
+      reviewable =
+        ReviewablePost.needs_review!(
+          target: reply,
+          created_by: Discourse.system_user,
+          reviewable_by_moderator: true,
+        )
+
+      expect(reviewable).to be_pending
+
+      PostDestroyer.new(reply.user, reply).destroy
+
+      expect(reply.reload.deleted_at).to be_present
+      expect(reviewable.reload).to be_ignored
+    end
+
     it "does not auto-ignore reviewable when author was silenced for the post" do
       reply = create_post(topic: post.topic)
       reviewable = PostActionCreator.spam(coding_horror, reply).reviewable
@@ -540,6 +593,9 @@ RSpec.describe PostDestroyer do
 
       expect(reply.reload.user_deleted).to eq(true)
       expect(reviewable.reload).to be_pending
+      expect(reviewable.reviewable_notes.last.content).to eq(
+        I18n.t("reviewables.post_deleted_by_author_after_penalty"),
+      )
 
       PostDestroyer.new(reply.user, reply).recover
 
@@ -699,6 +755,20 @@ RSpec.describe PostDestroyer do
         author.reload
         expect(author.post_count).to eq(post_count - 1)
         expect(UserHistory.count).to eq(history_count + 1)
+      end
+
+      it "links the staff action log to the reviewable when passed via opts" do
+        reply = create_post(topic_id: post.topic_id, user: post.user)
+        reviewable = Fabricate(:reviewable_flagged_post, target: reply)
+
+        expect {
+          PostDestroyer.new(moderator, reply, reviewable_id: reviewable.id).destroy
+        }.to change {
+          UserHistory.where(
+            action: UserHistory.actions[:delete_post],
+            reviewable_id: reviewable.id,
+          ).count
+        }.by(1)
       end
     end
 
@@ -1106,7 +1176,7 @@ RSpec.describe PostDestroyer do
 
         it "does not ignore a potentially illegal flag on the reply" do
           expect {
-            PostDestroyer.new(moderator, second_post, reviewable: parent_reviewable).destroy
+            PostDestroyer.new(moderator, second_post, reviewable_id: parent_reviewable.id).destroy
           }.not_to change { reply_reviewable.reload.pending? }
         end
       end
@@ -1124,7 +1194,7 @@ RSpec.describe PostDestroyer do
           is_warning: false,
           flag_topic: true,
         ).perform
-        PostDestroyer.new(moderator, third_post, { reviewable: Reviewable.last }).destroy
+        PostDestroyer.new(moderator, third_post, { reviewable_id: Reviewable.last.id }).destroy
         jobs = Jobs::SendSystemMessage.jobs
         expect(jobs.size).to eq(1)
 
@@ -1509,5 +1579,67 @@ RSpec.describe PostDestroyer do
         end
       end
     end
+  end
+
+  describe "members of delete_all_posts_and_topics_allowed_groups" do
+    fab!(:group)
+    fab!(:group_member, :user)
+
+    before do
+      group.add(group_member)
+      SiteSetting.delete_all_posts_and_topics_allowed_groups = "1|2|#{group.id}"
+    end
+
+    it "deletes another user's reply" do
+      reply = create_post(topic: post.topic, user: coding_horror)
+
+      PostDestroyer.new(group_member, reply).destroy
+
+      expect(reply.reload.deleted_at).to be_present
+      expect(reply.user_deleted).to eq(false)
+    end
+
+    it "deletes the topic along with the first post" do
+      PostDestroyer.new(group_member, post).destroy
+
+      expect(post.reload.deleted_at).to be_present
+      expect(Topic.with_deleted.find(post.topic_id).deleted_at).to be_present
+    end
+
+    it "recovers another user's deleted reply" do
+      reply = create_post(topic: post.topic, user: coding_horror)
+      PostDestroyer.new(moderator, reply).destroy
+
+      PostDestroyer.new(group_member, reply.reload).recover
+
+      expect(reply.reload.deleted_at).to eq(nil)
+    end
+
+    it "recovers the topic along with the first post" do
+      PostDestroyer.new(moderator, post).destroy
+
+      PostDestroyer.new(group_member, post.reload).recover
+
+      expect(post.reload.deleted_at).to eq(nil)
+      expect(post.topic.deleted_at).to eq(nil)
+    end
+  end
+
+  it "leaves the topic deleted when recovering a first post the user cannot recover" do
+    PostDestroyer.new(moderator, post).destroy
+
+    PostDestroyer.new(coding_horror, post.reload).recover
+
+    expect(post.reload.deleted_at).to be_present
+    expect(Topic.with_deleted.find(post.topic_id).deleted_at).to be_present
+  end
+
+  it "leaves the topic deleted when its author recovers a first post staff trashed" do
+    PostDestroyer.new(moderator, post).destroy
+
+    PostDestroyer.new(post.user, post.reload).recover
+
+    expect(post.reload.deleted_at).to be_present
+    expect(Topic.with_deleted.find(post.topic_id).deleted_at).to be_present
   end
 end

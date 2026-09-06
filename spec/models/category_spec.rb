@@ -31,6 +31,56 @@ RSpec.describe Category do
     expect(category.errors.to_hash.keys).to contain_exactly(:search_priority)
   end
 
+  describe "#default_top_period" do
+    it "keeps a supported period" do
+      category = Fabricate(:category, user: user, default_top_period: "weekly")
+
+      expect(category.reload.default_top_period).to eq("weekly")
+    end
+
+    it "is nil for an unsupported period" do
+      category = Fabricate(:category, user: user, default_top_period: "hourly")
+
+      expect(category.reload.default_top_period).to be_nil
+    end
+
+    it "is nil for a blank period" do
+      category = Fabricate(:category, user: user, default_top_period: "")
+
+      expect(category.reload.default_top_period).to be_nil
+    end
+  end
+
+  describe "#minimum_required_tags" do
+    it "is zero when blank" do
+      category = Fabricate.build(:category, user: user, minimum_required_tags: nil)
+      category.validate
+
+      expect(category.minimum_required_tags).to eq(0)
+    end
+
+    it "keeps a set value" do
+      category = Fabricate.build(:category, user: user, minimum_required_tags: 3)
+      category.validate
+
+      expect(category.minimum_required_tags).to eq(3)
+    end
+  end
+
+  describe "#subcategory_list_includes_topics?" do
+    def includes_topics?(style)
+      Category.new(subcategory_list_style: style).subcategory_list_includes_topics?
+    end
+
+    it "is true only for the styles that feature topics" do
+      expect(includes_topics?("rows_with_featured_topics")).to eq(true)
+      expect(includes_topics?("boxes_with_featured_topics")).to eq(true)
+      expect(includes_topics?("rows")).to eq(false)
+      expect(includes_topics?("boxes")).to eq(false)
+      expect(includes_topics?(nil)).to eq(false)
+    end
+  end
+
   it "validates uniqueness in case insensitive way" do
     Fabricate(:category_with_definition, name: "Cats")
     cats = Fabricate.build(:category, name: "cats")
@@ -89,11 +139,143 @@ RSpec.describe Category do
     end
 
     it "destroys category_posting_review_groups when category is destroyed" do
-      category = Fabricate(:category, category_setting_attributes: { require_topic_approval: true })
-
-      expect { category.destroy! }.to change { category.category_posting_review_groups.count }.by(
-        -1,
+      category = Fabricate(:category)
+      category.update!(
+        topic_posting_review_mode: :everyone_except,
+        topic_posting_review_group_ids: [Group::AUTO_GROUPS[:everyone]],
       )
+
+      expect { category.destroy! }.to change { CategoryPostingReviewGroup.count }.by(-1)
+    end
+  end
+
+  describe ".matching_name_or_slug_ref" do
+    fab!(:guides_category) { Fabricate(:category, name: "Alpha Guides", slug: "alpha-guides") }
+    fab!(:support_category) { Fabricate(:category, name: "Support", slug: "support") }
+    fab!(:bugs_subcategory) do
+      Fabricate(:category, name: "Bug reports", slug: "bugs", parent_category: support_category)
+    end
+
+    it "matches category names, slugs, and parent slug refs" do
+      expect(Category.matching_name_or_slug_ref("alpha")).to contain_exactly(guides_category)
+      expect(Category.matching_name_or_slug_ref("#alpha-guides")).to contain_exactly(
+        guides_category,
+      )
+      expect(Category.matching_name_or_slug_ref("support/bugs")).to contain_exactly(
+        bugs_subcategory,
+      )
+    end
+
+    it "returns the current relation when the filter is blank" do
+      expect(
+        Category.where(id: guides_category.id).matching_name_or_slug_ref(" "),
+      ).to contain_exactly(guides_category)
+    end
+  end
+
+  describe "#topic_posting_review_mode" do
+    fab!(:category)
+    fab!(:group)
+
+    it "sets mode to everyone" do
+      category.update!(topic_posting_review_mode: :everyone)
+      expect(category.reload.topic_posting_review_mode).to eq("everyone")
+    end
+
+    it "saves group associations for everyone_except mode" do
+      category.update!(
+        topic_posting_review_mode: :everyone_except,
+        topic_posting_review_group_ids: [group.id],
+      )
+
+      expect(category.topic_posting_review_group_ids).to contain_exactly(group.id)
+    end
+
+    it "saves group associations for no_one_except mode" do
+      category.update!(
+        topic_posting_review_mode: :no_one_except,
+        topic_posting_review_group_ids: [group.id],
+      )
+
+      expect(category.topic_posting_review_group_ids).to contain_exactly(group.id)
+    end
+
+    it "replaces existing groups when updated with new group_ids" do
+      other_group = Fabricate(:group)
+      category.update!(
+        topic_posting_review_mode: :everyone_except,
+        topic_posting_review_group_ids: [group.id],
+      )
+      category.update!(
+        topic_posting_review_mode: :everyone_except,
+        topic_posting_review_group_ids: [other_group.id],
+      )
+
+      expect(category.topic_posting_review_group_ids).to contain_exactly(other_group.id)
+    end
+
+    it "clears groups when changing from everyone_except to everyone" do
+      category.update!(
+        topic_posting_review_mode: :everyone_except,
+        topic_posting_review_group_ids: [group.id],
+      )
+      category.update!(topic_posting_review_mode: :everyone)
+
+      expect(category.topic_posting_review_group_ids).to be_empty
+    end
+
+    it "ignores group_ids for non-group-based modes" do
+      category.update!(
+        topic_posting_review_mode: :everyone,
+        topic_posting_review_group_ids: [group.id],
+      )
+
+      expect(category.reload.topic_posting_review_mode).to eq("everyone")
+      expect(category.topic_posting_review_group_ids).to be_empty
+    end
+
+    it "validates group_ids are present for everyone_except mode" do
+      category.topic_posting_review_mode = :everyone_except
+      expect(category).not_to be_valid
+    end
+
+    it "validates group_ids are present for no_one_except mode" do
+      category.topic_posting_review_mode = :no_one_except
+      expect(category).not_to be_valid
+    end
+  end
+
+  describe "#reply_posting_review_mode" do
+    fab!(:category)
+    fab!(:group)
+
+    it "sets mode to everyone" do
+      category.update!(reply_posting_review_mode: :everyone)
+      expect(category.reload.reply_posting_review_mode).to eq("everyone")
+    end
+
+    it "saves group associations for everyone_except mode" do
+      category.update!(
+        reply_posting_review_mode: :everyone_except,
+        reply_posting_review_group_ids: [group.id],
+      )
+
+      expect(category.reply_posting_review_group_ids).to contain_exactly(group.id)
+    end
+
+    it "clears groups when changing from everyone_except to everyone" do
+      category.update!(
+        reply_posting_review_mode: :everyone_except,
+        reply_posting_review_group_ids: [group.id],
+      )
+      category.update!(reply_posting_review_mode: :everyone)
+
+      expect(category.reply_posting_review_group_ids).to be_empty
+    end
+
+    it "validates group_ids are present for everyone_except mode" do
+      category.reply_posting_review_mode = :everyone_except
+      expect(category).not_to be_valid
     end
   end
 
@@ -964,8 +1146,7 @@ RSpec.describe Category do
 
       expect(category.auto_bump_topic!).to eq(true)
       expect(Topic.where(bumped_at: time).count).to eq(1)
-      # our extra bump message
-      expect(post1.topic.reload.posts_count).to eq(2)
+      expect(post1.topic.reload.posts_count).to eq(1)
 
       time = freeze_time 13.hours.from_now
 
@@ -1276,6 +1457,16 @@ RSpec.describe Category do
       expect(category_destroyed.reload.topic).to_not eq(nil)
       expect(category_trashed.reload.topic).to_not eq(nil)
     end
+
+    it "does not create a category topic for a category exempted from definition topics" do
+      category = Fabricate(:category_with_definition)
+      category.topic.destroy!
+      category.upsert_custom_fields(Category::SKIP_DEFINITION_CUSTOM_FIELD => true)
+
+      Category.ensure_consistency!
+
+      expect(category.reload.topic_id).to eq(nil)
+    end
   end
 
   describe "#find_by_slug_path" do
@@ -1526,6 +1717,55 @@ RSpec.describe Category do
       it "allows limiting depth" do
         expect(subcategory_2.slug_ref(depth: 1)).to eq("bar#{Category::SLUG_REF_SEPARATOR}boo")
       end
+    end
+  end
+
+  describe "category hashtag remapping" do
+    it "enqueues a remap job when the slug changes" do
+      category = Fabricate(:category, slug: "support")
+
+      expect_enqueued_with(
+        job: :remap_category_hashtag,
+        args: {
+          category_id: category.id,
+          old_ref: "support",
+          new_ref: "help",
+        },
+      ) { category.update!(slug: "help") }
+    end
+
+    it "enqueues a remap job when the parent changes" do
+      category = Fabricate(:category, slug: "bucks")
+      parent_category = Fabricate(:category, slug: "support")
+
+      expect_enqueued_with(
+        job: :remap_category_hashtag,
+        args: {
+          category_id: category.id,
+          old_ref: "bucks",
+          new_ref: "support:bucks",
+        },
+      ) { category.update!(parent_category: parent_category) }
+    end
+
+    it "enqueues child remap jobs when the slug changes" do
+      parent_category = Fabricate(:category, slug: "support")
+      category = Fabricate(:category, slug: "bucks", parent_category: parent_category)
+
+      expect_enqueued_with(
+        job: :remap_category_hashtag,
+        args: {
+          category_id: category.id,
+          old_ref: "support:bucks",
+          new_ref: "help:bucks",
+        },
+      ) { parent_category.update!(slug: "help") }
+    end
+
+    it "does not enqueue a remap job for unrelated changes" do
+      category = Fabricate(:category, slug: "support")
+
+      expect_not_enqueued_with(job: :remap_category_hashtag) { category.update!(color: "ABCDEF") }
     end
   end
 

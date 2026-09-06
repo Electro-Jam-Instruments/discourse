@@ -1,14 +1,15 @@
 import Component from "@glimmer/component";
 import { concat, fn } from "@ember/helper";
 import { action } from "@ember/object";
+import { LinkTo } from "@ember/routing";
 import { service } from "@ember/service";
 import { trustHTML } from "@ember/template";
 import AdminSectionLandingItem from "discourse/admin/components/admin-section-landing-item";
 import AdminSectionLandingWrapper from "discourse/admin/components/admin-section-landing-wrapper";
-import DBreadcrumbsItem from "discourse/components/d-breadcrumbs-item";
-import DButton from "discourse/components/d-button";
-import DPageSubheader from "discourse/components/d-page-subheader";
-import icon from "discourse/helpers/d-icon";
+import DBreadcrumbsItem from "discourse/ui-kit/d-breadcrumbs-item";
+import DButton from "discourse/ui-kit/d-button";
+import DPageSubheader from "discourse/ui-kit/d-page-subheader";
+import dIcon from "discourse/ui-kit/helpers/d-icon";
 import I18n, { i18n } from "discourse-i18n";
 import AiCreditBar from "./ai-credit-bar";
 import AiDefaultLlmSelector from "./ai-default-llm-selector";
@@ -18,6 +19,73 @@ function isPreseeded(llm) {
   if (llm.id < 0) {
     return true;
   }
+}
+
+const FEATURE_USAGE_TYPES = new Set([
+  "ai_bot",
+  "ai_helper",
+  "ai_image_caption",
+  "ai_summarization",
+  "ai_embeddings_semantic_search",
+]);
+
+const RECORD_USAGE_ROUTES = {
+  ai_agent: { route: "adminPlugins.show.discourse-ai-agents.edit" },
+  automation: {
+    route: "adminPlugins.show.automation.edit",
+    parentModel: "automation",
+  },
+  vision_delegate: { route: "adminPlugins.show.discourse-ai-llms.edit" },
+};
+
+export function usageRoute(usage) {
+  if (!usage?.type) {
+    return null;
+  }
+
+  if (FEATURE_USAGE_TYPES.has(usage.type)) {
+    return usage.id === null || usage.id === undefined
+      ? null
+      : {
+          route: "adminPlugins.show.discourse-ai-features.edit",
+          models: [usage.id],
+        };
+  }
+
+  if (usage.type === "ai_spam") {
+    return { route: "adminPlugins.show.discourse-ai-spam" };
+  }
+
+  const target = RECORD_USAGE_ROUTES[usage.type];
+
+  if (!target || usage.id === null || usage.id === undefined) {
+    return null;
+  }
+
+  return {
+    route: target.route,
+    models: target.parentModel ? [target.parentModel, usage.id] : [usage.id],
+  };
+}
+
+class UsageItem extends Component {
+  get target() {
+    return usageRoute(this.args.usage);
+  }
+
+  <template>
+    {{#if this.target}}
+      {{#if this.target.models}}
+        <LinkTo @route={{this.target.route}} @models={{this.target.models}}>
+          {{@label}}
+        </LinkTo>
+      {{else}}
+        <LinkTo @route={{this.target.route}}>{{@label}}</LinkTo>
+      {{/if}}
+    {{else}}
+      {{@label}}
+    {{/if}}
+  </template>
 }
 
 export default class AiLlmsListEditor extends Component {
@@ -42,7 +110,7 @@ export default class AiLlmsListEditor extends Component {
     // handle both flavors
 
     // in the case of model
-    let key = "";
+    let key;
     if (typeof llm.id === "number") {
       key = `${llm.provider}-${llm.name}`;
     } else {
@@ -127,9 +195,16 @@ export default class AiLlmsListEditor extends Component {
   }
 
   localizeUsage(usage) {
-    return i18n(`discourse_ai.llms.usage.${usage.type}`, {
-      agent: usage.name,
-    });
+    if (!usage?.type) {
+      return usage?.name || "";
+    }
+
+    const key = `discourse_ai.llms.usage.${usage.type}`;
+    if (I18n.lookup(key, { ignoreMissing: true })) {
+      return i18n(key, { agent: usage.name });
+    }
+
+    return usage.name || usage.type;
   }
 
   <template>
@@ -188,7 +263,12 @@ export default class AiLlmsListEditor extends Component {
                       {{#if llm.used_by}}
                         <ul class="ai-llm-list-editor__usages">
                           {{#each llm.used_by as |usage|}}
-                            <li>{{this.localizeUsage usage}}</li>
+                            <li>
+                              <UsageItem
+                                @usage={{usage}}
+                                @label={{this.localizeUsage usage}}
+                              />
+                            </li>
                           {{/each}}
                         </ul>
                       {{/if}}
@@ -199,7 +279,7 @@ export default class AiLlmsListEditor extends Component {
                           />
                           {{#if llm.llm_credit_allocation.hard_limit_reached}}
                             <div class="alert alert-danger ai-credit-warning">
-                              {{icon "circle-info"}}
+                              {{dIcon "circle-info"}}
                               {{trustHTML
                                 (i18n
                                   "discourse_ai.llms.credit_allocation.hard_limit_warning"
@@ -213,7 +293,7 @@ export default class AiLlmsListEditor extends Component {
                             llm.llm_credit_allocation.soft_limit_reached
                           }}
                             <div class="alert alert-warning ai-credit-warning">
-                              {{icon "circle-info"}}
+                              {{dIcon "circle-info"}}
                               {{trustHTML
                                 (i18n
                                   "discourse_ai.llms.credit_allocation.soft_limit_warning"

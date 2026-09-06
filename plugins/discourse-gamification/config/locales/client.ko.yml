@@ -12,6 +12,10 @@ ko:
         link_to_settings: "설정"
         refresh: "새로 고침"
         name: "그룹명"
+        section:
+          groups: "그룹"
+        weight:
+          solution: "해결책"
         period:
           all_time: "전체 시간"
           yearly: "연"
@@ -35,3 +39,8 @@ ko:
       custom_range_from: "보내는사람"
       admin:
         name: "그룹명"
+    discourse_workflows:
+      gamification_score:
+        username: "사용자"
+        date: "날짜"
+        description: "내용"

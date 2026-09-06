@@ -49,6 +49,17 @@ describe "Composer - ProseMirror - Keyboard shortcuts" do
     expect(rich).to have_css("ul li", text: "Item 1")
   end
 
+  it "lets the user nest and lift list items with Tab" do
+    open_composer
+    composer.type_content("* First\nSecond")
+
+    composer.send_keys(:tab)
+    expect(composer).to have_nested_list_item("Second")
+
+    composer.send_keys(%i[shift tab])
+    expect(composer).to have_top_level_list_item("Second")
+  end
+
   it "supports Ctrl + Shift + 9 to create a blockquote" do
     open_composer
     composer.type_content("This is a blockquote")
@@ -106,7 +117,7 @@ describe "Composer - ProseMirror - Keyboard shortcuts" do
 
     expect(rich).to have_css("h1", text: "With text")
 
-    composer.send_keys(:home)
+    composer.send_keys(SystemHelpers::LINE_START_KEY)
     wait_for_timeout
     composer.send_keys(:backspace)
 
@@ -116,7 +127,7 @@ describe "Composer - ProseMirror - Keyboard shortcuts" do
   it "supports Backspace to reset a code_block" do
     open_composer
     composer.type_content("```code block")
-    composer.send_keys(:home)
+    composer.send_keys(SystemHelpers::LINE_START_KEY)
     wait_for_timeout
     composer.send_keys(:backspace)
 
@@ -128,7 +139,7 @@ describe "Composer - ProseMirror - Keyboard shortcuts" do
     composer.type_content("1. Item 1\nItem 2")
     composer.send_keys(:down)
     composer.type_content("Item 3")
-    composer.send_keys(:home)
+    composer.send_keys(SystemHelpers::LINE_START_KEY)
     composer.send_keys(:backspace)
 
     expect(rich).to have_css("ol li", text: "Item 1")
@@ -140,7 +151,7 @@ describe "Composer - ProseMirror - Keyboard shortcuts" do
 
     composer.type_content("##{category_with_emoji.slug}")
     composer.send_keys(:space)
-    composer.send_keys(:home)
+    composer.send_keys(SystemHelpers::LINE_START_KEY)
     wait_for_timeout
     composer.send_keys(:enter)
 
@@ -155,7 +166,7 @@ describe "Composer - ProseMirror - Keyboard shortcuts" do
 
     composer.type_content("##{category_with_emoji.slug}")
     composer.send_keys(:space)
-    composer.send_keys(:home)
+    composer.send_keys(SystemHelpers::LINE_START_KEY)
     wait_for_timeout
     composer.send_keys(:backspace)
 

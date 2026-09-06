@@ -104,11 +104,34 @@ module(
     Object.entries(testCases).forEach(
       ([name, [markdown, expectedHtml, expectedMarkdown]]) => {
         test(name, async function (assert) {
-          this.siteSettings.rich_editor = true;
-
           await testMarkdown(assert, markdown, expectedHtml, expectedMarkdown);
         });
       }
     );
+
+    test("renders without crashing when the server returns a type that isn't registered on the client", async function (assert) {
+      // Can happen in safe mode: plugin Ruby still runs and resolves the
+      // hashtag, but the plugin JS that would register the "channel" type
+      // class isn't loaded.
+      pretender.get("/hashtags", () =>
+        response({
+          channels: [
+            {
+              type: "channel",
+              ref: "unknown-type-channel",
+              icon: "comment",
+              id: 1,
+            },
+          ],
+        })
+      );
+
+      await testMarkdown(
+        assert,
+        "Hello #unknown-type-channel",
+        '<p>Hello <a class="hashtag-cooked" data-name="unknown-type-channel" data-processed="true" contenteditable="false" draggable="true">unknown-type-channel</a></p>',
+        "Hello #unknown-type-channel"
+      );
+    });
   }
 );

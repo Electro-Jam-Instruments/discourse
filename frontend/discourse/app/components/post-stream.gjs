@@ -4,16 +4,16 @@ import { concat, fn, get, hash } from "@ember/helper";
 import { action } from "@ember/object";
 import { next, schedule } from "@ember/runloop";
 import { service } from "@ember/service";
-import ConditionalLoadingSpinner from "discourse/components/conditional-loading-spinner";
 import PluginOutlet from "discourse/components/plugin-outlet";
 import PostFilteredNotice from "discourse/components/post/filtered-notice";
-import concatClass from "discourse/helpers/concat-class";
 import lazyHash from "discourse/helpers/lazy-hash";
 import { bind } from "discourse/lib/decorators";
 import { Placeholder } from "discourse/models/post-stream";
 import PostStreamNavigation from "discourse/modifiers/post-stream-navigation";
 import PostStreamViewportTracker from "discourse/modifiers/post-stream-viewport-tracker";
 import { and, not } from "discourse/truth-helpers";
+import DConditionalLoadingSpinner from "discourse/ui-kit/d-conditional-loading-spinner";
+import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
 import { i18n } from "discourse-i18n";
 import Post from "./post";
 import PostGap from "./post/gap";
@@ -97,27 +97,16 @@ export default class PostStream extends Component {
       .filter((num) => !isNaN(num));
   }
 
-  @cached
-  get postTuples() {
-    const posts = this.posts;
+  // Indexed rather than wrapped: a per-render wrapper is a new value each
+  // recompute, invalidating `@post` and rebuilding unchanged cooked HTML.
+  @bind
+  previousPost(index) {
+    return this.posts[index - 1] ?? null;
+  }
 
-    const length = posts.length;
-    const result = [];
-
-    let i = 0;
-    let previousPost = null;
-
-    while (i < length) {
-      const post = posts[i];
-      const nextPost = i < length - 1 ? posts[i + 1] : null;
-
-      result.push({ post, previousPost, nextPost });
-
-      previousPost = post;
-      ++i;
-    }
-
-    return result;
+  @bind
+  nextPost(index) {
+    return this.posts[index + 1] ?? null;
   }
 
   /**
@@ -306,7 +295,7 @@ export default class PostStream extends Component {
   }
 
   <template>
-    <ConditionalLoadingSpinner @condition={{@postStream.loadingAbove}} />
+    <DConditionalLoadingSpinner @condition={{@postStream.loadingAbove}} />
     <div
       class="post-stream"
       role="grid"
@@ -347,10 +336,10 @@ export default class PostStream extends Component {
         @onTitleClick={{@onTitleClick}}
       />
 
-      {{#each this.postTuples key="post.id" as |tuple index|}}
+      {{#each this.posts key="id" as |post index|}}
         {{#let
-          tuple.post tuple.previousPost tuple.nextPost
-          as |post previousPost nextPost|
+          (this.previousPost index) (this.nextPost index)
+          as |previousPost nextPost|
         }}
           {{#if (this.isPlaceholder post)}}
             <PostPlaceholder />
@@ -380,15 +369,15 @@ export default class PostStream extends Component {
               (concat "post_" post.post_number)
               as |PostComponent cloakingData keyboardSelected postId|
             }}
+              {{! eslint-disable ember/template-no-duplicate-id }}
               <PostComponent
                 id={{postId}}
-                class={{concatClass
+                class={{dConcatClass
                   (if cloakingData.active "post-stream--cloaked")
                   (if keyboardSelected "selected")
                 }}
                 style={{cloakingData.style}}
                 @cloaked={{cloakingData.active}}
-                {{! template-lint-disable no-duplicate-id }}
                 @elementId={{postId}}
                 @post={{post}}
                 @prevPost={{previousPost}}
@@ -486,6 +475,6 @@ export default class PostStream extends Component {
         />
       {{/if}}
     </div>
-    <ConditionalLoadingSpinner @condition={{@postStream.loadingBelow}} />
+    <DConditionalLoadingSpinner @condition={{@postStream.loadingBelow}} />
   </template>
 }

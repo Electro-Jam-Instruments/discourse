@@ -8,13 +8,13 @@ import { tagName } from "@ember-decorators/component";
 import { observes } from "@ember-decorators/object";
 import PluginOutlet from "discourse/components/plugin-outlet";
 import bodyClass from "discourse/helpers/body-class";
-import concatClass from "discourse/helpers/concat-class";
 import htmlClass from "discourse/helpers/html-class";
 import lazyHash from "discourse/helpers/lazy-hash";
 import { bind } from "discourse/lib/decorators";
 import getURL from "discourse/lib/get-url";
 import DiscourseURL from "discourse/lib/url";
 import { escapeExpression } from "discourse/lib/utilities";
+import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
 import chatResizableNode from "discourse/plugins/chat/discourse/modifiers/chat/resizable-node";
 
 @tagName("")
@@ -34,7 +34,7 @@ export default class ChatDrawer extends Component {
   didInsertElement() {
     super.didInsertElement(...arguments);
 
-    if (!this.chat.userCanChat) {
+    if (!this.chat.userCanChat && !this.chat.anonymousUserCanViewPublicChat) {
       return;
     }
 
@@ -45,7 +45,7 @@ export default class ChatDrawer extends Component {
     this.appEvents.on("composer:opened", this, "_checkSize");
     this.appEvents.on("composer:resized", this, "_checkSize");
     this.appEvents.on("composer:div-resizing", this, "_dynamicCheckSize");
-    window.addEventListener("resize", this._checkSize);
+    window.addEventListener("resize", this._dynamicCheckSize);
     this.appEvents.on(
       "composer:resize-started",
       this,
@@ -59,11 +59,11 @@ export default class ChatDrawer extends Component {
   willDestroyElement() {
     super.willDestroyElement(...arguments);
 
-    if (!this.chat.userCanChat) {
+    if (!this.chat.userCanChat && !this.chat.anonymousUserCanViewPublicChat) {
       return;
     }
 
-    window.removeEventListener("resize", this._checkSize);
+    window.removeEventListener("resize", this._dynamicCheckSize);
 
     if (this.appEvents) {
       this.appEvents.off("chat:open-url", this, "openURL");
@@ -133,9 +133,11 @@ export default class ChatDrawer extends Component {
       return;
     }
 
+    // The flag can be set while the container is absent — `_performCheckSize`
+    // null-checks the same selector for that reason.
     document
       .querySelector(".chat-drawer-outlet-container")
-      .classList.add("clear-transitions");
+      ?.classList.add("clear-transitions");
   }
 
   _clearDynamicCheckSize() {
@@ -145,7 +147,7 @@ export default class ChatDrawer extends Component {
 
     document
       .querySelector(".chat-drawer-outlet-container")
-      .classList.remove("clear-transitions");
+      ?.classList.remove("clear-transitions");
     this._checkSize();
   }
 
@@ -170,12 +172,32 @@ export default class ChatDrawer extends Component {
     const composerIsClosed = composer.classList.contains("closed");
     const minRightMargin = 15;
 
+    const isPeekMode = document.body.classList.contains("peek-mode-active");
+
+    if (composerIsClosed || isPeekMode) {
+      drawerContainer.style.setProperty(
+        "--composer-right",
+        minRightMargin + "px"
+      );
+      drawerContainer.classList.remove("above-composer");
+      return;
+    }
+
+    const isRTL = document.documentElement.classList.contains("rtl");
+    const spaceToEnd = isRTL
+      ? composer.offsetLeft
+      : document.documentElement.clientWidth -
+        composer.offsetLeft -
+        composer.offsetWidth;
+    const drawerWidth = this.chatDrawerSize.size.width || 400;
+    const aboveComposer = spaceToEnd < drawerWidth;
+
     drawerContainer.style.setProperty(
       "--composer-right",
-      (composerIsClosed
-        ? minRightMargin
-        : Math.max(minRightMargin, composer.offsetLeft)) + "px"
+      (aboveComposer ? Math.max(minRightMargin, spaceToEnd) : minRightMargin) +
+        "px"
     );
+    drawerContainer.classList.toggle("above-composer", aboveComposer);
   }
 
   @action
@@ -227,6 +249,7 @@ export default class ChatDrawer extends Component {
   @action
   didResize(element, { width, height }) {
     this.chatDrawerSize.size = { width, height };
+    this._checkSize();
   }
 
   <template>
@@ -243,7 +266,7 @@ export default class ChatDrawer extends Component {
       <div
         data-chat-channel-id={{this.chatDrawerRouter.model.channel.id}}
         data-chat-thread-id={{this.chatDrawerRouter.model.channel.activeThread.id}}
-        class={{concatClass
+        class={{dConcatClass
           "chat-drawer"
           (if
             this.chatStateManager.isDrawerExpanded "is-expanded" "is-collapsed"

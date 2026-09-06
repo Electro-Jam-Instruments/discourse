@@ -2,7 +2,6 @@
 
 RSpec.describe Chat::StructuredChannelSerializer do
   fab!(:user1, :user)
-  fab!(:guardian) { Guardian.new(user1) }
   fab!(:user2, :user)
   fab!(:user3, :user)
   fab!(:channel1, :category_channel)
@@ -31,6 +30,8 @@ RSpec.describe Chat::StructuredChannelSerializer do
   fab!(:membership6) do
     Fabricate(:user_chat_channel_membership_for_dm, user: user3, chat_channel: channel4)
   end
+
+  let(:guardian) { Guardian.new(user1) }
 
   def fetch_data
     Chat::ChannelFetcher.structured(guardian)
@@ -171,15 +172,17 @@ RSpec.describe Chat::StructuredChannelSerializer do
           .expects(:new)
           .with(
             channel1,
-            root: nil,
-            scope: guardian,
-            membership: membership1,
-            new_messages_message_bus_last_id: 0,
-            new_mentions_message_bus_last_id: 0,
-            kick_message_bus_last_id: 0,
-            channel_message_bus_last_id: 0,
-            can_join_chat_channel: true,
-            post_allowed_category_ids: nil,
+            has_entries(
+              root: nil,
+              scope: guardian,
+              membership: membership1,
+              new_messages_message_bus_last_id: 0,
+              new_mentions_message_bus_last_id: 0,
+              kick_message_bus_last_id: 0,
+              channel_message_bus_last_id: 0,
+              can_join_chat_channel: true,
+              post_allowed_category_ids: nil,
+            ),
           )
           .once
         described_class.new(data, scope: guardian).as_json

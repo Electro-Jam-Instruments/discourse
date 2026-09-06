@@ -14,7 +14,8 @@ module DiscourseUpdates
       unless updated_at.nil?
         attrs.merge!(
           latest_version: latest_version,
-          critical_updates: critical_updates_available?,
+          latest_pretty_version: latest_pretty_version,
+          latest_sha: latest_sha,
           missing_versions_count: missing_versions_count,
         )
       end
@@ -44,10 +45,7 @@ module DiscourseUpdates
           Jobs.enqueue(:call_discourse_hub, all_sites: true)
           version_info.version_check_pending = true
 
-          unless version_info.updated_at.nil?
-            version_info.missing_versions_count = 0
-            version_info.critical_updates = false
-          end
+          version_info.missing_versions_count = 0 unless version_info.updated_at.nil?
         end
 
         version_info.stale_data =
@@ -75,20 +73,28 @@ module DiscourseUpdates
       Discourse.redis.set(latest_version_key, arg)
     end
 
+    def latest_pretty_version
+      Discourse.redis.get latest_pretty_version_key
+    end
+
+    def latest_pretty_version=(arg)
+      Discourse.redis.set(latest_pretty_version_key, arg)
+    end
+
+    def latest_sha
+      Discourse.redis.get latest_sha_key
+    end
+
+    def latest_sha=(arg)
+      Discourse.redis.set(latest_sha_key, arg)
+    end
+
     def missing_versions_count
       Discourse.redis.get(missing_versions_count_key).try(:to_i)
     end
 
     def missing_versions_count=(arg)
       Discourse.redis.set(missing_versions_count_key, arg)
-    end
-
-    def critical_updates_available?
-      (Discourse.redis.get(critical_updates_available_key) || false) == "true"
-    end
-
-    def critical_updates_available=(arg)
-      Discourse.redis.set(critical_updates_available_key, arg)
     end
 
     def updated_at
@@ -143,19 +149,17 @@ module DiscourseUpdates
       return [] if entries.blank?
 
       entries.select! do |item|
-        begin
-          valid_version =
-            item["discourse_version"].nil? ||
-              Discourse.has_needed_version?(current_version, item["discourse_version"]) ||
-              GitUtils.has_commit?(item["discourse_version"])
+        valid_version =
+          item["discourse_version"].nil? ||
+            Discourse.has_needed_version?(current_version, item["discourse_version"]) ||
+            GitUtils.has_commit?(item["discourse_version"])
 
-          valid_plugin_name =
-            item["plugin_name"].blank? || Discourse.plugins_by_name[item["plugin_name"]].present?
+        valid_plugin_name =
+          item["plugin_name"].blank? || Discourse.plugins_by_name[item["plugin_name"]].present?
 
-          valid_version && valid_plugin_name
-        rescue StandardError
-          false
-        end
+        valid_version && valid_plugin_name
+      rescue StandardError
+        false
       end
 
       entries.sort_by { |item| Time.zone.parse(item["created_at"]).to_i }.reverse
@@ -164,11 +168,21 @@ module DiscourseUpdates
     def update_new_features(response_json = nil)
       response_json ||= new_features_response_json
       Discourse.redis.set(new_features_key, response_json)
+
+      # Derived on write rather than on read: computing it filters the feed,
+      # which can shell out to git once per entry.
+      refresh_latest_new_feature_created_at!
     end
 
     def new_features_response_json
       response =
-        Excon.new(new_features_endpoint).request(expects: [200], method: :Get, read_timeout: 5)
+        Excon.new(new_features_full_endpoint_url).request(
+          expects: [200],
+          method: :Get,
+          connect_timeout: 5,
+          write_timeout: 5,
+          read_timeout: 5,
+        )
       response.body
     end
 
@@ -230,27 +244,68 @@ module DiscourseUpdates
     end
 
     def has_unseen_features?(user_id)
+      latest_ts = latest_new_feature_created_at
+      if latest_ts.nil?
+        enqueue_latest_new_feature_created_at_refresh
+        return false
+      end
+
+      last_seen = new_features_last_seen(user_id)
+      return true if last_seen.nil?
+
+      latest_ts.to_i > last_seen.to_i
+    end
+
+    # Read-only on purpose. Deriving this value filters the feed, which can shell
+    # out to git once per entry, so it is only ever computed in the background by
+    # `refresh_latest_new_feature_created_at!`. A missing value means "nothing to
+    # show yet", not "compute it now".
+    def latest_new_feature_created_at
+      cached = Discourse.redis.get(latest_new_feature_created_at_key)
+      cached.present? ? Time.zone.parse(cached) : nil
+    end
+
+    # Must only be called from a background job, never while serving a request.
+    def refresh_latest_new_feature_created_at!
       entries =
         merge_new_features_with_upcoming_changes(
           new_features&.map { |item| item.symbolize_keys } || [],
         )
-      return false if entries.nil?
 
-      last_seen = new_features_last_seen(user_id)
-
-      if last_seen.present?
-        entries.select! do |item|
-          created_at =
-            if item[:created_at].is_a?(String)
-              Time.zone.parse(item[:created_at])
-            else
-              item[:created_at]
-            end
-          created_at.to_i > last_seen.to_i
+      max_entry =
+        entries.max_by do |item|
+          val = item[:created_at]
+          val.is_a?(String) ? Time.zone.parse(val).to_i : val.to_i
         end
+
+      if max_entry.blank?
+        clear_latest_new_feature_created_at_cache
+        return nil
       end
 
-      entries.size > 0
+      max_created_at =
+        if max_entry[:created_at].is_a?(String)
+          Time.zone.parse(max_entry[:created_at])
+        else
+          max_entry[:created_at]
+        end
+
+      Discourse.redis.set(latest_new_feature_created_at_key, max_created_at.iso8601)
+      max_created_at
+    end
+
+    def clear_latest_new_feature_created_at_cache
+      Discourse.redis.del(latest_new_feature_created_at_key)
+    rescue Redis::CannotConnectError
+    end
+
+    # Nothing recomputes the timestamp between the daily job runs, so anything
+    # that invalidates it (a deploy, an upcoming change changing status) queues a
+    # refresh. Throttled because callers can be hit by every request.
+    def enqueue_latest_new_feature_created_at_refresh
+      return if !Discourse.redis.set(refresh_latest_new_feature_lock_key, 1, ex: 1.minute, nx: true)
+      Jobs.enqueue(:refresh_latest_new_feature)
+    rescue Redis::CannotConnectError
     end
 
     def new_features_last_seen(user_id)
@@ -291,20 +346,33 @@ module DiscourseUpdates
       Discourse.redis.del(
         last_installed_version_key,
         latest_version_key,
-        critical_updates_available_key,
+        latest_pretty_version_key,
+        latest_sha_key,
         missing_versions_count_key,
         updated_at_key,
         missing_versions_list_key,
         new_features_key,
         last_viewed_feature_dates_for_users_key,
+        latest_new_feature_created_at_key,
+        refresh_latest_new_feature_lock_key,
         *Discourse.redis.keys("#{missing_versions_key_prefix}*"),
         *Discourse.redis.keys(new_features_last_seen_key("*")),
       )
     end
 
+    def new_features_full_endpoint_url
+      "#{new_features_endpoint}#{new_features_endpoint_query_params}"
+    end
+
     def new_features_endpoint
       return "https://meta.discourse.org/new-features.json" if Rails.env.production?
-      ENV["DISCOURSE_NEW_FEATURES_ENDPOINT"] || "http://localhost:4200/new-features.json"
+      ENV["DISCOURSE_NEW_FEATURES_ENDPOINT"] || "http://localhost:3000/new-features.json"
+    end
+
+    # We no longer delete new features on Meta, so we need to filter out old ones.
+    # Maybe in future we can show even older ones in a separate Archived tab.
+    def new_features_endpoint_query_params
+      "?released_after=#{5.months.ago.end_of_month.to_date}"
     end
 
     private
@@ -317,8 +385,12 @@ module DiscourseUpdates
       "discourse_latest_version"
     end
 
-    def critical_updates_available_key
-      "critical_updates_available"
+    def latest_pretty_version_key
+      "discourse_latest_pretty_version"
+    end
+
+    def latest_sha_key
+      "discourse_latest_sha"
     end
 
     def missing_versions_count_key
@@ -343,6 +415,14 @@ module DiscourseUpdates
 
     def new_features_last_seen_key(user_id)
       "new_features_last_seen_user_#{user_id}"
+    end
+
+    def latest_new_feature_created_at_key
+      "latest_new_feature_created_at"
+    end
+
+    def refresh_latest_new_feature_lock_key
+      "refresh_latest_new_feature_lock"
     end
 
     def last_viewed_feature_dates_for_users_key

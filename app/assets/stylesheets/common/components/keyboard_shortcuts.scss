@@ -10,7 +10,17 @@
 }
 
 .featured-topic.selected,
-.topic-post.selected {
+.topic-post.selected,
+.nested-view__op-article[data-keyboard-selected],
+.nested-post[data-keyboard-selected]
+  > .nested-post__main
+  > .nested-post__article,
+.nested-post[data-keyboard-selected]
+  > .nested-post__main
+  > .nested-post__collapsed-bar,
+.nested-post[data-keyboard-selected]
+  > .nested-post__main
+  > .nested-post__placeholder {
   box-shadow: calc(var(--d-grid-focus-bar-width) * -1) 0 0
     var(--d-grid-focus-bar-color);
 }
@@ -22,6 +32,8 @@
 .post-stream--cloaked,
 .latest-topic-list-item.selected,
 .category-list tr.selected,
+.nested-view__op-article[data-keyboard-selected],
+.nested-post[data-keyboard-selected],
 .search-results .fps-result.selected {
   &:focus-visible {
     outline: none;
@@ -36,7 +48,7 @@
   background-color: inherit;
 }
 
-.keyboard-shortcuts-modal.d-modal.-max {
+.keyboard-shortcuts-modal.d-modal.--max {
   .d-modal__container {
     max-width: 70vw;
   }
@@ -49,6 +61,7 @@
     font-size: var(--font-0);
     background-color: var(--primary-very-low);
     padding: 0.5rem 1rem;
+    margin: 0;
   }
 }
 
@@ -74,53 +87,37 @@
     outline: none;
   }
 
-  kbd:first-child {
-    margin-left: 0;
-  }
-
   @for $i from 1 through 25 {
     .span-#{$i} {
       grid-row-end: span $i;
     }
   }
 
-  ul {
-    list-style: none;
-    margin: 0;
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
 
-    li {
-      align-items: center;
-      display: flex;
-      flex-wrap: nowrap;
-      flex-direction: row-reverse;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--content-border-color);
-      padding: 0.25rem 1rem;
-    }
+  tbody tr {
+    border-bottom: 1px solid var(--content-border-color);
+  }
 
-    span {
-      border-radius: 3px;
-      display: inline-flex;
-      margin: 0 6px;
-      padding: 2px 1px 4px;
-    }
+  td {
+    padding: 0.25rem 1rem;
+    vertical-align: middle;
+  }
 
-    span:first-child {
-      margin-right: 0;
-    }
+  .shortcut-description {
+    width: 100%;
+  }
 
-    span:last-child {
-      margin-left: auto;
-    }
+  .shortcut-key {
+    text-align: right;
+    white-space: nowrap;
 
     .delimiter-newline {
-      display: revert;
+      display: block;
       text-align: right;
-    }
-
-    kbd {
-      font-family: var(--d-font-family--monospace);
-      font-weight: bold;
     }
   }
 }

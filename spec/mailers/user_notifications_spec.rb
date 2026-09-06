@@ -4,6 +4,8 @@ RSpec.describe UserNotifications do
   let(:user) { Fabricate(:admin) }
 
   describe "#get_context_posts" do
+    fab!(:category)
+
     it "does not include hidden/deleted/user_deleted posts in context" do
       post1 = create_post
       _post2 = Fabricate(:post, topic: post1.topic, deleted_at: 1.day.ago)
@@ -146,6 +148,8 @@ RSpec.describe UserNotifications do
 
     let(:email_html) { Email::Renderer.new(email).html }
 
+    before { SiteSetting.simple_email_subject = false }
+
     it "generates the right email" do
       expect(email.to).to eq([user.email])
       expect(email.from).to eq([SiteSetting.notification_email])
@@ -170,7 +174,10 @@ RSpec.describe UserNotifications do
   end
 
   describe ".digest" do
+    fab!(:category)
     subject(:email) { UserNotifications.digest(user) }
+
+    before { SiteSetting.uncategorized_category_id = category.id }
 
     after { Discourse.redis.keys("summary-new-users:*").each { |key| Discourse.redis.del(key) } }
 
@@ -248,9 +255,15 @@ RSpec.describe UserNotifications do
       it "includes email_prefix in email subject instead of site title" do
         SiteSetting.email_prefix = "Try Discourse"
         SiteSetting.title = "Discourse Meta"
+        SiteSetting.simple_email_subject = false
 
         expect(email.subject).to match(/Try Discourse/)
         expect(email.subject).not_to match(/Discourse Meta/)
+      end
+
+      it "does not include site name or email prefix in simple email subject" do
+        SiteSetting.simple_email_subject = true
+        expect(email.subject).to eq(I18n.t("user_notifications.digest.subject_template_improved"))
       end
 
       it "includes unread likes received count within the since date" do
@@ -528,6 +541,24 @@ RSpec.describe UserNotifications do
     let(:user) { Fabricate(:user) }
     let(:notification) { Fabricate(:replied_notification, user: user, post: response) }
 
+    it "lets admins add the site name to the sender name via the email_from override" do
+      TranslationOverride.upsert!(
+        SiteSetting.default_locale,
+        "email_from",
+        "%{user_name} via %{site_name}",
+      )
+
+      mail =
+        UserNotifications.user_replied(
+          user,
+          post: response,
+          notification_type: notification.notification_type,
+          notification_data_hash: notification.data_hash,
+        )
+
+      expect(mail[:from].display_names).to eql(["John Doe via #{Email.site_title}"])
+    end
+
     it "generates a correct email" do
       SiteSetting.default_email_in_reply_to = true
 
@@ -711,11 +742,6 @@ RSpec.describe UserNotifications do
         expect(body).not_to include("%{optional_cat}")
         expect(body).not_to include("%{optional_pm}")
         expect(body).not_to include("%{optional_re}")
-
-        TranslationOverride.revert!(
-          I18n.locale,
-          ["user_notifications.user_replied.text_body_template"],
-        )
       end
     end
 
@@ -971,7 +997,14 @@ RSpec.describe UserNotifications do
     end
 
     context "when SiteSetting.group_name_in_subject is true" do
-      before { SiteSetting.group_in_subject = true }
+      before do
+        SiteSetting.group_in_subject = true
+        SiteSetting.simple_email_subject = true
+
+        # Enabling simple_email_subject rewrites email_subject to a template
+        # without %{optional_pm}, which is where the group name is rendered.
+        SiteSetting.email_subject = "[%{site_name}] %{optional_pm}%{optional_cat}%{topic_title}"
+      end
 
       let(:group) { Fabricate(:group, name: "my_group") }
       let(:mail) do
@@ -985,14 +1018,14 @@ RSpec.describe UserNotifications do
 
       shared_examples "includes first group name" do
         it "includes first group name in subject" do
-          expect(mail.subject).to include("[my_group] ")
+          expect(mail.subject).to include("my_group: ")
         end
 
         context "when first group has full name" do
           it "includes full name in subject" do
             group.full_name = "My Group"
             group.save
-            expect(mail.subject).to include("[My Group] ")
+            expect(mail.subject).to include("My Group: ")
           end
         end
       end
@@ -1125,7 +1158,7 @@ RSpec.describe UserNotifications do
 
   shared_examples "respect for private_email" do
     context "with private_email" do
-      it "doesn't support reply by email" do
+      it "doesn't include topic title or slug for regular users" do
         SiteSetting.private_email = true
 
         mailer =
@@ -1143,6 +1176,35 @@ RSpec.describe UserNotifications do
         expect(message.html_part.body.to_s).not_to include(topic.slug)
         expect(message.text_part.body.to_s).not_to include(topic.title)
         expect(message.text_part.body.to_s).not_to include(topic.slug)
+      end
+
+      it "still links back to the topic for staged users" do
+        skip_types = %i[linked quoted mentioned group_mentioned]
+        if skip_types.include?(notification_type)
+          skip "Staged users don't receive #{notification_type} emails"
+        end
+
+        invite_types = %i[invited_to_private_message invited_to_topic watching_first_post]
+        if invite_types.include?(notification_type)
+          skip "Invite-type emails use a different template structure"
+        end
+
+        SiteSetting.private_email = true
+        user.update!(staged: true)
+
+        mailer =
+          UserNotifications.public_send(
+            mail_type,
+            user,
+            notification_type: Notification.types[notification.notification_type],
+            notification_data_hash: notification.data_hash,
+            post: notification.post,
+          )
+        message = mailer.message
+
+        slugless_path = notification.post.topic.slugless_url
+        expect(message.html_part.body.to_s).to include(slugless_path)
+        expect(message.text_part.body.to_s).to include(slugless_path)
       end
     end
   end
@@ -1804,6 +1866,44 @@ RSpec.describe UserNotifications do
         mail = UserNotifications.account_suspended(user, { user_history: user_history })
 
         expect(mail.body).to include(date)
+      end
+    end
+  end
+
+  describe "improved email subject templates" do
+    def assert_improved_template_format(base_key)
+      original = I18n.t("user_notifications.#{base_key}.subject_template")
+      improved = I18n.t("user_notifications.#{base_key}.subject_template_improved")
+
+      # subject changed from "[Discourse] my topic title" to "Discourse: my topic title"
+      expect(original).to include("[%{email_prefix}]")
+      expect(improved).to include("%{email_prefix}:")
+      expect(improved).not_to match(/\[.*\]/)
+    end
+
+    describe "notification email templates" do
+      %w[
+        user_replied
+        user_replied_pm
+        user_quoted
+        user_mentioned
+        user_mentioned_pm
+        user_posted
+        user_posted_pm
+      ].each do |template_key|
+        it "has improved version for #{template_key}" do
+          assert_improved_template_format(template_key)
+        end
+      end
+    end
+
+    describe "account-related email templates" do
+      %w[account_exists account_suspended account_silenced].each do |template_key|
+        it "has improved version for #{template_key} without email_prefix" do
+          improved = I18n.t("user_notifications.#{template_key}.subject_template_improved")
+
+          expect(improved).not_to include("%{email_prefix}")
+        end
       end
     end
   end

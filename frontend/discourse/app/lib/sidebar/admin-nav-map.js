@@ -102,6 +102,16 @@ export const ADMIN_NAV_MAP = [
         multi_tabbed: true,
       },
       {
+        name: "admin_category_management",
+        route: "adminConfig.categoryManagement",
+        label: "admin.config.category_management.title",
+        description: "admin.config.category_management.header_description",
+        keywords: "admin.config.category_management.keywords",
+        icon: "folder",
+        settings_area: "categories_and_tags",
+        multi_tabbed: true,
+      },
+      {
         name: "admin_badges",
         route: "adminBadges",
         label: "admin.config.badges.title",
@@ -241,6 +251,13 @@ export const ADMIN_NAV_MAP = [
   {
     name: "appearance",
     label: "admin.config_sections.appearance.title",
+    headerActions: [
+      {
+        id: "design_wizard",
+        icon: "wand-magic",
+        label: "design_wizard.launch",
+      },
+    ],
     links: [
       {
         name: "admin_logo",
@@ -544,6 +561,13 @@ export const ADMIN_NAV_MAP = [
         description: "admin.config.embedding.header_description",
         icon: "code",
         settings_area: "embedding",
+      },
+      {
+        name: "admin_problem_checks",
+        route: "adminProblemChecks",
+        label: "admin.config.problem_checks.title",
+        description: "admin.config.problem_checks.header_description",
+        icon: "heart",
       },
       {
         name: "admin_rate_limits",

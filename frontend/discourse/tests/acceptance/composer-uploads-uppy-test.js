@@ -3,11 +3,14 @@ import {
   click,
   fillIn,
   find,
+  findAll,
   focus,
   settled,
+  triggerEvent,
   visit,
+  waitFor,
 } from "@ember/test-helpers";
-import { skip, test } from "qunit";
+import { test } from "qunit";
 import { Promise } from "rsvp";
 import sinon from "sinon";
 import { withPluginApi } from "discourse/lib/plugin-api";
@@ -17,6 +20,7 @@ import {
   chromeTest,
   createFile,
   paste,
+  silenceConsoleErrorsMatching,
 } from "discourse/tests/helpers/qunit-helpers";
 import { i18n } from "discourse-i18n";
 
@@ -41,7 +45,7 @@ function pretender(server, helper) {
   server.post(
     "/uploads.json",
     () => {
-      let response = null;
+      let response;
       if (uploadNumber === 1) {
         response = {
           extension: "jpeg",
@@ -244,6 +248,8 @@ acceptance("Uppy Composer Attachment - Upload Placeholder", function (needs) {
   });
 
   test("cancelling uploads clears the placeholders out", async function (assert) {
+    const consoleErrorStub = silenceConsoleErrorsMatching("[Uppy]");
+
     await visit("/");
     await click("#create-topic");
     await fillIn(".d-editor-input", "The image:\n");
@@ -278,6 +284,8 @@ acceptance("Uppy Composer Attachment - Upload Placeholder", function (needs) {
       appEvents.trigger("composer:add-files", [image, image2]);
     });
     await click("#cancel-file-upload");
+
+    consoleErrorStub.restore();
   });
 
   test("should insert a newline before and after an image when pasting in the end of the line", async function (assert) {
@@ -427,7 +435,7 @@ acceptance("Uppy Composer Attachment - Upload Placeholder", function (needs) {
     appEvents.trigger("composer:add-files", image);
   });
 
-  skip("should place cursor properly after inserting a placeholder", async function (assert) {
+  test("places cursor properly after inserting a placeholder", async function (assert) {
     const appEvents = getOwner(this).lookup("service:app-events");
     const done = assert.async();
 
@@ -438,12 +446,13 @@ acceptance("Uppy Composer Attachment - Upload Placeholder", function (needs) {
     input.selectionStart = 10;
     input.selectionEnd = 10;
 
-    appEvents.on("composer:all-uploads-complete", () => {
+    appEvents.on("composer:all-uploads-complete", async () => {
+      await settled();
       // after uploading we have this in the textarea:
       // "The image:\n![avatar.PNG|690x320](upload://yoj8pf9DdIeHRRULyw7i57GAYdz.jpeg)\ntext after image"
       // cursor should be just before "text after image":
-      assert.strictEqual(input.selectionStart, 76);
-      assert.strictEqual(input.selectionEnd, 76);
+      assert.dom(".d-editor-input").hasProperty("selectionStart", 76);
+      assert.dom(".d-editor-input").hasProperty("selectionEnd", 76);
       done();
     });
 
@@ -480,6 +489,94 @@ acceptance("Uppy Composer Attachment - Upload Placeholder", function (needs) {
   });
 });
 
+acceptance("Uppy Composer Attachment - Auto Image Grid", function (needs) {
+  needs.user({ "user_option.composition_mode": 1 });
+  needs.pretender(pretender);
+  needs.settings({
+    simultaneous_uploads: 3,
+    enable_auto_grid_images: true,
+    allow_uncategorized_topics: true,
+  });
+  needs.hooks.afterEach(() => {
+    uploadNumber = 1;
+  });
+
+  test("auto-grids previewable images immediately", async function (assert) {
+    await visit("/new-topic");
+
+    const appEvents = getOwner(this).lookup("service:app-events");
+    const uploadsComplete = new Promise((resolve) => {
+      appEvents.one("composer:all-uploads-complete", resolve);
+    });
+    const dataTransfer = new DataTransfer();
+    ["image-1.png", "image-2.png", "image-3.png"].forEach((filename) => {
+      dataTransfer.items.add(createFile(filename));
+    });
+
+    await triggerEvent(".ProseMirror", "drop", { dataTransfer });
+    await waitFor(".composer-image-grid");
+
+    assert
+      .dom(".composer-image-grid .upload-placeholder.--image")
+      .exists({ count: 3 }, "previewable images are gridded while uploading");
+
+    await uploadsComplete;
+  });
+
+  test("auto-grids MIME-less images dropped from the filesystem", async function (assert) {
+    await visit("/new-topic");
+
+    const appEvents = getOwner(this).lookup("service:app-events");
+    const uploadsComplete = new Promise((resolve) => {
+      appEvents.one("composer:all-uploads-complete", resolve);
+    });
+    const dataTransfer = new DataTransfer();
+    ["IMG_1.HEIC", "IMG_2.HEIC", "IMG_3.HEIC"].forEach((filename) => {
+      dataTransfer.items.add(createFile(filename, ""));
+    });
+
+    await triggerEvent(".ProseMirror", "drop", { dataTransfer });
+    await waitFor(".composer-image-grid .upload-placeholder.--file");
+
+    assert
+      .dom(".composer-image-grid")
+      .exists({ count: 1 }, "the image filenames create one grid immediately");
+    assert
+      .dom(".composer-image-grid .upload-placeholder.--file")
+      .exists(
+        { count: 3 },
+        "the pending HEIC uploads use file placeholders inside the grid"
+      );
+
+    await uploadsComplete;
+    await settled();
+
+    assert
+      .dom(".composer-image-node")
+      .exists({ count: 3 }, "all completed images are present");
+    assert.deepEqual(
+      findAll(".composer-image-node img").map((img) =>
+        img.getAttribute("data-orig-src")
+      ),
+      [
+        "upload://yoj8pf9DdIeHRRULyw7i57GAYdz.jpeg",
+        "upload://sdfljsdfgjlkwg4328.jpeg",
+        "upload://sdfljsdfgjlkwg4328.jpeg",
+      ],
+      "the final images retain their returned upload URLs"
+    );
+    assert
+      .dom(".composer-image-grid")
+      .exists({ count: 1 }, "the completed drop preserves the grid");
+    assert
+      .dom(".composer-image-grid .composer-image-node")
+      .exists({ count: 3 }, "the completed images are placed in the grid");
+    assert
+      .dom(".composer-image-grid .upload-placeholder.--file")
+      .doesNotExist("the completed uploads no longer use file placeholders");
+  });
+});
+
 acceptance("Uppy Composer Attachment - Upload Error", function (needs) {
   needs.user();
   needs.pretender((server, helper) => {
@@ -498,6 +595,8 @@ acceptance("Uppy Composer Attachment - Upload Error", function (needs) {
   });
 
   test("should show an error message for the failed upload", async function (assert) {
+    const consoleErrorStub = sinon.stub(console, "error");
+
     await visit("/");
     await click("#create-topic");
     await fillIn(".d-editor-input", "The image:\n");
@@ -512,8 +611,13 @@ acceptance("Uppy Composer Attachment - Upload Error", function (needs) {
           "There was an error uploading the file, the gif was way too cool.",
           "shows the error message from the server"
         );
+      assert.true(
+        consoleErrorStub.calledWithMatch("[Uppy]"),
+        "Uppy logs the upload failure to the console"
+      );
 
       await click(".dialog-footer .btn-primary");
+      consoleErrorStub.restore();
       done();
     });
 
@@ -539,31 +643,30 @@ acceptance(
     });
 
     test("should show a consolidated message for multiple failed uploads", async function (assert) {
+      const consoleErrorStub = silenceConsoleErrorsMatching("[Uppy]");
+
       await visit("/");
       await click("#create-topic");
       const appEvents = getOwner(this).lookup("service:app-events");
       const image = createFile("meme1.png");
       const image1 = createFile("meme2.png");
-      const done = assert.async();
-
-      appEvents.on("composer:upload-error", async () => {
-        await settled();
-
-        if (find(".dialog-body")) {
-          assert
-            .dom(".dialog-body")
-            .hasText(
-              "Sorry, there was an error uploading meme1.png and meme2.png. Please try again.",
-              "it should show a consolidated error dialog"
-            );
-
-          await click(".dialog-footer .btn-primary");
-
-          done();
-        }
-      });
 
       appEvents.trigger("composer:add-files", [image, image1]);
+
+      await waitFor(".dialog-body");
+      assert
+        .dom(".dialog-body")
+        .hasText(
+          "Sorry, there was an error uploading meme1.png and meme2.png. Please try again.",
+          "shows a consolidated error dialog"
+        );
+      assert.true(
+        consoleErrorStub.calledWithMatch("[Uppy]"),
+        "Uppy logs the upload failures to the console"
+      );
+
+      await click(".dialog-footer .btn-primary");
+      consoleErrorStub.restore();
     });
   }
 );

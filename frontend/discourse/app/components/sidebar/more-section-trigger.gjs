@@ -1,5 +1,8 @@
-import icon from "discourse/helpers/d-icon";
+import { eq, or } from "discourse/truth-helpers";
+import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
+import dIcon from "discourse/ui-kit/helpers/d-icon";
 import { i18n } from "discourse-i18n";
+import SectionLinkPrefix from "./section-link-prefix";
 
 const MoreSectionTrigger = <template>
   <button
@@ -10,12 +13,29 @@ const MoreSectionTrigger = <template>
     aria-haspopup="menu"
     aria-selected="false"
   >
-    <span class="sidebar-section-link-prefix icon">
-      {{icon "ellipsis-vertical"}}
-    </span>
+    <SectionLinkPrefix
+      @prefixType={{or @prefixType "icon"}}
+      @prefixValue={{or @prefixValue "ellipsis-vertical"}}
+      @prefixCSSClass={{@prefixCSSClass}}
+    />
+
     <span class="sidebar-section-link-content-text">
-      {{i18n "sidebar.more"}}
+      {{or @text (i18n "sidebar.more")}}
     </span>
+
+    {{#if @suffixValue}}
+      <span
+        class={{dConcatClass
+          "sidebar-section-link-suffix"
+          @suffixType
+          @suffixCSSClass
+        }}
+      >
+        {{#if (eq @suffixType "icon")}}
+          {{dIcon @suffixValue}}
+        {{/if}}
+      </span>
+    {{/if}}
   </button>
 </template>;
 

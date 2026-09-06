@@ -10,15 +10,7 @@ TopicStatusUpdater =
       updated = nil
       Topic.transaction do
         updated = change(status, opts)
-        if updated
-          highest_post_number = topic.highest_post_number
-          create_moderator_post_for(status, opts)
-          update_read_state_for(
-            status,
-            highest_post_number,
-            silent_tracking: opts[:silent_tracking],
-          )
-        end
+        create_moderator_post_for(status, opts) if updated
       end
 
       updated
@@ -45,7 +37,8 @@ TopicStatusUpdater =
         result = false if rc == 0
       end
 
-      DiscourseEvent.trigger(:topic_closed, topic) if status.manually_closing_topic?
+      DiscourseEvent.trigger(:topic_closed, topic, :manually) if status.manually_closing_topic?
+      DiscourseEvent.trigger(:topic_closed, topic, :automatically) if status.auto_closing_topic?
 
       if status.visible? && status.disabled?
         UserProfile.remove_featured_topic_from_all_profiles(topic)
@@ -89,10 +82,8 @@ TopicStatusUpdater =
       # remove featured topics if we close/archive/make them invisible. Previously we used
       # to run the whole featuring logic but that could be very slow and have concurrency
       # errors on large sites with many autocloses and topics being created.
-      if (
-           (status.enabled? && (status.autoclosed? || status.closed? || status.archived?)) ||
-             (status.disabled? && status.visible?)
-         )
+      if (status.enabled? && (status.autoclosed? || status.closed? || status.archived?)) ||
+           (status.disabled? && status.visible?)
         CategoryFeaturedTopic.where(topic_id: topic.id).delete_all
       end
 
@@ -105,29 +96,6 @@ TopicStatusUpdater =
       message = opts[:message]
       topic.add_moderator_post(user, message || message_for(status), options_for(status, opts))
       topic.reload
-    end
-
-    def update_read_state_for(status, old_highest_read, silent_tracking: false)
-      if (status.autoclosed? && status.enabled?) || (status.closed? && silent_tracking)
-        # let's pretend all the people that read up to the autoclose message
-        # actually read the topic
-        PostTiming.pretend_read(topic.id, old_highest_read, topic.highest_post_number)
-      end
-
-      if status.closed? && status.enabled?
-        sql_query = <<-SQL
-          SELECT DISTINCT post_timings.user_id
-          FROM post_timings
-          JOIN user_options ON user_options.user_id = post_timings.user_id
-          WHERE post_timings.topic_id = :topic_id
-            AND user_options.topics_unread_when_closed = 'f'
-        SQL
-        user_ids = DB.query_single(sql_query, topic_id: topic.id)
-
-        if user_ids.present?
-          PostTiming.pretend_read(topic.id, old_highest_read, topic.highest_post_number, user_ids)
-        end
-      end
     end
 
     def message_for(status)
@@ -201,6 +169,10 @@ TopicStatusUpdater =
 
         def closing_topic?
           (closed? || autoclosed?) && enabled?
+        end
+
+        def auto_closing_topic?
+          autoclosed? && enabled?
         end
 
         def manually_closing_topic?

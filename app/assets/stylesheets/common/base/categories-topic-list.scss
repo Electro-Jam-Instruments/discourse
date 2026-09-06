@@ -1,0 +1,126 @@
+@use "common/foundation/mixins";
+
+.latest-topic-list,
+.top-topic-list {
+  @include mixins.topic-list-icons;
+
+  .table-heading {
+    padding: var(--space-2) var(--space-1);
+    color: var(--d-topic-list-header-text-color);
+    font-size: var(--d-topic-list-data-font-size);
+  }
+
+  .no-topics,
+  .more-topics {
+    margin-top: 1em;
+  }
+
+  .posts-map {
+    font-size: var(--font-up-1);
+    font-weight: bold;
+    color: var(--primary-medium);
+  }
+}
+
+.latest-topic-list-item {
+  padding: 1em;
+  border-bottom: 1px solid var(--content-border-color);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+
+  // Focus styles for grid navigation - full rectangle highlight
+  // Uses CSS variables for theme customization (see color_definitions.scss)
+  &:focus {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+
+  &:focus-visible {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+
+  .topic-poster {
+    position: relative;
+
+    .avatar-flair {
+      position: absolute;
+      bottom: 0;
+    }
+  }
+
+  .main-link {
+    flex: 0 1 auto;
+    max-width: 65%;
+    font-size: var(--font-0);
+
+    a.title {
+      padding: 15px 0;
+      word-break: break-word;
+      color: var(--primary);
+    }
+
+    .anon & {
+      a.title:visited:not(.badge-notification) {
+        color: var(--primary-medium);
+      }
+    }
+
+    a.title.visited:not(.badge-notification) {
+      color: var(--primary-medium);
+    }
+
+    .top-row {
+      margin-bottom: 0.1em;
+      font-size: var(--font-up-1);
+    }
+
+    .bottom-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0 0.5em;
+    }
+  }
+
+  .topic-stats {
+    flex: 1 0 0px;
+    text-align: right;
+    color: var(--primary-med-or-secondary-high);
+  }
+
+  .topic-last-activity a {
+    color: var(--primary-low-mid-or-secondary-high);
+  }
+}
+
+// Empty state row for grid navigation
+.latest-topic-list-empty-row {
+  padding: 1em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  // Focus styles for grid navigation
+  // Uses CSS variables for theme customization (see color_definitions.scss)
+  &:focus {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+
+  &:focus-visible {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
+  }
+}
+
+.latest-topic-list-empty-cell {
+  text-align: center;
+  color: var(--primary-medium);
+  padding: var(--space-4);
+}

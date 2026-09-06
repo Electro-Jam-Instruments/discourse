@@ -46,10 +46,11 @@ after_initialize do
 
   Discourse::Application.routes.prepend { mount Patreon::Engine, at: "/patreon" }
 
-  add_admin_route "patreon.title", "patreon"
+  add_admin_route "patreon.title", "discourse-patreon", use_new_show_route: true
 
   Discourse::Application.routes.append do
-    get "/admin/plugins/patreon" => "admin/plugins#index", :constraints => AdminConstraint.new
+    get "/admin/plugins/discourse-patreon/filters" => "admin/plugins#index",
+        :constraints => AdminConstraint.new
     get "/admin/plugins/patreon/list" => "patreon/patreon_admin#list",
         :constraints => AdminConstraint.new
     get "/u/:username/patreon_email" => "patreon/patreon_admin#email",
@@ -74,7 +75,7 @@ after_initialize do
         Patreon::Patron.update_local_user(user, patreon_id, true)
       rescue => e
         Rails.logger.warn(
-          "Patreon group membership callback failed for new user #{self.id} with error: #{e}.\n\n #{e.backtrace.join("\n")}",
+          "Patreon group membership callback failed for new user #{id} with error: #{e}.\n\n #{e.backtrace.join("\n")}",
         )
       end
     end
@@ -83,7 +84,7 @@ after_initialize do
   Patreon::USER_DETAIL_FIELDS.each do |attribute|
     add_to_serializer(
       :admin_detailed_user,
-      "patreon_#{attribute}".to_sym,
+      :"patreon_#{attribute}",
       include_condition: -> do
         Patreon::Patron.attr(attribute, object).present? &&
           (attribute != "amount_cents" || scope.is_admin?)

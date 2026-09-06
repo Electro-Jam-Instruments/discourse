@@ -9,16 +9,20 @@ et:
     overall_sentiment:
       yaxis: "Kuupäev"
     emotion_neutral:
-      title: "\U0001F610 Neutraalne"
+      title: "😐 Neutraalne"
   discourse_ai:
     tools:
       presets:
         image_generation_custom:
           name: "Individuaalne"
     ai_bot:
+      read_post:
+        unknown_post: "postitus"
       tool_summary:
         search: "Otsi"
         time: "Aeg"
+      tool_help:
+        create_category: "Loo uus kategooria"
       close_topic:
         errors:
           not_found: "Teemat ei leitud."
@@ -28,10 +32,13 @@ et:
       delete_topic:
         errors:
           not_found: "Teemat ei leitud."
-      edit_tags:
+      change_topic_tags:
         errors:
           not_found: "Teemat ei leitud."
       edit_category:
+        errors:
+          not_found: "Kategooriat ei leitud."
+      change_topic_category:
         errors:
           not_found: "Teemat ei leitud."
           category_not_found: "Kategooriat ei leitud."
@@ -56,6 +63,6 @@ et:
     sentiment:
       reports:
         post_emotion:
-          neutral: "Neutraalne \U0001F610"
+          neutral: "Neutraalne 😐"
         sentiment_analysis:
           neutral: "Neutraalne"

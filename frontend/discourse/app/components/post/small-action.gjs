@@ -4,16 +4,16 @@ import { concat } from "@ember/helper";
 import { trackedMap } from "@ember/reactive/collections";
 import { service } from "@ember/service";
 import { trustHTML } from "@ember/template";
-import DButton from "discourse/components/d-button";
 import PostCookedHtml from "discourse/components/post/cooked-html";
-import UserAvatar from "discourse/components/user-avatar";
-import concatClass from "discourse/helpers/concat-class";
-import icon from "discourse/helpers/d-icon";
 import { autoUpdatingRelativeAge, relativeAge } from "discourse/lib/formatter";
 import getURL from "discourse/lib/get-url";
 import { applyValueTransformer } from "discourse/lib/transformer";
-import { userPath } from "discourse/lib/url";
+import { groupPath, userPath } from "discourse/lib/url";
 import { escapeExpression } from "discourse/lib/utilities";
+import DButton from "discourse/ui-kit/d-button";
+import DUserAvatar from "discourse/ui-kit/d-user-avatar";
+import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
+import dIcon from "discourse/ui-kit/helpers/d-icon";
 import { i18n } from "discourse-i18n";
 import PostA11yHeading from "./a11y-heading";
 
@@ -112,9 +112,9 @@ export default class PostSmallAction extends Component {
     if (this.who) {
       const escapedWho = escapeExpression(this.who);
       if (this.isGroupAction) {
-        who = `<a class="mention-group" href="/g/${encodeURIComponent(this.who)}">@${escapedWho}</a>`;
+        who = `<a class="mention-group" href="${groupPath(encodeURIComponent(this.who))}">@${escapedWho}</a>`;
       } else {
-        who = `<a class="mention" href="${userPath(this.who)}">@${escapedWho}</a>`;
+        who = `<a class="mention" href="${userPath(encodeURIComponent(this.who))}">@${escapedWho}</a>`;
       }
     }
 
@@ -186,7 +186,7 @@ export default class PostSmallAction extends Component {
           id={{@elementId}}
           class={{unless
             @cloaked
-            (concatClass
+            (dConcatClass
               "small-action"
               "onscreen-post"
               (if @post.deleted "deleted")
@@ -198,12 +198,20 @@ export default class PostSmallAction extends Component {
           data-topic-id={{@post.topicId}}
           data-user-id={{@post.user_id}}
         >
-          <div class="topic-avatar" role="gridcell" tabindex="-1" aria-label={{i18n "post.sr_avatar_cell" username=this.avatarCellUsername}}>
-            {{icon this.icon}}
+          <div
+            class="topic-avatar"
+            role="gridcell"
+            tabindex="-1"
+            aria-label={{i18n
+              "post.sr_avatar_cell"
+              username=this.avatarCellUsername
+            }}
+          >
+            {{dIcon this.icon}}
           </div>
           <div class="small-action-desc" role="gridcell" tabindex="-1" aria-label={{this.contentCellAriaLabel}}>
             <div class="small-action-contents">
-              <UserAvatar
+              <DUserAvatar
                 @ariaHidden={{false}}
                 @size="small"
                 @user={{@post.user}}
@@ -225,14 +233,14 @@ export default class PostSmallAction extends Component {
             <div class="small-action-buttons">
               {{#if @post.canRecover}}
                 <DButton
-                  class="btn-flat small-action-recover"
+                  class="btn-flat btn-small small-action-recover"
                   @icon="arrow-rotate-left"
                   @action={{@recoverPost}}
                   @title="post.controls.undelete"
                 />
               {{else if @post.can_edit}}
                 <DButton
-                  class="btn-flat small-action-edit"
+                  class="btn-flat btn-small small-action-edit"
                   @icon="pencil"
                   @action={{@editPost}}
                   @title="post.controls.edit"
@@ -240,7 +248,7 @@ export default class PostSmallAction extends Component {
               {{/if}}
               {{#if @post.canDelete}}
                 <DButton
-                  class="btn-flat btn-danger small-action-delete"
+                  class="btn-flat btn-small btn-danger small-action-delete"
                   @icon="trash-can"
                   @action={{@deletePost}}
                   @title="post.controls.delete"

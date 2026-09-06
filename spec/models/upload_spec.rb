@@ -333,14 +333,12 @@ RSpec.describe Upload do
     end
 
     it "works when using a cdn" do
-      begin
-        original_asset_host = Rails.configuration.action_controller.asset_host
-        Rails.configuration.action_controller.asset_host = "http://my.cdn.com"
+      original_asset_host = Rails.configuration.action_controller.asset_host
+      Rails.configuration.action_controller.asset_host = "http://my.cdn.com"
 
-        expect(Upload.get_from_url(URI.join("http://my.cdn.com", upload.url).to_s)).to eq(upload)
-      ensure
-        Rails.configuration.action_controller.asset_host = original_asset_host
-      end
+      expect(Upload.get_from_url(URI.join("http://my.cdn.com", upload.url).to_s)).to eq(upload)
+    ensure
+      Rails.configuration.action_controller.asset_host = original_asset_host
     end
 
     it "should return the right upload when using the full URL" do
@@ -393,17 +391,15 @@ RSpec.describe Upload do
       end
 
       it "should return the right upload when using one CDN for both s3 and assets" do
-        begin
-          original_asset_host = Rails.configuration.action_controller.asset_host
-          cdn_url = "http://my.cdn.com"
-          Rails.configuration.action_controller.asset_host = cdn_url
-          SiteSetting.s3_cdn_url = cdn_url
-          upload
+        original_asset_host = Rails.configuration.action_controller.asset_host
+        cdn_url = "http://my.cdn.com"
+        Rails.configuration.action_controller.asset_host = cdn_url
+        SiteSetting.s3_cdn_url = cdn_url
+        upload
 
-          expect(Upload.get_from_url(URI.join(cdn_url, path).to_s)).to eq(upload)
-        ensure
-          Rails.configuration.action_controller.asset_host = original_asset_host
-        end
+        expect(Upload.get_from_url(URI.join(cdn_url, path).to_s)).to eq(upload)
+      ensure
+        Rails.configuration.action_controller.asset_host = original_asset_host
       end
     end
   end
@@ -436,16 +432,14 @@ RSpec.describe Upload do
     end
 
     it "works when using a CDN" do
-      begin
-        original_asset_host = Rails.configuration.action_controller.asset_host
-        Rails.configuration.action_controller.asset_host = "http://my.cdn.com"
+      original_asset_host = Rails.configuration.action_controller.asset_host
+      Rails.configuration.action_controller.asset_host = "http://my.cdn.com"
 
-        expect(
-          Upload.get_from_urls([URI.join("http://my.cdn.com", upload.url).to_s]),
-        ).to contain_exactly(upload)
-      ensure
-        Rails.configuration.action_controller.asset_host = original_asset_host
-      end
+      expect(
+        Upload.get_from_urls([URI.join("http://my.cdn.com", upload.url).to_s]),
+      ).to contain_exactly(upload)
+    ensure
+      Rails.configuration.action_controller.asset_host = original_asset_host
     end
 
     it "works with full URLs" do
@@ -936,6 +930,12 @@ RSpec.describe Upload do
     let(:white_image) { Fabricate(:image_upload, color: "white") }
     let(:red_image) { Fabricate(:image_upload, color: "red") }
     let(:high_color_image) { Fabricate(:image_upload, color: "#000A00F00", color_depth: 16) }
+    let(:tiny_image) do
+      upload = Fabricate(:upload, extension: "png")
+      file = file_from_fixtures("cropped.png")
+      upload.update!(url: Discourse.store.store_upload(file, upload))
+      upload
+    end
     let(:not_an_image) do
       upload = Fabricate(:upload)
 
@@ -973,6 +973,18 @@ RSpec.describe Upload do
       # EF is closer to F00 than F0
       expect(high_color_image.dominant_color(calculate_if_missing: true)).to eq("009FEF")
       expect(high_color_image.dominant_color).to eq("009FEF")
+
+      uncached_tiny_color = tiny_image.dominant_color
+
+      expect(uncached_tiny_color).to eq(nil)
+
+      calculated_tiny_color = tiny_image.dominant_color(calculate_if_missing: true)
+
+      expect(calculated_tiny_color).to eq("524F40")
+
+      cached_tiny_color = tiny_image.dominant_color
+
+      expect(cached_tiny_color).to eq(calculated_tiny_color)
     end
 
     it "can be backfilled" do
@@ -1007,6 +1019,14 @@ RSpec.describe Upload do
       expect(not_an_image.dominant_color).to eq("")
     end
 
+    it "stores an empty string when the file is missing from the store" do
+      File.delete(Discourse.store.path_for(white_image))
+
+      expect(white_image.dominant_color).to eq(nil)
+      expect(white_image.dominant_color(calculate_if_missing: true)).to eq("")
+      expect(white_image.dominant_color).to eq("")
+    end
+
     it "correctly handles invalid image files" do
       expect(invalid_image.dominant_color).to eq(nil)
       expect(invalid_image.dominant_color(calculate_if_missing: true)).to eq("")
@@ -1014,7 +1034,7 @@ RSpec.describe Upload do
     end
 
     it "correctly handles unparsable ImageMagick output" do
-      Discourse::Utils.stubs(:execute_command).returns("someinvalidoutput")
+      ImageMagick.stubs(:magick).returns("someinvalidoutput")
 
       expect(invalid_image.dominant_color).to eq(nil)
 
@@ -1056,6 +1076,22 @@ RSpec.describe Upload do
       )
 
       expect { u.update!(dominant_color: "abcd") }.to raise_error(ActiveRecord::RecordInvalid)
+    end
+  end
+
+  describe "#target_image_quality" do
+    let(:local_path) { Rails.root.join("spec/fixtures/images/logo.jpg").to_s }
+
+    it "returns nil when the target quality is higher than the source quality" do
+      target_quality = upload.target_image_quality(local_path, 100)
+
+      expect(target_quality).to eq(nil)
+    end
+
+    it "returns the target quality when it is lower than the source quality" do
+      target_quality = upload.target_image_quality(local_path, 10)
+
+      expect(target_quality).to eq(10)
     end
   end
 

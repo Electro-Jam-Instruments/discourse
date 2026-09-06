@@ -1,6 +1,6 @@
 import Component from "@glimmer/component";
 import { service } from "@ember/service";
-import DButton from "discourse/components/d-button";
+import DButton from "discourse/ui-kit/d-button";
 
 export default class ChatNavbarToggleDrawerButton extends Component {
   @service chat;
@@ -8,11 +8,7 @@ export default class ChatNavbarToggleDrawerButton extends Component {
 
   <template>
     <DButton
-      @icon={{if
-        this.chatStateManager.isDrawerExpanded
-        "angles-down"
-        "angles-up"
-      }}
+      @icon={{if this.chatStateManager.isDrawerExpanded "minus" "angles-up"}}
       @action={{this.chat.toggleDrawer}}
       @title={{if
         this.chatStateManager.isDrawerExpanded

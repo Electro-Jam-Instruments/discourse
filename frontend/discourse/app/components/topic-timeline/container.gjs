@@ -6,16 +6,11 @@ import { action } from "@ember/object";
 import didInsert from "@ember/render-modifiers/modifiers/did-insert";
 import { service } from "@ember/service";
 import { trustHTML } from "@ember/template";
-import DButton from "discourse/components/d-button";
 import PluginOutlet from "discourse/components/plugin-outlet";
 import { actionDescriptionHtml } from "discourse/components/post-action-description";
 import TopicAdminMenu from "discourse/components/topic-admin-menu";
-import TopicLocalizedContentToggle from "discourse/components/topic-localized-content-toggle";
+import TopicContentLanguagePreferences from "discourse/components/topic-content-language-preferences";
 import UserTip from "discourse/components/user-tip";
-import ageWithTooltip from "discourse/helpers/age-with-tooltip";
-import categoryLink from "discourse/helpers/category-link";
-import icon from "discourse/helpers/d-icon";
-import discourseTags from "discourse/helpers/discourse-tags";
 import lazyHash from "discourse/helpers/lazy-hash";
 import topicFeaturedLink from "discourse/helpers/topic-featured-link";
 import { bind, debounce } from "discourse/lib/decorators";
@@ -23,6 +18,12 @@ import domUtils from "discourse/lib/dom-utils";
 import { headerOffset } from "discourse/lib/offset-calculator";
 import TopicNotificationsButton from "discourse/select-kit/components/topic-notifications-button";
 import { and, not, or } from "discourse/truth-helpers";
+import DButton from "discourse/ui-kit/d-button";
+import dAgeWithTooltip from "discourse/ui-kit/helpers/d-age-with-tooltip";
+import dCategoryLink from "discourse/ui-kit/helpers/d-category-link";
+import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
+import dDiscourseTags from "discourse/ui-kit/helpers/d-discourse-tags";
+import dIcon from "discourse/ui-kit/helpers/d-icon";
 import { i18n } from "discourse-i18n";
 import BackButton from "./back-button";
 import Scroller from "./scroller";
@@ -107,10 +108,14 @@ export default class TopicTimelineScrollArea extends Component {
       }
     });
 
+    // The timeline is usually rendered on a topic page where both of these
+    // anchors exist. When it's rendered outside of that context (for example,
+    // a modal opened from a floating composer on a non-topic route), they
+    // may be absent — skip observing rather than crashing.
     const elements = [
       document.querySelector(".container.posts"),
       document.querySelector("#topic-bottom"),
-    ];
+    ].filter(Boolean);
 
     for (let i = 0; i < elements.length; i++) {
       this.intersectionObserver.observe(elements[i]);
@@ -219,10 +224,10 @@ export default class TopicTimelineScrollArea extends Component {
   }
 
   get scrollareaHeight() {
-    const composerHeight = this.composer.isPreviewVisible
-        ? document.getElementById("reply-control").offsetHeight || 0
-        : 0,
-      headerHeight = document.querySelector(".d-header")?.offsetHeight || 0;
+    const composerHeight = this.composer.isPreviewActive
+      ? document.getElementById("reply-control")?.offsetHeight || 0
+      : 0;
+    const headerHeight = document.querySelector(".d-header")?.offsetHeight || 0;
 
     // scrollarea takes up about half of the timeline's height
     const availableHeight =
@@ -230,12 +235,12 @@ export default class TopicTimelineScrollArea extends Component {
 
     const minHeight = this.site.mobileView
       ? DEFAULT_MIN_SCROLLAREA_HEIGHT
-      : this.composer.isPreviewVisible
+      : this.composer.isPreviewActive
         ? desktopMinScrollAreaHeight
         : DEFAULT_MIN_SCROLLAREA_HEIGHT;
     const maxHeight = this.site.mobileView
       ? DEFAULT_MAX_SCROLLAREA_HEIGHT
-      : this.composer.isPreviewVisible
+      : this.composer.isPreviewActive
         ? desktopMaxScrollAreaHeight
         : DEFAULT_MAX_SCROLLAREA_HEIGHT;
 
@@ -366,7 +371,9 @@ export default class TopicTimelineScrollArea extends Component {
   updatePercentage(e) {
     e.preventDefault();
 
-    const currentCursorY = e.pageY || e.touches[0].pageY;
+    // Both a pointer drag and a click on the timeline track land here, and both
+    // carry `pageY` directly.
+    const currentCursorY = e.pageY;
 
     const desiredScrollerCentre = currentCursorY - this.dragOffset;
 
@@ -386,7 +393,7 @@ export default class TopicTimelineScrollArea extends Component {
 
   @bind
   didStartDrag(event) {
-    const y = event.pageY || event.touches[0].pageY;
+    const y = event.pageY;
 
     const scrollerCentre =
       domUtils.offset(this.scrollerElement).top +
@@ -519,7 +526,7 @@ export default class TopicTimelineScrollArea extends Component {
           <div class="topic-header-extra">
             {{#if this.showTags}}
               <div class="list-tags">
-                {{discourseTags @model mode="list" tags=@model.tags}}
+                {{dDiscourseTags @model mode="list" tags=@model.tags}}
               </div>
             {{/if}}
             {{#if this.siteSettings.topic_featured_link_enabled}}
@@ -531,9 +538,9 @@ export default class TopicTimelineScrollArea extends Component {
         {{#if (and (not @model.isPrivateMessage) @model.category)}}
           <div class="topic-category">
             {{#if @model.category.parentCategory}}
-              {{categoryLink @model.category.parentCategory}}
+              {{dCategoryLink @model.category.parentCategory}}
             {{/if}}
-            {{categoryLink @model.category}}
+            {{dCategoryLink @model.category}}
           </div>
         {{/if}}
 
@@ -568,7 +575,7 @@ export default class TopicTimelineScrollArea extends Component {
         />
 
         {{#if @model.has_localized_content}}
-          <TopicLocalizedContentToggle @topic={{@model}} />
+          <TopicContentLanguagePreferences />
         {{/if}}
       </div>
     {{/if}}
@@ -600,12 +607,15 @@ export default class TopicTimelineScrollArea extends Component {
         </div>
 
         <div
-          class="timeline-scrollarea"
+          class={{dConcatClass
+            "timeline-scrollarea"
+            (if this.dragging "--dragging")
+          }}
           style={{this.timelineScrollareaStyle}}
           {{didInsert this.registerScrollarea}}
         >
+          {{! eslint-disable ember/template-no-invalid-interactive }}
           <div
-            {{! template-lint-disable no-invalid-interactive }}
             {{on "click" this.updatePercentage}}
             style={{this.beforePadding}}
             class="timeline-padding"
@@ -624,8 +634,8 @@ export default class TopicTimelineScrollArea extends Component {
             {{didInsert this.registerScroller}}
           />
 
+          {{! eslint-disable ember/template-no-invalid-interactive }}
           <div
-            {{! template-lint-disable no-invalid-interactive }}
             {{on "click" this.updatePercentage}}
             style={{this.afterPadding}}
             class="timeline-padding"
@@ -633,7 +643,7 @@ export default class TopicTimelineScrollArea extends Component {
 
           {{#if (and this.hasBackPosition this.showButton)}}
             <div class="timeline-last-read" style={{this.lastReadStyle}}>
-              {{icon "minus" class="progress"}}
+              {{dIcon "minus" class="progress"}}
               <BackButton @onGoBack={{this.goBack}} />
             </div>
           {{/if}}
@@ -647,7 +657,7 @@ export default class TopicTimelineScrollArea extends Component {
             tabindex="-1"
           >
             <span>
-              {{ageWithTooltip this.nowDate this.nowDateOptions}}
+              {{dAgeWithTooltip this.nowDate this.nowDateOptions}}
             </span>
           </a>
         </div>

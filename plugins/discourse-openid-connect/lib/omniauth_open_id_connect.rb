@@ -12,6 +12,7 @@ module OmniAuth
     class OpenIDConnect < OmniAuth::Strategies::OAuth2
       class NonceVerifyError < StandardError
       end
+
       class SubVerifyError < StandardError
       end
 
@@ -144,6 +145,15 @@ module OmniAuth
           fail!(:jwt_nonce_verify_failed, e)
         rescue SubVerifyError => e
           fail!(:openid_connect_sub_mismatch, e)
+        rescue Faraday::Error => e
+          detail =
+            if e.is_a?(Faraday::TimeoutError)
+              "timed out after #{GlobalSetting.openid_connect_request_timeout_seconds}s"
+            else
+              "failed"
+            end
+          Rails.logger.error("OIDC Log: request #{detail}: #{e.class} #{e.message}")
+          fail!(:openid_connect_request_failed, e)
         end
       end
 
@@ -155,17 +165,12 @@ module OmniAuth
           begin
             decoded = ::JWT.decode(access_token["id_token"], nil, false).first
             verbose_log("Loaded JWT\n\n#{decoded.to_yaml}")
-            ::JWT::Verify.verify_claims(
+            ::JWT::Claims.verify_payload!(
               decoded,
-              verify_iss: true,
+              :exp,
+              :nbf,
               iss: options[:client_options][:site],
-              verify_aud: true,
               aud: options.client_id,
-              verify_sub: false,
-              verify_expiration: true,
-              verify_not_before: true,
-              verify_iat: false,
-              verify_jti: false,
             )
 
             if decoded["nonce"].nil? || decoded["nonce"].empty? ||
@@ -215,6 +220,7 @@ module OmniAuth
         hash = {}
         hash[:raw_info] = options.use_userinfo ? userinfo_response : id_token_info
         hash[:id_token] = access_token["id_token"]
+        hash[:id_token_info] = id_token_info
         prune! hash
       end
 

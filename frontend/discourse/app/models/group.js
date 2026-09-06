@@ -1,12 +1,16 @@
 /* eslint-disable ember/no-observers */
 import EmberObject, { computed } from "@ember/object";
 import { dependentKeyCompat } from "@ember/object/compat";
-import { equal } from "@ember/object/computed";
 import { trackedArray } from "@ember/reactive/collections";
 import { isEmpty } from "@ember/utils";
 import { observes } from "@ember-decorators/object";
 import { ajax } from "discourse/lib/ajax";
+import {
+  applyModelCallbacks,
+  extraSavePropertiesFor,
+} from "discourse/lib/model-extensions";
 import { autoTrackedArray } from "discourse/lib/tracked-tools";
+import { applyValueTransformer } from "discourse/lib/transformer";
 import Category from "discourse/models/category";
 import GroupHistory from "discourse/models/group-history";
 import RestModel from "discourse/models/rest";
@@ -22,7 +26,8 @@ export default class Group extends RestModel {
   }
 
   static loadMembers(name, opts) {
-    return ajax(`/groups/${name}/members.json`, { data: opts });
+    const data = applyValueTransformer("group-members-request", opts, { name });
+    return ajax(`/groups/${name}/members.json`, { data });
   }
 
   static mentionable(name) {
@@ -47,7 +52,10 @@ export default class Group extends RestModel {
   requestersLimit = null;
   requestersOffset = null;
 
-  @equal("mentionable_level", 99) canEveryoneMention;
+  @computed("mentionable_level")
+  get canEveryoneMention() {
+    return this.mentionable_level === 99;
+  }
 
   @computed("automatic_membership_email_domains")
   get emailDomains() {
@@ -378,7 +386,10 @@ export default class Group extends RestModel {
         let tags = this.get(s + "_tags");
 
         if (tags) {
-          attrs[s + "_tags"] = tags.length > 0 ? tags : [""];
+          attrs[s + "_tags"] =
+            tags.length > 0
+              ? tags.map((t) => (typeof t === "object" ? t.name : t))
+              : [""];
         }
       }
     );
@@ -399,10 +410,12 @@ export default class Group extends RestModel {
       attrs["owner_usernames"] = this.ownerUsernames;
     }
 
-    return attrs;
+    return { ...attrs, ...extraSavePropertiesFor("group", this) };
   }
 
   async create() {
+    await applyModelCallbacks("group", "beforeCreate", this);
+
     const response = await ajax("/admin/groups", {
       type: "POST",
       data: { group: this.asJSON() },
@@ -415,20 +428,30 @@ export default class Group extends RestModel {
     });
 
     await this.reloadMembers();
+    await applyModelCallbacks("group", "afterCreate", this, response);
   }
 
-  save(opts = {}) {
-    return ajax(`/groups/${this.id}`, {
+  async save(opts = {}) {
+    await applyModelCallbacks("group", "beforeUpdate", this, opts);
+
+    const result = await ajax(`/groups/${this.id}`, {
       type: "PUT",
       data: { group: this.asJSON(), ...opts },
     });
+
+    await applyModelCallbacks("group", "afterUpdate", this, result);
+    return result;
   }
 
-  destroy() {
+  async destroy() {
     if (!this.id) {
       return;
     }
-    return ajax(`/admin/groups/${this.id}`, { type: "DELETE" });
+
+    await applyModelCallbacks("group", "beforeDestroy", this);
+    const result = await ajax(`/admin/groups/${this.id}`, { type: "DELETE" });
+    await applyModelCallbacks("group", "afterDestroy", this, result);
+    return result;
   }
 
   findLogs(offset, filters) {

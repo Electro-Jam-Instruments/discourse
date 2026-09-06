@@ -5,11 +5,11 @@ import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
 import { trustHTML } from "@ember/template";
-import DButton from "discourse/components/d-button";
-import DToggleSwitch from "discourse/components/d-toggle-switch";
 import DTooltip from "discourse/float-kit/components/d-tooltip";
 import { TOOLTIP } from "discourse/float-kit/lib/constants";
 import withEventValue from "discourse/helpers/with-event-value";
+import DButton from "discourse/ui-kit/d-button";
+import DToggleSwitch from "discourse/ui-kit/d-toggle-switch";
 import DummyComponent from "discourse/plugins/styleguide/discourse/components/dummy-component";
 import StyleguideComponent from "discourse/plugins/styleguide/discourse/components/styleguide/component";
 import Controls from "discourse/plugins/styleguide/discourse/components/styleguide/controls";
@@ -93,6 +93,9 @@ export default class Tooltips extends Component {
     };
   }
 
+  // These samples are curated rather than sourced from a module: each bakes in
+  // the current value of the controls panel, so it changes as the reader edits
+  // it and no static module could express it.
   get tooltipCode() {
     const contentValue = this._content.toString().replace(/"/g, '\\"');
 

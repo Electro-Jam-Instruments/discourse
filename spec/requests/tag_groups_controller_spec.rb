@@ -91,6 +91,25 @@ RSpec.describe TagGroupsController do
 
         expect(results).to be_empty
       end
+
+      it "does not return the tags restricted to a category anons can't see" do
+        tag_group = tag_group_with_permission(everyone, readonly)
+        secret_tag = Fabricate(:tag)
+        tag_group.tags << secret_tag
+        CategoryTag.create!(
+          category: Fabricate(:private_category, group: Fabricate(:group)),
+          tag: secret_tag,
+        )
+
+        get "/tag_groups/filter/search.json"
+        expect(response.status).to eq(200)
+
+        results = JSON.parse(response.body, symbolize_names: true).fetch(:results)
+
+        expect(results).to contain_exactly(
+          { name: tag_group.name, tags: [{ id: tag.id, name: tag.name, slug: tag.slug }] },
+        )
+      end
     end
 
     context "for regular users" do
@@ -365,6 +384,28 @@ RSpec.describe TagGroupsController do
 
       expect(response.status).to eq(422)
       expect(tag_group.reload.name).to eq(original_name)
+    end
+
+    it "rejects empty permissions on an existing tag group" do
+      group = Fabricate(:group)
+      tag_group.permissions = { group.id => TagGroupPermission.permission_types[:full] }
+      tag_group.save!
+
+      put "/tag_groups/#{tag_group.id}.json",
+          params: {
+            tag_group: {
+              tags: [{ id: tag1.id, name: tag1.name }],
+              permissions: {
+              },
+            },
+          },
+          as: :json
+
+      expect(response.status).to eq(422)
+
+      tag_group.reload
+      permissions = tag_group.tag_group_permissions.pluck(:group_id, :permission_type).to_h
+      expect(permissions).to eq(group.id => TagGroupPermission.permission_types[:full])
     end
 
     it "does not create a staff action log entry when update fails" do

@@ -3,12 +3,10 @@ import { tracked } from "@glimmer/tracking";
 import { fn, hash } from "@ember/helper";
 import { action } from "@ember/object";
 import didInsert from "@ember/render-modifiers/modifiers/did-insert";
-import ConditionalLoadingSpinner from "discourse/components/conditional-loading-spinner";
-import DButton from "discourse/components/d-button";
-import DModal from "discourse/components/d-modal";
 import { extractError } from "discourse/lib/ajax-error";
 import getURL from "discourse/lib/get-url";
 import {
+  grantableBadgeOptions,
   grantableBadges,
   isBadgeGrantable,
 } from "discourse/lib/grant-badge-utils";
@@ -16,6 +14,9 @@ import { autoTrackedArray } from "discourse/lib/tracked-tools";
 import Badge from "discourse/models/badge";
 import UserBadge from "discourse/models/user-badge";
 import ComboBox from "discourse/select-kit/components/combo-box";
+import DButton from "discourse/ui-kit/d-button";
+import DConditionalLoadingSpinner from "discourse/ui-kit/d-conditional-loading-spinner";
+import DModal from "discourse/ui-kit/d-modal";
 import { i18n } from "discourse-i18n";
 
 export default class GrantBadgeModal extends Component {
@@ -30,6 +31,10 @@ export default class GrantBadgeModal extends Component {
 
   get noAvailableBadges() {
     !this.availableBadges.length;
+  }
+
+  get badgeOptions() {
+    return grantableBadgeOptions(this.availableBadges);
   }
 
   get post() {
@@ -99,20 +104,20 @@ export default class GrantBadgeModal extends Component {
       {{didInsert this.loadBadges}}
     >
       <:body>
-        <ConditionalLoadingSpinner @condition={{this.loading}}>
+        <DConditionalLoadingSpinner @condition={{this.loading}}>
           {{#if this.noAvailableBadges}}
             <p>{{i18n "admin.badges.no_badges"}}</p>
           {{else}}
             <p>
               <ComboBox
                 @value={{this.selectedBadgeId}}
-                @content={{this.availableBadges}}
+                @content={{this.badgeOptions}}
                 @onChange={{fn (mut this.selectedBadgeId)}}
                 @options={{hash filterable=true none="badges.none"}}
               />
             </p>
           {{/if}}
-        </ConditionalLoadingSpinner>
+        </DConditionalLoadingSpinner>
       </:body>
       <:footer>
         <DButton

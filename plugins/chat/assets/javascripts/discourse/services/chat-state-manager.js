@@ -1,5 +1,6 @@
 import { tracked } from "@glimmer/tracking";
 import Service, { service } from "@ember/service";
+import { withoutPrefix } from "discourse/lib/get-url";
 import KeyValueStore from "discourse/lib/key-value-store";
 import { withPluginApi } from "discourse/lib/plugin-api";
 import { MAIN_PANEL } from "discourse/lib/sidebar/panels";
@@ -165,6 +166,15 @@ export default class ChatStateManager extends Service {
     return this.isFullPageActive || this.isDrawerActive;
   }
 
+  get canInteract() {
+    const routeName = this.router.currentRouteName;
+    return routeName !== "wizard" && !routeName?.startsWith("wizard.");
+  }
+
+  get isDrawerCollapsed() {
+    return this.isDrawerActive && !this.isDrawerExpanded;
+  }
+
   get isPinnedMessagesPaneOpen() {
     return this.router.currentRouteName === "chat.channel.pins";
   }
@@ -184,18 +194,20 @@ export default class ChatStateManager extends Service {
   }
 
   get lastKnownAppURL() {
-    const url = this._appURL;
+    let url = this._appURL;
 
-    if (url && url !== "/") {
-      return url;
+    if (!url || url === "/") {
+      url = this.router.urlFor(`discovery.${defaultHomepage()}`);
     }
 
-    return this.router.urlFor(`discovery.${defaultHomepage()}`);
+    return withoutPrefix(url);
   }
 
   get lastKnownChatURL() {
-    if (this._chatURL) {
-      return this._chatURL;
+    const url = this._chatURL;
+
+    if (url) {
+      return withoutPrefix(url);
     }
 
     // On mobile or drawer mode, default to starred channels if user has any

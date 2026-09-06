@@ -1,13 +1,21 @@
 import Component from "@glimmer/component";
 import { service } from "@ember/service";
+import BlockOutlet from "discourse/blocks/block-outlet";
+import { MAIN_PANEL } from "discourse/lib/sidebar/panels";
 import sidebarTreeNavigation from "discourse/modifiers/sidebar-tree-navigation";
 import { i18n } from "discourse-i18n";
+import ApiSections from "../api-sections";
 import CategoriesSection from "./categories-section";
 import CustomSections from "./custom-sections";
 import TagsSection from "./tags-section";
 
 export default class SidebarAnonymousSections extends Component {
+  @service sidebarState;
   @service siteSettings;
+
+  get mainPanel() {
+    return this.sidebarState.panels.find((panel) => panel.key === MAIN_PANEL);
+  }
 
   <template>
     <nav
@@ -16,15 +24,33 @@ export default class SidebarAnonymousSections extends Component {
       class="sidebar-sections sidebar-sections-anonymous"
       {{sidebarTreeNavigation}}
     >
+      <BlockOutlet @name="sidebar-blocks" />
+
       <CustomSections
         @collapsable={{@collapsableSections}}
         @toggleNavigationMenu={{@toggleNavigationMenu}}
+        @expandActiveSection={{this.mainPanel.expandActiveSection}}
+        @scrollActiveLinkIntoView={{this.mainPanel.scrollActiveLinkIntoView}}
       />
-      <CategoriesSection @collapsable={{@collapsableSections}} />
+      <CategoriesSection
+        @collapsable={{@collapsableSections}}
+        @expandActiveSection={{this.mainPanel.expandActiveSection}}
+        @scrollActiveLinkIntoView={{this.mainPanel.scrollActiveLinkIntoView}}
+      />
 
       {{#if this.siteSettings.tagging_enabled}}
-        <TagsSection @collapsable={{@collapsableSections}} />
+        <TagsSection
+          @collapsable={{@collapsableSections}}
+          @expandActiveSection={{this.mainPanel.expandActiveSection}}
+          @scrollActiveLinkIntoView={{this.mainPanel.scrollActiveLinkIntoView}}
+        />
       {{/if}}
+
+      <ApiSections
+        @collapsable={{@collapsableSections}}
+        @expandActiveSection={{this.mainPanel.expandActiveSection}}
+        @scrollActiveLinkIntoView={{this.mainPanel.scrollActiveLinkIntoView}}
+      />
     </nav>
   </template>
 }

@@ -17,6 +17,8 @@ export default [
       "electrojam": electroJamPlugin,
     },
     rules: {
+      "ember/template-no-capital-arguments": "off",
+      "ember/template-require-button-type": "off",
       // Custom ElectroJam rules
       // Set to "warn" initially so existing code doesn't break builds
       // Change to "error" once codebase is clean
@@ -47,17 +49,28 @@ export default [
       "**/node_modules/",
       "spec/",
       "frontend/discourse/dist/",
-      "frontend/discourse-types/dts-generator.js",
+      "**/*.d.ts",
+      "frontend/discourse-types/external-types",
+      "frontend/discourse-types/dts-generator.{js,ts}",
       "tmp/",
       "eslint-rules/", // Don't lint the linting rules themselves
     ],
   },
   {
-    files: ["themes/**/*.{js,gjs}"],
+    files: ["themes/**/*.{js,gjs,ts,gts}"],
     languageOptions: {
       globals: {
         settings: "readonly",
         themePrefix: "readonly",
+      },
+    },
+  },
+  {
+    languageOptions: {
+      parserOptions: {
+        babelOptions: {
+          configFile: false,
+        },
       },
     },
   },

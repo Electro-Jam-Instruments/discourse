@@ -6,8 +6,10 @@
   max-width: 300px;
 }
 
-.admin-controls.admin-site-settings-filter-controls .menu-toggle {
-  margin-left: 0.5em;
+.fk-d-menu-modal.admin-site-settings-category-nav-content {
+  .admin-site-settings-category-nav__list a.active {
+    background: var(--d-selected);
+  }
 }
 
 .admin-filtered-site-settings {
@@ -64,7 +66,7 @@ body.has-admin-changes-banner #main-outlet {
     }
 
     .setting-description {
-      color: var(--primary-medium);
+      color: var(--primary-high);
       font-size: var(--font-down-1);
     }
   }

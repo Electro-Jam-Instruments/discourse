@@ -12,6 +12,10 @@ bs_BA:
         link_to_settings: "Postavke"
         refresh: "Refresh"
         name: "Ime"
+        section:
+          groups: "Grupa"
+        weight:
+          solution: "Rešenje"
         period:
           all_time: "Oduvijek"
           yearly: "Godišnje"
@@ -32,3 +36,8 @@ bs_BA:
       custom_range_from: "Od"
       admin:
         name: "Ime"
+    discourse_workflows:
+      gamification_score:
+        username: "User"
+        date: "Datum"
+        description: "Opis"

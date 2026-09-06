@@ -6,7 +6,8 @@ module DiscourseAi
       requires_plugin PLUGIN_NAME
 
       def index
-        render json: serialize_modules(DiscourseAi::Configuration::Module.all)
+        modules = DiscourseAi::Configuration::Module.all.select(&:visible?)
+        render json: serialize_modules(modules)
       end
 
       def edit
@@ -30,7 +31,8 @@ module DiscourseAi
           id: a_module.id,
           module_name: a_module.name,
           module_enabled: a_module.enabled?,
-          features: a_module.features.map { |f| serialize_feature(f) },
+          features:
+            a_module.features.select(&:visible?).map { |feature| serialize_feature(feature) },
         }
       end
 

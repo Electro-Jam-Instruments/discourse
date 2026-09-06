@@ -5,6 +5,15 @@ class ReviewableClaimedTopic < ActiveRecord::Base
   belongs_to :user
   validates :topic, uniqueness: true
 
+  def log_topic_history(type, performed_by)
+    return if automatic?
+
+    Reviewable
+      .pending
+      .where(topic_id:)
+      .find_each { |reviewable| reviewable.log_history(type, performed_by) }
+  end
+
   def self.claimed_hash(topic_ids)
     result = {}
     if SiteSetting.reviewable_claiming == "disabled"
@@ -23,11 +32,11 @@ end
 # Table name: reviewable_claimed_topics
 #
 #  id         :bigint           not null, primary key
-#  user_id    :integer          not null
-#  topic_id   :integer          not null
+#  automatic  :boolean          default(FALSE), not null
 #  created_at :datetime         not null
 #  updated_at :datetime         not null
-#  automatic  :boolean          default(FALSE), not null
+#  topic_id   :integer          not null
+#  user_id    :integer          not null
 #
 # Indexes
 #

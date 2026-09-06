@@ -31,8 +31,9 @@ export default class EditCategoryLocalizations extends buildCategoryPanel(
         @name="locale"
         @title={{i18n "category.localization.language"}}
         @description={{i18n "category.localization.language_description"}}
-        @format="large"
+        @format="full"
         @type="select"
+        @validation="required"
         as |field|
       >
         <field.Control as |select|>

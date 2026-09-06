@@ -6,10 +6,7 @@ describe "Composer - ProseMirror editor - Checklist extension" do
   let(:rich) { composer.rich_editor }
   let(:checklist) { PageObjects::Components::RichChecklist.new(rich) }
 
-  before do
-    sign_in(user)
-    SiteSetting.rich_editor = true
-  end
+  before { sign_in(user) }
 
   def open_composer_and_toggle_rich_editor
     page.visit "/new-topic"
@@ -98,7 +95,7 @@ describe "Composer - ProseMirror editor - Checklist extension" do
       expect(checklist).to have_checkboxes(count: 2)
       expect(checklist).to have_items(count: 2)
 
-      rich.send_keys(:home)
+      rich.send_keys(SystemHelpers::LINE_START_KEY)
       rich.send_keys(:backspace)
 
       expect(checklist).to have_checkboxes(count: 1)

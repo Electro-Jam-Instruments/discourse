@@ -1,7 +1,6 @@
 /* eslint-disable ember/no-classic-components, ember/require-tagless-components */
 import Component from "@ember/component";
 import { computed } from "@ember/object";
-import { mapBy } from "@ember/object/computed";
 import { next } from "@ember/runloop";
 import { trustHTML } from "@ember/template";
 import { classNames } from "@ember-decorators/component";
@@ -21,11 +20,12 @@ export default class PollBreakdownChart extends Component {
   highlightedOption = null;
   setHighlightedOption = null;
 
-  @mapBy("options", "votes") data;
-
   _optionToSlice = null;
   _previousHighlightedSliceIndex = null;
   _previousDisplayMode = null;
+
+  /** @type {import("chart.js").Chart | null} */
+  _chart = null;
 
   init() {
     super.init(...arguments);
@@ -38,6 +38,11 @@ export default class PollBreakdownChart extends Component {
     if (this._chart) {
       this._chart.destroy();
     }
+  }
+
+  @computed("options.@each.votes")
+  get data() {
+    return this.options?.map?.((item) => item.votes) ?? [];
   }
 
   async didInsertElement() {

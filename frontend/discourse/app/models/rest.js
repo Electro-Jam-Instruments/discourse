@@ -1,11 +1,21 @@
 import { tracked } from "@glimmer/tracking";
 import { warn } from "@ember/debug";
 import EmberObject from "@ember/object";
-import { equal } from "@ember/object/computed";
+import { dependentKeyCompat } from "@ember/object/compat";
 import { getOwner, setOwner } from "@ember/owner";
 import { Promise } from "rsvp";
 import { getOwnerWithFallback } from "discourse/lib/get-owner";
+import {
+  applyModelCallbacks,
+  applyRegisteredFields,
+  mergeSaveProperties,
+  modelNameFor,
+} from "discourse/lib/model-extensions";
 import { enumerateTrackedEntries } from "discourse/lib/tracked-tools";
+
+function waitForCallbacks(pending, next) {
+  return pending ? pending.then(next) : next();
+}
 
 export default class RestModel extends EmberObject {
   // Overwrite and JSON will be passed through here before `create` and `update`
@@ -34,11 +44,35 @@ export default class RestModel extends EmberObject {
   }
 
   @tracked isSaving = false;
-  @equal("__state", "new") isNew;
-  @equal("__state", "created") isCreated;
 
   primaryKey = "id";
   @tracked __state;
+
+  constructor() {
+    super(...arguments);
+
+    // Defines plugin-registered fields as tracked properties, before the server
+    // payload is assigned. See `addModelField`.
+    applyRegisteredFields(this);
+  }
+
+  init() {
+    super.init(...arguments);
+
+    // Fires `init` callbacks after the create args are assigned, so they see
+    // the initial state. See `addModelCallback`.
+    applyModelCallbacks(modelNameFor(this), "init", this);
+  }
+
+  @dependentKeyCompat
+  get isNew() {
+    return this.__state === "new";
+  }
+
+  @dependentKeyCompat
+  get isCreated() {
+    return this.__state === "created";
+  }
 
   beforeCreate() {}
   afterCreate() {}
@@ -53,11 +87,16 @@ export default class RestModel extends EmberObject {
 
     props = props || this.updateProperties();
 
+    const modelName = modelNameFor(this);
+    mergeSaveProperties(modelName, this, props);
+
     this.beforeUpdate(props);
 
     this.set("isSaving", true);
-    return this.store
-      .update(this.__type, this.get(this.primaryKey), props)
+    return waitForCallbacks(
+      applyModelCallbacks(modelName, "beforeUpdate", this, props),
+      () => this.store.update(this.__type, this.get(this.primaryKey), props)
+    )
       .then((res) => {
         const payload = this.__munge(res.payload || res.responseJson);
 
@@ -70,8 +109,13 @@ export default class RestModel extends EmberObject {
 
         this.setProperties(payload);
         this.afterUpdate(res);
-        res.target = this;
-        return res;
+        return waitForCallbacks(
+          applyModelCallbacks(modelName, "afterUpdate", this, res),
+          () => {
+            res.target = this;
+            return res;
+          }
+        );
       })
       .finally(() => this.set("isSaving", false));
   }
@@ -83,13 +127,18 @@ export default class RestModel extends EmberObject {
 
     props = props || this.createProperties();
 
+    const modelName = modelNameFor(this);
+    mergeSaveProperties(modelName, this, props);
+
     this.beforeCreate(props);
 
     const adapter = this.store.adapterFor(this.__type);
 
     this.set("isSaving", true);
-    return adapter
-      .createRecord(this.store, this.__type, props)
+    return waitForCallbacks(
+      applyModelCallbacks(modelName, "beforeCreate", this, props),
+      () => adapter.createRecord(this.store, this.__type, props)
+    )
       .then((res) => {
         if (!res) {
           throw new Error("Received no data back from createRecord");
@@ -103,8 +152,13 @@ export default class RestModel extends EmberObject {
         }
 
         this.afterCreate(res);
-        res.target = this;
-        return res;
+        return waitForCallbacks(
+          applyModelCallbacks(modelName, "afterCreate", this, res),
+          () => {
+            res.target = this;
+            return res;
+          }
+        );
       })
       .finally(() => this.set("isSaving", false));
   }

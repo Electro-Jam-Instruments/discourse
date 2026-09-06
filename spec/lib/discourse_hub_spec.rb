@@ -3,7 +3,7 @@
 RSpec.describe DiscourseHub do
   describe ".discourse_version_check" do
     it "should return just return the json that the hub returns" do
-      hub_response = { "success" => "OK", "latest_version" => "0.8.1", "critical_updates" => false }
+      hub_response = { "success" => "OK", "latest_version" => "0.8.1" }
 
       stub_request(
         :get,
@@ -125,6 +125,31 @@ RSpec.describe DiscourseHub do
       expect(fake_logger.warnings).to eq([DiscourseHub.response_status_log_message("/test", 500)])
 
       expect(fake_logger.errors).to eq([DiscourseHub.response_body_log_message("")])
+    end
+
+    context "when raise_on_error is true" do
+      it "raises DiscourseHub::Error with the parsed body on non-200 responses" do
+        stub_request(
+          :put,
+          (ENV["HUB_BASE_URL"] || "http://local.hub:3000/api") + "/test",
+        ).to_return(status: 422, body: { "error" => "Nope" }.to_json)
+
+        expect { DiscourseHub.put("/test", {}, raise_on_error: true) }.to raise_error(
+          DiscourseHub::Error,
+        ) do |error|
+          expect(error.status).to eq(422)
+          expect(error.body).to eq("error" => "Nope")
+        end
+      end
+
+      it "returns the parsed body on 200 responses" do
+        stub_request(
+          :put,
+          (ENV["HUB_BASE_URL"] || "http://local.hub:3000/api") + "/test",
+        ).to_return(status: 200, body: { "success" => true }.to_json)
+
+        expect(DiscourseHub.put("/test", {}, raise_on_error: true)).to eq("success" => true)
+      end
     end
   end
 end

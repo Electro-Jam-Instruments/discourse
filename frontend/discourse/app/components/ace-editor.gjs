@@ -1,17 +1,16 @@
 import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
-import { hash } from "@ember/helper";
 import didInsert from "@ember/render-modifiers/modifiers/did-insert";
 import didUpdate from "@ember/render-modifiers/modifiers/did-update";
 import { service } from "@ember/service";
 import { buildWaiter } from "@ember/test-waiters";
 import { modifier } from "ember-modifier";
-import ConditionalLoadingSpinner from "discourse/components/conditional-loading-spinner";
-import concatClass from "discourse/helpers/concat-class";
 import { bind } from "discourse/lib/decorators";
 import { isTesting } from "discourse/lib/environment";
 import loadAce from "discourse/lib/load-ace-editor";
-import grippieDragResize from "discourse/modifiers/grippie-drag-resize";
+import DConditionalLoadingSpinner from "discourse/ui-kit/d-conditional-loading-spinner";
+import DResizeSeparator from "discourse/ui-kit/d-resize-separator";
+import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
 import { i18n } from "discourse-i18n";
 
 const WAITER = buildWaiter("ace-editor");
@@ -63,17 +62,22 @@ export default class AceEditor extends Component {
   @service appEvents;
 
   @tracked isLoading = true;
+
+  /** The resized box, handed to the separator once the editor has built it. */
+  @tracked editorContainer = null;
   editor = null;
   ace = null;
   skipChangePropagation = false;
 
   setContent = modifier(() => {
-    if (this.args.content === this.editor.getSession().getValue()) {
+    const content = this.args.content || "";
+
+    if (content === this.editor.getSession().getValue()) {
       return;
     }
 
     this.skipChangePropagation = true;
-    this.editor.getSession().setValue(this.args.content || "");
+    this.editor.getSession().setValue(content);
     this.skipChangePropagation = false;
 
     const token = WAITER.beginAsync();
@@ -151,6 +155,7 @@ export default class AceEditor extends Component {
 
     this.editor.on("blur", () => this.warnSCSSDeprecations());
 
+    this.editorContainer = this.editor.container;
     this.editor.$blockScrolling = Infinity;
     this.editor.renderer.setScrollMargin(10, 10);
 
@@ -268,12 +273,18 @@ export default class AceEditor extends Component {
 
   @bind
   onResizeDrag(size) {
-    this.editor.container.style.height = `${size}px`;
+    this.editorContainer.classList.add("clear-transitions");
+    this.editorContainer.style.height = `${size}px`;
+  }
+
+  @bind
+  onResizeEnd() {
+    this.editorContainer.classList.remove("clear-transitions");
   }
 
   <template>
     <div class="ace-wrapper">
-      <ConditionalLoadingSpinner @condition={{this.isLoading}} @size="small">
+      <DConditionalLoadingSpinner @condition={{this.isLoading}} @size="small">
         <div
           {{didInsert this.setupAce}}
           {{this.setContent}}
@@ -281,21 +292,22 @@ export default class AceEditor extends Component {
           {{didUpdate this.modeChanged @mode}}
           {{didUpdate this.placeholderChanged @placeholder}}
           {{didUpdate this.changeDisabledState @disabled}}
-          class={{concatClass this.cssClasses}}
+          class={{dConcatClass this.cssClasses}}
           ...attributes
         >
         </div>
         {{#if @resizable}}
-          <div
+          <DResizeSeparator
             class="grippie"
-            {{grippieDragResize
-              ".ace_editor--resizable"
-              "bottom"
-              (hash onThrottledDrag=this.onResizeDrag)
-            }}
-          ></div>
+            @axis="vertical"
+            @side="start"
+            @measure={{this.editorContainer}}
+            @label={{i18n "ace_editor.resize"}}
+            @onResize={{this.onResizeDrag}}
+            @onResizeEnd={{this.onResizeEnd}}
+          />
         {{/if}}
-      </ConditionalLoadingSpinner>
+      </DConditionalLoadingSpinner>
     </div>
   </template>
 }

@@ -46,6 +46,11 @@ TEXT
       expect(plugin_instance.humanized_name).to eq("Sample plugin")
     end
 
+    it "converts underscores in the plugin name to spaces" do
+      plugin_instance.metadata.stubs(:name).returns("docker_manager")
+      expect(plugin_instance.humanized_name).to eq("Docker manager")
+    end
+
     it "removes any Discourse prefix from the setting category name" do
       TranslationOverride.upsert!(
         "en",
@@ -59,12 +64,12 @@ TEXT
 
   describe "find_all" do
     it "can find plugins correctly" do
-      plugins = Plugin::Instance.find_all("#{Rails.root}/spec/fixtures/plugins")
-      expect(plugins.count).to eq(5)
+      plugins = Plugin::Instance.find_all("#{Rails.root.join("spec/fixtures/plugins")}")
+      expect(plugins.count).to eq(6)
       plugin = plugins[3]
 
       expect(plugin.name).to eq("plugin-name")
-      expect(plugin.path).to eq("#{Rails.root}/spec/fixtures/plugins/my_plugin/plugin.rb")
+      expect(plugin.path).to eq("#{Rails.root.join("spec/fixtures/plugins/my_plugin/plugin.rb")}")
 
       plugin.git_repo.stubs(:latest_local_commit).returns("123456")
       plugin.git_repo.stubs(:url).returns("http://github.com/discourse/discourse-plugin")
@@ -75,7 +80,7 @@ TEXT
     end
 
     it "does not blow up on missing directory" do
-      plugins = Plugin::Instance.find_all("#{Rails.root}/frank_zappa")
+      plugins = Plugin::Instance.find_all("#{Rails.root.join("frank_zappa")}")
       expect(plugins.count).to eq(0)
     end
   end
@@ -108,6 +113,9 @@ TEXT
         :participating_users_last_day,
         :participating_users_7_days,
         :participating_users_30_days,
+        # onboarding stats are grouped under their stat type rather than being
+        # flat top-level keys
+        :onboarding,
       )
     end
 
@@ -134,7 +142,7 @@ TEXT
   describe "git repo details" do
     describe ".discourse_owned?" do
       it "returns true if the plugin is on github in discourse-org or discourse orgs" do
-        plugin = Plugin::Instance.find_all("#{Rails.root}/spec/fixtures/plugins")[3]
+        plugin = Plugin::Instance.find_all("#{Rails.root.join("spec/fixtures/plugins")}")[3]
         plugin.git_repo.stubs(:latest_local_commit).returns("123456")
         plugin.git_repo.stubs(:url).returns("http://github.com/discourse/discourse-plugin")
         expect(plugin.discourse_owned?).to eq(true)
@@ -147,13 +155,13 @@ TEXT
       end
 
       it "returns false if the commit_url is missing because of git command issues" do
-        plugin = Plugin::Instance.find_all("#{Rails.root}/spec/fixtures/plugins")[3]
+        plugin = Plugin::Instance.find_all("#{Rails.root.join("spec/fixtures/plugins")}")[3]
         plugin.git_repo.stubs(:latest_local_commit).returns(nil)
         expect(plugin.discourse_owned?).to eq(false)
       end
 
       it "returns false if the commit_url has a nil path" do
-        plugin = Plugin::Instance.find_all("#{Rails.root}/spec/fixtures/plugins")[3]
+        plugin = Plugin::Instance.find_all("#{Rails.root.join("spec/fixtures/plugins")}")[3]
         plugin.git_repo.stubs(:latest_local_commit).returns("123456")
         plugin.git_repo.stubs(:url).returns("invalid://url")
         parsed_url = URI.parse("invalid://url")
@@ -165,7 +173,7 @@ TEXT
 
     describe ".preinstalled?" do
       it "returns true when the plugin directory has no .git directory" do
-        plugin = Plugin::Instance.find_all("#{Rails.root}/spec/fixtures/plugins")[3]
+        plugin = Plugin::Instance.find_all("#{Rails.root.join("spec/fixtures/plugins")}")[3]
         expect(plugin.preinstalled?).to eq(true)
       end
 
@@ -386,11 +394,12 @@ TEXT
   describe "#add_report" do
     after { Report.remove_report("readers") }
 
-    it "adds a report" do
+    it "adds a report with admin-only related items" do
       plugin = Plugin::Instance.new nil, "/tmp/test.rb"
-      plugin.add_report("readers") {}
+      plugin.add_report("readers", admin_only_related_items: true) {}
 
       expect(Report.respond_to?(:report_readers)).to eq(true)
+      expect(Report.admin_only_related_items_report_types).to include("readers")
     end
   end
 
@@ -434,6 +443,7 @@ TEXT
       plugin.register_asset("mobile.css", :mobile)
       plugin.register_asset("desktop.css", :desktop)
       plugin.register_asset("desktop2.css", :desktop)
+      plugin.register_asset("admin.css", :admin)
 
       plugin.activate!
 
@@ -441,6 +451,7 @@ TEXT
       expect(DiscoursePluginRegistry.desktop_stylesheets[plugin.directory_name].count).to eq(2)
       expect(DiscoursePluginRegistry.stylesheets[plugin.directory_name].count).to eq(2)
       expect(DiscoursePluginRegistry.mobile_stylesheets[plugin.directory_name].count).to eq(1)
+      expect(DiscoursePluginRegistry.admin_stylesheets[plugin.directory_name].count).to eq(1)
     end
   end
 
@@ -453,10 +464,12 @@ TEXT
       DiscoursePluginRegistry.serialized_current_user_fields << "has_car"
       user = Fabricate(:user)
       user.custom_fields["has_car"] = "true"
+      user.custom_fields["has_bike"] = "true"
       user.save!
 
       payload = JSON.parse(CurrentUserSerializer.new(user, scope: Guardian.new(user)).to_json)
       expect(payload["current_user"]["custom_fields"]["has_car"]).to eq("true")
+      expect(payload["current_user"]["custom_fields"]).not_to have_key("has_bike")
 
       payload = JSON.parse(UserSerializer.new(user, scope: Guardian.new(user)).to_json)
       expect(payload["user"]["custom_fields"]["has_car"]).to eq("true")
@@ -593,12 +606,12 @@ TEXT
 
       expect(locale[:fallbackLocale]).to eq("pt_BR")
       expect(locale[:moment_js]).to eq(
-        ["pt-br", "#{Rails.root}/frontend/discourse/node_modules/moment/locale/pt-br.js"],
+        ["pt-br", "#{Rails.root.join("frontend/discourse/node_modules/moment/locale/pt-br.js")}"],
       )
       expect(locale[:moment_js_timezones]).to eq(
         [
           "pt",
-          "#{Rails.root}/node_modules/@discourse/moment-timezone-names-translations/locales/pt.js",
+          "#{Rails.root.join("node_modules/@discourse/moment-timezone-names-translations/locales/pt.js")}",
         ],
       )
       expect(locale[:plural]).to be_nil
@@ -614,7 +627,7 @@ TEXT
 
       expect(locale[:fallbackLocale]).to be_nil
       expect(locale[:moment_js]).to eq(
-        ["tlh", "#{Rails.root}/frontend/discourse/node_modules/moment/locale/tlh.js"],
+        ["tlh", "#{Rails.root.join("frontend/discourse/node_modules/moment/locale/tlh.js")}"],
       )
       expect(locale[:plural]).to eq(plural.with_indifferent_access)
 
@@ -989,6 +1002,37 @@ TEXT
     end
   end
 
+  describe "#register_upcoming_change_conditional_display" do
+    let(:plugin) { Plugin::Instance.new }
+
+    before { allow(DiscoursePluginRegistry).to receive(:clear_modifiers!) }
+
+    after do
+      DiscoursePluginRegistry.reset_register!(:upcoming_change_conditional_display_callbacks)
+    end
+
+    it "requires a block" do
+      expect {
+        plugin.register_upcoming_change_conditional_display(:enable_upload_debug_mode)
+      }.to raise_error(ArgumentError, "block is required")
+    end
+
+    it "registers a conditional display callback" do
+      plugin.register_upcoming_change_conditional_display(:enable_upload_debug_mode) { false }
+
+      callback = DiscoursePluginRegistry.upcoming_change_conditional_display_callbacks.first
+      expect(callback[:setting_name]).to eq(:enable_upload_debug_mode)
+      expect(callback[:callback]).to be_a(Proc)
+    end
+
+    it "normalizes setting names to symbols" do
+      plugin.register_upcoming_change_conditional_display("enable_upload_debug_mode") { true }
+
+      callback = DiscoursePluginRegistry.upcoming_change_conditional_display_callbacks.first
+      expect(callback[:setting_name]).to eq(:enable_upload_debug_mode)
+    end
+  end
+
   describe "#register_email_unsubscriber" do
     let(:plugin) { Plugin::Instance.new }
 
@@ -1035,6 +1079,18 @@ TEXT
       plugin.register_stat("some_group") { stats }
       expect(DiscoursePluginRegistry.stats.count).to eq(1)
     end
+
+    it "allows the same name under different stat_types" do
+      stats = { count: 1 }
+      plugin.register_stat("total", stat_type: :foo) { stats }
+      plugin.register_stat("total", stat_type: :bar) { stats }
+      plugin.register_stat("total", stat_type: :foo) { stats }
+
+      expect(DiscoursePluginRegistry.stats.count).to eq(2)
+      expect(Stat.all_stats.with_indifferent_access).to match(
+        hash_including(foo: { total_count: 1 }, bar: { total_count: 1 }),
+      )
+    end
   end
 
   describe "#register_user_destroyer_on_content_deletion_callback" do
@@ -1064,6 +1120,235 @@ TEXT
       UserDestroyer.new(Discourse.system_user).destroy(user, {})
 
       expect(callback_called).to eq(false)
+    end
+  end
+
+  describe "#register_admin_dashboard_report_source" do
+    let(:plugin) { Plugin::Instance.new }
+    let(:fake_provider) do
+      Class.new(AdminDashboard::Reports::SourceProvider) { def self.source_name = "fake_source" }
+    end
+
+    after do
+      DiscoursePluginRegistry._raw_admin_dashboard_report_sources.reject! do |entry|
+        entry[:value] == fake_provider
+      end
+    end
+
+    it "raises when the argument isn't a SourceProvider subclass" do
+      expect { plugin.register_admin_dashboard_report_source(Object) }.to raise_error(
+        ArgumentError,
+        /AdminDashboard::Reports::SourceProvider/,
+      )
+    end
+
+    it "raises when the argument isn't a class at all" do
+      expect { plugin.register_admin_dashboard_report_source("nope") }.to raise_error(
+        ArgumentError,
+        /AdminDashboard::Reports::SourceProvider/,
+      )
+    end
+
+    it "raises when a different provider already claims the source_name" do
+      plugin.register_admin_dashboard_report_source(fake_provider)
+
+      conflicting =
+        Class.new(AdminDashboard::Reports::SourceProvider) { def self.source_name = "fake_source" }
+
+      expect { plugin.register_admin_dashboard_report_source(conflicting) }.to raise_error(
+        ArgumentError,
+        /already registered/,
+      )
+    end
+
+    it "is idempotent when the same class is registered twice (e.g. plugin reload)" do
+      plugin.register_admin_dashboard_report_source(fake_provider)
+
+      expect do plugin.register_admin_dashboard_report_source(fake_provider) end.not_to change {
+        DiscoursePluginRegistry._raw_admin_dashboard_report_sources.count do |entry|
+          entry[:value] == fake_provider
+        end
+      }
+    end
+
+    it "raises against core source_name collisions too" do
+      core_clash =
+        Class.new(AdminDashboard::Reports::SourceProvider) { def self.source_name = "core_report" }
+
+      expect { plugin.register_admin_dashboard_report_source(core_clash) }.to raise_error(
+        ArgumentError,
+        /already registered/,
+      )
+    end
+  end
+
+  describe "#register_homepage" do
+    before { plugin_instance.stubs(:enabled?).returns(true) }
+
+    it "registers a homepage while the plugin is enabled" do
+      plugin_instance.register_homepage(
+        :sample_homepage,
+        name: "sample_plugin.homepage.title",
+        path: "/sample-homepage",
+        route: "sample_plugin/homepage#index",
+        anonymous: true,
+      )
+
+      expect(DiscoursePluginRegistry.homepage_options).to contain_exactly(
+        {
+          id: "sample_homepage",
+          name: "sample_plugin.homepage.title",
+          path: "/sample-homepage",
+          route: "sample_plugin/homepage#index",
+          anonymous: true,
+          server_side: false,
+        },
+      )
+
+      plugin_instance.stubs(:enabled?).returns(false)
+      expect(DiscoursePluginRegistry.homepage_options).to be_empty
+    end
+
+    it "rejects invalid and duplicate registrations" do
+      expect do
+        plugin_instance.register_homepage(
+          "not valid",
+          name: "plugin.homepage",
+          path: "/plugin",
+          route: "plugin#index",
+        )
+      end.to raise_error(ArgumentError, /homepage id/)
+
+      expect do
+        plugin_instance.register_homepage(
+          "latest",
+          name: "plugin.latest",
+          path: "/plugin-latest",
+          route: "plugin#latest",
+        )
+      end.to raise_error(ArgumentError, /already registered/)
+
+      expect do
+        plugin_instance.register_homepage(
+          "other_homepage",
+          name: "plugin.other_homepage",
+          path: "/other",
+          route: "plugin#other",
+          server_side: nil,
+        )
+      end.to raise_error(ArgumentError, /server_side/)
+
+      plugin_instance.register_homepage(
+        "sample_homepage",
+        name: "plugin.homepage",
+        path: "/sample-homepage",
+        route: "plugin#index",
+      )
+
+      expect do
+        plugin_instance.register_homepage(
+          "sample_homepage",
+          name: "plugin.other_homepage",
+          path: "/other",
+          route: "plugin#other",
+        )
+      end.to raise_error(ArgumentError, /already registered/)
+    end
+
+    it "allows distinct IDs that normalize to the same Rails helper name" do
+      plugin_instance.register_homepage(
+        "sample-homepage",
+        name: "plugin.hyphenated",
+        path: "/hyphenated",
+        route: "plugin#hyphenated",
+      )
+      plugin_instance.register_homepage(
+        "sample_homepage",
+        name: "plugin.underscored",
+        path: "/underscored",
+        route: "plugin#underscored",
+      )
+
+      expect(DiscoursePluginRegistry.homepage_options.pluck(:id)).to include(
+        "sample-homepage",
+        "sample_homepage",
+      )
+    end
+  end
+
+  describe "#register_admin_dashboard_section" do
+    let(:plugin) { Plugin::Instance.new }
+
+    after do
+      DiscoursePluginRegistry._raw_admin_dashboard_sections.reject! do |entry|
+        entry[:value][:id] == "fake_section"
+      end
+    end
+
+    it "registers a section without settings" do
+      plugin.register_admin_dashboard_section(id: "fake_section") { {} }
+
+      entry = DiscoursePluginRegistry.admin_dashboard_sections.find { |s| s[:id] == "fake_section" }
+      expect(entry[:settings]).to be_nil
+    end
+
+    it "registers a section with settings, normalizing keys to strings" do
+      setting_class =
+        Class.new do
+          def self.permit
+            [:category_id]
+          end
+
+          def self.validate(attrs)
+            attrs
+          end
+        end
+
+      plugin.register_admin_dashboard_section(
+        id: "fake_section",
+        settings: {
+          category_id: setting_class,
+        },
+      ) { {} }
+
+      entry = DiscoursePluginRegistry.admin_dashboard_sections.find { |s| s[:id] == "fake_section" }
+      expect(entry[:settings]).to eq({ "category_id" => setting_class })
+    end
+
+    it "raises when a setting class doesn't respond to .validate" do
+      setting_class =
+        Class.new do
+          def self.permit
+            []
+          end
+        end
+
+      expect {
+        plugin.register_admin_dashboard_section(
+          id: "fake_section",
+          settings: {
+            "x" => setting_class,
+          },
+        ) { {} }
+      }.to raise_error(ArgumentError, /must respond to .permit and .validate/)
+    end
+
+    it "raises when a setting class doesn't respond to .permit" do
+      setting_class =
+        Class.new do
+          def self.validate(attrs)
+            attrs
+          end
+        end
+
+      expect {
+        plugin.register_admin_dashboard_section(
+          id: "fake_section",
+          settings: {
+            "x" => setting_class,
+          },
+        ) { {} }
+      }.to raise_error(ArgumentError, /must respond to .permit and .validate/)
     end
   end
 
@@ -1109,7 +1394,7 @@ TEXT
         )
       }.to raise_error(
         ArgumentError,
-        "0 is not a valid value. Must be one of RequestTracker::RateLimiters::User, RequestTracker::RateLimiters::IP",
+        "0 is not a valid value. Must be one of RequestTracker::RateLimiters::User, RequestTracker::RateLimiters::HealthCheck, RequestTracker::RateLimiters::IP",
       )
     end
 
@@ -1125,7 +1410,7 @@ TEXT
         )
       }.to raise_error(
         ArgumentError,
-        "0 is not a valid value. Must be one of RequestTracker::RateLimiters::User, RequestTracker::RateLimiters::IP",
+        "0 is not a valid value. Must be one of RequestTracker::RateLimiters::User, RequestTracker::RateLimiters::HealthCheck, RequestTracker::RateLimiters::IP",
       )
     end
 
@@ -1157,11 +1442,15 @@ TEXT
         RequestTracker::RateLimiters::User,
       )
 
-      expect(Middleware::RequestTracker.rate_limiters_stack[1].superclass).to eq(
+      expect(Middleware::RequestTracker.rate_limiters_stack[1]).to eq(
+        RequestTracker::RateLimiters::HealthCheck,
+      )
+
+      expect(Middleware::RequestTracker.rate_limiters_stack[2].superclass).to eq(
         RequestTracker::RateLimiters::Base,
       )
 
-      expect(Middleware::RequestTracker.rate_limiters_stack[2]).to eq(
+      expect(Middleware::RequestTracker.rate_limiters_stack[3]).to eq(
         RequestTracker::RateLimiters::IP,
       )
     end
@@ -1181,10 +1470,14 @@ TEXT
       )
 
       expect(Middleware::RequestTracker.rate_limiters_stack[1]).to eq(
+        RequestTracker::RateLimiters::HealthCheck,
+      )
+
+      expect(Middleware::RequestTracker.rate_limiters_stack[2]).to eq(
         RequestTracker::RateLimiters::IP,
       )
 
-      expect(Middleware::RequestTracker.rate_limiters_stack[2].superclass).to eq(
+      expect(Middleware::RequestTracker.rate_limiters_stack[3].superclass).to eq(
         RequestTracker::RateLimiters::Base,
       )
     end

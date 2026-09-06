@@ -201,6 +201,29 @@ RSpec.describe Admin::EmailController do
             }
         expect(response.status).to eq(200)
       end
+
+      it "does not turn a post attribute into executable HTML" do
+        attacker = Fabricate(:user, trust_level: TrustLevel[1])
+        payload =
+          '<a class="hashtag-cooked" data-slug="&lt;img src=x onerror=alert(1)&gt;">ignored</a>'
+
+        freeze_time 1.day.ago do
+          sign_in(attacker)
+          post "/posts.json", params: { title: "Attacker-created topic", raw: payload }
+          expect(response.status).to eq(200)
+        end
+
+        sign_in(admin)
+        get "/admin/email/preview-digest.json",
+            params: {
+              last_seen_at: 1.week.ago,
+              username: admin.username,
+            }
+
+        expect(response.status).to eq(200)
+        preview = Nokogiri::HTML5.parse(response.parsed_body["html_content"])
+        expect(preview.at_css("img[onerror='alert(1)']")).to be_nil
+      end
     end
 
     shared_examples "preview digest inaccessible" do
@@ -312,7 +335,7 @@ RSpec.describe Admin::EmailController do
         expect(response.body).to eq("email has been received and is queued for processing")
       end
 
-      it "retries enqueueing with forced UTF-8 encoding when encountering Encoding::UndefinedConversionError" do
+      it "normalizes invalid UTF-8 bytes before enqueueing" do
         post "/admin/email/handle_mail.json",
              params: {
                email_encoded: Base64.strict_encode64(email("encoding_undefined_conversion")),

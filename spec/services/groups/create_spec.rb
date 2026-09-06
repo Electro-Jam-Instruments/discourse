@@ -126,6 +126,7 @@ RSpec.describe Groups::Create do
       {
         name: "builders",
         title: "Builders",
+        full_name: "Builders",
         usernames: [member_1.username, member_2.username].join(","),
         owner_usernames: [admin.username].join(","),
       }
@@ -135,6 +136,12 @@ RSpec.describe Groups::Create do
       let(:guardian) { member_1.guardian }
 
       it { is_expected.to fail_a_policy(:can_create_group) }
+    end
+
+    context "when creating a group with access requests and no owner" do
+      let(:params) { { name: "requestable", allow_membership_requests: true, owner_usernames: [] } }
+
+      it { is_expected.to fail_a_policy(:can_request_access) }
     end
 
     context "when data is invalid" do
@@ -165,6 +172,20 @@ RSpec.describe Groups::Create do
 
       it "logs group history" do
         expect { result }.to change { GroupHistory.count }.by(4)
+      end
+
+      it "logs group creation in staff action log" do
+        result
+        expect(
+          UserHistory.where(action: UserHistory.actions[:create_group]).find_by(
+            acting_user_id: admin.id,
+          ),
+        ).to have_attributes(
+          acting_user_id: admin.id,
+          details: ["name: #{group.name}", "full_name: #{group.full_name}", "id: #{group.id}"].join(
+            ", ",
+          ),
+        )
       end
 
       context "when guardian can associate groups" do

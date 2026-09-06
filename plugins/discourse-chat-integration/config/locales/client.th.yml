@@ -8,6 +8,8 @@ th:
   js:
     chat_integration:
       settings: "การตั้งค่า"
+      more_providers: "อื่น"
+      all_categories: "(หมวดหมู่ทั้งหมด)"
       delete_channel: "ลบ"
       edit_channel: "แก้ไข"
       test_modal:
@@ -79,3 +81,7 @@ th:
               label: ข้อความ
             url:
               label: URL
+    discourse_workflows:
+      send_chat_integration_message:
+        channel_id: "ช่องทาง"
+        message: "ข้อความ"

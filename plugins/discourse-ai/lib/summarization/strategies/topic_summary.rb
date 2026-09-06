@@ -4,6 +4,13 @@ module DiscourseAi
   module Summarization
     module Strategies
       class TopicSummary < Base
+        attr_reader :locale
+
+        def initialize(target, locale: nil)
+          @locale = LocaleNormalizer.normalize_to_i18n(locale)&.to_s
+          super(target)
+        end
+
         def type
           AiSummary.summary_types[:complete]
         end
@@ -48,7 +55,6 @@ module DiscourseAi
         end
 
         def as_llm_messages(contents)
-          resource_path = "#{Discourse.base_path}/t/-/#{target.id}"
           content_title = target.title
           category_name = target.category&.name
           # Only include public tags in summaries since summaries are cached and shared across users
@@ -67,13 +73,20 @@ module DiscourseAi
               #{input}
             </input>
 
-            Generate a concise, coherent summary of the text above maintaining the original language.
+            Generate a concise, coherent summary of the text above.
+            #{output_instructions}
           TEXT
         end
 
         private
 
-        attr_reader :topic
+        def output_instructions
+          if locale.present?
+            "Write the summary in #{output_language}, regardless of the language used in the input."
+          else
+            "Maintain the original language."
+          end
+        end
 
         def selected_posts
           target.has_summary? ? best_replies : pick_selection

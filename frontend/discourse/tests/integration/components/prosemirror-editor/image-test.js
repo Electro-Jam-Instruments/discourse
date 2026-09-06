@@ -1,6 +1,19 @@
 import { module, test } from "qunit";
 import { setupRenderingTest } from "discourse/tests/helpers/component-test";
-import { testRenderedMarkdown } from "discourse/tests/helpers/rich-editor-helper";
+import pretender, { response } from "discourse/tests/helpers/create-pretender";
+import {
+  setupRichEditor,
+  testRenderedMarkdown,
+} from "discourse/tests/helpers/rich-editor-helper";
+
+// Dragging an image exposes it as a file, as the browser does.
+function dragEvent(type, target) {
+  const dataTransfer = new DataTransfer();
+  dataTransfer.items.add(new File(["x"], "image.png", { type: "image/png" }));
+  target.dispatchEvent(
+    new DragEvent(type, { dataTransfer, bubbles: true, cancelable: true })
+  );
+}
 
 module(
   "Integration | Component | prosemirror-editor - image extension",
@@ -144,5 +157,54 @@ module(
           .hasAttribute("data-orig-src", "upload://hash");
       })
     );
+
+    test("upload:// image alt text is preserved verbatim across round-trips", async function (assert) {
+      pretender.post("/uploads/lookup-urls", () => response([]));
+      await testRenderedMarkdown(
+        "![_test_file_|100x100](upload://hash)",
+        (a) => {
+          a.dom("img").hasAttribute("alt", "_test_file_");
+        }
+      ).call(this, assert);
+    });
+
+    test("dragging an image within the editor is a move, not an upload", async function (assert) {
+      this.siteSettings.rich_editor = true;
+
+      const [{ view }] = await setupRichEditor(
+        assert,
+        "![alt text](https://example.com/image.jpg)"
+      );
+      const image = view.dom.querySelector("img");
+      let reachedUploadTarget = false;
+      view.dom.parentElement.addEventListener(
+        "drop",
+        () => (reachedUploadTarget = true)
+      );
+
+      dragEvent("dragstart", image);
+      assert.true(!!view.dragging, "the editor owns the drag");
+
+      dragEvent("drop", image);
+      assert.false(reachedUploadTarget, "the drop never reaches the uploader");
+      assert.strictEqual(view.dragging, null, "the editor handled the move");
+    });
+
+    test("a file dropped from outside still reaches the uploader", async function (assert) {
+      this.siteSettings.rich_editor = true;
+
+      const [{ view }] = await setupRichEditor(
+        assert,
+        "![alt text](https://example.com/image.jpg)"
+      );
+      let reachedUploadTarget = false;
+      view.dom.parentElement.addEventListener(
+        "drop",
+        () => (reachedUploadTarget = true)
+      );
+
+      dragEvent("drop", view.dom.querySelector("img"));
+      assert.true(reachedUploadTarget, "the drop reaches the uploader");
+    });
   }
 );

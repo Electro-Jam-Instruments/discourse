@@ -5,11 +5,11 @@ import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
 import { trustHTML } from "@ember/template";
-import DButton from "discourse/components/d-button";
-import DToggleSwitch from "discourse/components/d-toggle-switch";
 import DMenu from "discourse/float-kit/components/d-menu";
 import { MENU } from "discourse/float-kit/lib/constants";
 import withEventValue from "discourse/helpers/with-event-value";
+import DButton from "discourse/ui-kit/d-button";
+import DToggleSwitch from "discourse/ui-kit/d-toggle-switch";
 import DummyComponent from "discourse/plugins/styleguide/discourse/components/dummy-component";
 import StyleguideComponent from "discourse/plugins/styleguide/discourse/components/styleguide/component";
 import Controls from "discourse/plugins/styleguide/discourse/components/styleguide/controls";
@@ -36,38 +36,6 @@ export default class Menus extends Component {
 
   set content(value) {
     this._content = trustHTML(value);
-  }
-
-  get templateCode() {
-    return `<DMenu
-  @label={{html-safe "${this.label}"}}
-  @content={{html-safe "${this.content}"}}
-/>`;
-  }
-
-  get templateCodeContent() {
-    return `<DMenu @maxWidth={{100}}>
-  <:trigger>
-     ${this.label}
-  </:trigger>
-  <:content>
-    ${this.content}
-  </:content>
-</DMenu>`;
-  }
-
-  get serviceCode() {
-    return `this.menu.register(
-  document.queryselector(".my-element"),
-  { content: htmlSafe(${this.content}) }
-);`;
-  }
-
-  get serviceCodeComponent() {
-    return `this.menu.register(
-  document.queryselector(".my-element"),
-  { component: MyComponent, data: { foo: 1 } }
-);`;
   }
 
   @action

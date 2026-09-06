@@ -4,17 +4,20 @@ import { array, concat, hash } from "@ember/helper";
 import { action } from "@ember/object";
 import { LinkTo } from "@ember/routing";
 import { service } from "@ember/service";
-import DBreadcrumbsItem from "discourse/components/d-breadcrumbs-item";
-import DPageHeader from "discourse/components/d-page-header";
 import Form from "discourse/components/form";
-import HorizontalOverflowNav from "discourse/components/horizontal-overflow-nav";
 import AddSynonymsConfirmation from "discourse/components/tag-settings/add-synonyms-confirmation";
 import TagSettingsLocalizations from "discourse/components/tag-settings/localizations";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
+import getURL from "discourse/lib/get-url";
+import { slugify } from "discourse/lib/utilities";
 import MiniTagChooser from "discourse/select-kit/components/mini-tag-chooser";
 import TagDropdown from "discourse/select-kit/components/tag-dropdown";
 import { eq } from "discourse/truth-helpers";
+import DBreadcrumbsItem from "discourse/ui-kit/d-breadcrumbs-item";
+import DHorizontalOverflowNav from "discourse/ui-kit/d-horizontal-overflow-nav";
+import DPageHeader from "discourse/ui-kit/d-page-header";
+import { categoryBadgeHTML } from "discourse/ui-kit/helpers/d-category-link";
 import { i18n } from "discourse-i18n";
 
 export default class TagSettings extends Component {
@@ -23,6 +26,7 @@ export default class TagSettings extends Component {
   @service toasts;
   @service siteSettings;
   @service store;
+  @service appEvents;
 
   @tracked form = null;
   @tracked tags = [];
@@ -97,19 +101,22 @@ export default class TagSettings extends Component {
           ? i18n("tagging.tag_groups_info_prefix.one")
           : i18n("tagging.tag_groups_info_prefix.other");
       const groups = (this.args.tag.tag_groups || [])
-        .map((tg) => `<a href="/tag_groups/${tg.id}">${tg.name}</a>`)
+        .map(
+          (tg) => `<a href="${getURL(`/tag_groups/${tg.id}`)}">${tg.name}</a>`
+        )
         .join(", ");
       parts.push(`${prefix}${groups}.`);
     }
 
     if (this.hasCategories) {
-      const categoriesHtml = this.args.tag.categories
-        .map(
-          (cat) =>
-            `<a href="/c/${cat.slug}/${cat.id}" class="badge-category">${cat.name}</a>`
-        )
-        .join(" ");
-      parts.push(`${i18n("tagging.restricted_to")} ${categoriesHtml}.`);
+      parts.push(
+        i18n("tagging.category_restrictions", {
+          count: this.args.tag.categories.length,
+          categories: this.args.tag.categories
+            .map((cat) => categoryBadgeHTML(cat))
+            .join(" "),
+        })
+      );
     } else if (this.isCategoryRestricted) {
       parts.push(i18n("tagging.category_restricted"));
     }
@@ -157,6 +164,8 @@ export default class TagSettings extends Component {
             this.args.selectedTab
           );
         }
+
+        this.appEvents.trigger("tag-info:updated", result.tag_settings.id);
       }
 
       this.toasts.success({
@@ -215,6 +224,16 @@ export default class TagSettings extends Component {
     return [this.args.tag?.name].filter(Boolean);
   }
 
+  @action
+  validateSlug(name, slug, { addError }) {
+    if (slug?.trim() && slug !== slugify(slug)) {
+      addError(name, {
+        title: i18n("tagging.settings.slug"),
+        message: i18n("tagging.settings.invalid_slug"),
+      });
+    }
+  }
+
   <template>
     <div class="tag-settings">
       <DPageHeader
@@ -263,7 +282,7 @@ export default class TagSettings extends Component {
 
       {{#if this.showLocalizationsTab}}
         <div class="d-nav-submenu">
-          <HorizontalOverflowNav class="d-nav-submenu__tabs">
+          <DHorizontalOverflowNav class="d-nav-submenu__tabs">
             <li>
               <LinkTo
                 @route="tag.edit.tab"
@@ -288,7 +307,7 @@ export default class TagSettings extends Component {
                 {{i18n "tagging.settings.localizations"}}
               </LinkTo>
             </li>
-          </HorizontalOverflowNav>
+          </DHorizontalOverflowNav>
         </div>
       {{/if}}
 
@@ -320,6 +339,7 @@ export default class TagSettings extends Component {
             @type="input"
             @title={{i18n "tagging.settings.slug"}}
             @format="large"
+            @validate={{this.validateSlug}}
             as |field|
           >
             <field.Control
@@ -329,13 +349,13 @@ export default class TagSettings extends Component {
 
           <form.Field
             @name="description"
-            @type="textarea"
+            @type="composer"
             @title={{i18n "tagging.description"}}
             @format="large"
             @validation="length:0,1000"
             as |field|
           >
-            <field.Control @height={{80}} />
+            <field.Control @height={{200}} />
           </form.Field>
 
           <form.Field

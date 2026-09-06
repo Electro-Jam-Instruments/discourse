@@ -18,6 +18,7 @@ RSpec.describe Middleware::RequestTracker do
     ApplicationRequest.enable
     CachedCounting.reset
     CachedCounting.enable
+    SiteSetting.persist_browser_pageview_events = false
   end
 
   after do
@@ -265,6 +266,153 @@ RSpec.describe Middleware::RequestTracker do
       CachedCounting.flush
 
       expect(ApplicationRequest.page_view_anon_browser.first.count).to eq(1)
+    end
+
+    describe "embed mode pageviews" do
+      it "does not leak the initial embed HTML load into the legacy page_view_anon counter" do
+        data =
+          Middleware::RequestTracker.get_data(
+            env(path: "/t/topic-slug/1?embed_mode=true"),
+            ["200", { "Content-Type" => "text/html" }],
+            0.1,
+          )
+        Middleware::RequestTracker.log_request(data)
+        CachedCounting.flush
+
+        expect(ApplicationRequest.page_view_anon.sum(:count)).to eq(0)
+        expect(ApplicationRequest.page_view_embed.sum(:count)).to eq(0)
+      end
+
+      it "counts deferred pageview with embed header as page_view_embed" do
+        data =
+          Middleware::RequestTracker.get_data(
+            env(
+              :path => "/message-bus/abcde/poll",
+              "HTTP_DISCOURSE_TRACK_VIEW_DEFERRED" => "1",
+              "HTTP_DISCOURSE_TRACK_VIEW_EMBED" => "true",
+            ),
+            ["200", { "Content-Type" => "text/html" }],
+            0.1,
+          )
+        Middleware::RequestTracker.log_request(data)
+        CachedCounting.flush
+
+        expect(ApplicationRequest.page_view_embed.first.count).to eq(1)
+        expect(ApplicationRequest.page_view_anon_browser.sum(:count)).to eq(0)
+      end
+
+      it "counts explicit XHR pageview with embed header only once as page_view_embed" do
+        data =
+          Middleware::RequestTracker.get_data(
+            env("HTTP_DISCOURSE_TRACK_VIEW" => "1", "HTTP_DISCOURSE_TRACK_VIEW_EMBED" => "true"),
+            ["200", {}],
+            0.1,
+          )
+        Middleware::RequestTracker.log_request(data)
+        CachedCounting.flush
+
+        expect(ApplicationRequest.page_view_embed.first.count).to eq(1)
+        expect(ApplicationRequest.page_view_anon.sum(:count)).to eq(0)
+        expect(ApplicationRequest.page_view_anon_browser.sum(:count)).to eq(0)
+      end
+
+      it "does not defer a topic view for embed browser pageviews" do
+        TopicsController.expects(:defer_topic_view).never
+        data =
+          Middleware::RequestTracker.get_data(
+            env(
+              "HTTP_DISCOURSE_TRACK_VIEW" => "1",
+              "HTTP_DISCOURSE_TRACK_VIEW_EMBED" => "true",
+              "HTTP_DISCOURSE_TRACK_VIEW_TOPIC_ID" => "42",
+            ),
+            ["200", {}],
+            0.1,
+          )
+        Middleware::RequestTracker.log_request(data)
+      end
+
+      it "counts embed views from the beacon instead of the piggyback when beacons are enabled" do
+        SiteSetting.dashboard_improvements = true
+        SiteSetting.trigger_browser_pageview_events = true
+        body = {
+          session_id: "abc",
+          url: "https://example.com/t/slug/1",
+          referrer: "https://host.example/page",
+          embed: true,
+        }.to_json
+
+        data =
+          Middleware::RequestTracker.get_data(
+            env(
+              "REQUEST_METHOD" => "POST",
+              :path => Discourse.beacon_pv_tracking_path,
+              "rack.input" => StringIO.new(body),
+            ),
+            ["204", {}],
+            0.1,
+          )
+        Middleware::RequestTracker.log_request(data)
+
+        piggyback_data =
+          Middleware::RequestTracker.get_data(
+            env("HTTP_DISCOURSE_TRACK_VIEW" => "1", "HTTP_DISCOURSE_TRACK_VIEW_EMBED" => "true"),
+            ["200", {}],
+            0.1,
+          )
+        Middleware::RequestTracker.log_request(piggyback_data)
+        CachedCounting.flush
+
+        expect(data[:is_embed]).to eq(true)
+        expect(piggyback_data[:is_embed]).to eq(true)
+        expect(ApplicationRequest.page_view_embed.sum(:count)).to eq(1)
+        expect(ApplicationRequest.page_view_anon_browser_beacon.sum(:count)).to eq(0)
+      end
+
+      it "survives requests with a missing or unreadable body" do
+        # POST without a rack.input must not raise while detecting `is_embed` —
+        # we only care about the query string, not the body.
+        expect {
+          Middleware::RequestTracker.get_data(
+            env(
+              "REQUEST_METHOD" => "POST",
+              :path => "/srv/something?embed_mode=true",
+              "rack.input" => nil,
+            ),
+            ["200", {}],
+            0.1,
+          )
+        }.not_to raise_error
+      end
+
+      it "survives malformed query strings while detecting embed mode" do
+        data = nil
+        expect {
+          data =
+            Middleware::RequestTracker.get_data(
+              env(path: "/?foo=1&foo%5B1%5D=2"),
+              ["200", { "Content-Type" => "text/html" }],
+              0.1,
+            )
+        }.not_to raise_error
+        expect(data[:is_embed]).to eq(false)
+      end
+
+      it "still counts crawlers as page_view_crawler even on embed URLs" do
+        data =
+          Middleware::RequestTracker.get_data(
+            env(
+              :path => "/t/topic-slug/1?embed_mode=true",
+              "HTTP_USER_AGENT" => "AdsBot-Google (+http://www.google.com/adsbot.html)",
+            ),
+            ["200", { "Content-Type" => "text/html" }],
+            0.1,
+          )
+        Middleware::RequestTracker.log_request(data)
+        CachedCounting.flush
+
+        expect(ApplicationRequest.page_view_crawler.first.count).to eq(1)
+        expect(ApplicationRequest.page_view_embed.sum(:count)).to eq(0)
+      end
     end
 
     it "logs API requests correctly" do
@@ -593,10 +741,15 @@ RSpec.describe Middleware::RequestTracker do
     end
 
     describe "browser_pageview event" do
+      def log_browser_pageview(data)
+        Middleware::RequestTracker.new(lambda { |env| [200, {}, ["OK"]] }).log_later(data, {}, nil)
+      end
+
       context "when SiteSetting.trigger_browser_pageview_events is true" do
         before { SiteSetting.trigger_browser_pageview_events = true }
         it "triggers event for anonymous user page views when `login_required` site setting is false" do
           session_id = "xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx"
+          DiscourseIpInfo.stubs(:get).returns(country_code: "AU")
 
           data =
             Middleware::RequestTracker.get_data(
@@ -610,10 +763,7 @@ RSpec.describe Middleware::RequestTracker do
               0.2,
             )
 
-          events =
-            DiscourseEvent.track_events(:browser_pageview) do
-              Middleware::RequestTracker.log_request(data)
-            end
+          events = DiscourseEvent.track_events(:browser_pageview) { log_browser_pageview(data) }
 
           expect(events.length).to eq(1)
           event = events[0][:params].first
@@ -622,6 +772,7 @@ RSpec.describe Middleware::RequestTracker do
           expect(event[:url]).to eq("https://discourse.org")
           expect(event[:referrer]).to eq("https://example.com")
           expect(event).to have_key(:ip_address)
+          expect(event[:country_code]).to eq("AU")
           expect(event[:user_agent]).to be_present
         end
 
@@ -641,10 +792,7 @@ RSpec.describe Middleware::RequestTracker do
               0.2,
             )
 
-          events =
-            DiscourseEvent.track_events(:browser_pageview) do
-              Middleware::RequestTracker.log_request(data)
-            end
+          events = DiscourseEvent.track_events(:browser_pageview) { log_browser_pageview(data) }
 
           expect(events).to be_empty
         end
@@ -665,10 +813,7 @@ RSpec.describe Middleware::RequestTracker do
               0.2,
             )
 
-          events =
-            DiscourseEvent.track_events(:browser_pageview) do
-              Middleware::RequestTracker.log_request(data)
-            end
+          events = DiscourseEvent.track_events(:browser_pageview) { log_browser_pageview(data) }
 
           expect(events.length).to eq(1)
           event = events[0][:params].first
@@ -681,6 +826,7 @@ RSpec.describe Middleware::RequestTracker do
 
         it "triggers event for logged-in user page views" do
           user = Fabricate(:user, active: true)
+          DiscourseIpInfo.stubs(:get).returns(country_code: "DE")
           token = UserAuthToken.generate!(user_id: user.id)
           cookie =
             create_auth_cookie(
@@ -702,10 +848,7 @@ RSpec.describe Middleware::RequestTracker do
               0.2,
             )
 
-          events =
-            DiscourseEvent.track_events(:browser_pageview) do
-              Middleware::RequestTracker.log_request(data)
-            end
+          events = DiscourseEvent.track_events(:browser_pageview) { log_browser_pageview(data) }
 
           expect(events.length).to eq(1)
           event = events[0][:params].first
@@ -713,6 +856,7 @@ RSpec.describe Middleware::RequestTracker do
           expect(event[:url]).to eq("https://discourse.org")
           expect(event[:referrer]).to eq("https://example.com")
           expect(event).to have_key(:ip_address)
+          expect(event[:country_code]).to eq("DE")
           expect(event[:user_agent]).to be_present
         end
 
@@ -724,10 +868,7 @@ RSpec.describe Middleware::RequestTracker do
               0.2,
             )
 
-          events =
-            DiscourseEvent.track_events(:browser_pageview) do
-              Middleware::RequestTracker.log_request(data)
-            end
+          events = DiscourseEvent.track_events(:browser_pageview) { log_browser_pageview(data) }
 
           expect(events.length).to eq(0)
         end
@@ -749,13 +890,423 @@ RSpec.describe Middleware::RequestTracker do
               0.2,
             )
 
-          events =
-            DiscourseEvent.track_events(:browser_pageview) do
-              Middleware::RequestTracker.log_request(data)
-            end
+          events = DiscourseEvent.track_events(:browser_pageview) { log_browser_pageview(data) }
 
           expect(events.length).to eq(0)
         end
+      end
+
+      context "when SiteSetting.persist_browser_pageview_events is true" do
+        before do
+          SiteSetting.persist_browser_pageview_events = true
+          BrowserPageviewEvent.clear_queued!
+          Discourse.clear_readonly!
+        end
+
+        after do
+          BrowserPageviewEvent.clear_queued!
+          Discourse.clear_readonly!
+        end
+
+        def flush_browser_pageview_events
+          Jobs::FlushBrowserPageviewEvents.new.execute({})
+        end
+
+        it "creates a BrowserPageviewEvent row and does not fire the :browser_pageview event" do
+          session_id = "xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx"
+          DiscourseIpInfo.stubs(:get).returns(country_code: "AU")
+
+          data =
+            Middleware::RequestTracker.get_data(
+              env(
+                "HTTP_DISCOURSE_TRACK_VIEW" => "1",
+                "HTTP_DISCOURSE_TRACK_VIEW_SESSION_ID" => session_id,
+                "HTTP_DISCOURSE_TRACK_VIEW_URL" => "https://discourse.org",
+                "HTTP_DISCOURSE_TRACK_VIEW_REFERRER" => "https://example.com",
+                "action_dispatch.remote_ip" => "1.2.3.4",
+              ),
+              ["200", { "Content-Type" => "text/html" }],
+              0.2,
+            )
+
+          events =
+            DiscourseEvent.track_events(:browser_pageview) do
+              expect { log_browser_pageview(data) }.to change { BrowserPageviewEvent.count }.by(1)
+            end
+
+          expect(events).to be_empty
+          expect(BrowserPageviewEvent.queued_count).to eq(0)
+
+          event = BrowserPageviewEvent.last
+          expect(event.session_id).to eq(session_id)
+          expect(event.url).to eq("https://discourse.org")
+          expect(event.referrer).to eq("https://example.com")
+          expect(event.country_code).to eq("AU")
+          expect(event.user_agent).to be_present
+          expect(event.ip_address.to_s).to eq("1.2.3.4")
+          expect(BrowserPageviewEvent.sources[event.source]).to eq(
+            BrowserPageviewEvent::SOURCE_PIGGYBACK,
+          )
+        end
+
+        it "skips persisted browser pageviews without a URL" do
+          session_id = "xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx"
+
+          data =
+            Middleware::RequestTracker.get_data(
+              env(
+                "HTTP_DISCOURSE_TRACK_VIEW_DEFERRED" => "1",
+                "HTTP_DISCOURSE_TRACK_VIEW_SESSION_ID" => session_id,
+                "action_dispatch.remote_ip" => "1.2.3.4",
+              ),
+              ["204", {}],
+              0.2,
+            )
+
+          expect { Middleware::RequestTracker.log_request(data) }.not_to change {
+            BrowserPageviewEvent.count
+          }
+        end
+
+        it "populates normalized_referrer via BrowserPageviewEventUrlNormalizer" do
+          session_id = "xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx"
+
+          data =
+            Middleware::RequestTracker.get_data(
+              env(
+                "HTTP_DISCOURSE_TRACK_VIEW" => "1",
+                "HTTP_DISCOURSE_TRACK_VIEW_SESSION_ID" => session_id,
+                "HTTP_DISCOURSE_TRACK_VIEW_URL" => "https://discourse.org",
+                "HTTP_DISCOURSE_TRACK_VIEW_REFERRER" => "https://www.example.com/path?utm_source=x",
+                "action_dispatch.remote_ip" => "1.2.3.4",
+              ),
+              ["200", { "Content-Type" => "text/html" }],
+              0.2,
+            )
+
+          log_browser_pageview(data)
+
+          event = BrowserPageviewEvent.last
+          expect(event.referrer).to eq("https://www.example.com/path?utm_source=x")
+          expect(event.normalized_referrer).to eq("example.com/path")
+          expect(event.normalized_referrer_version).to eq(
+            BrowserPageviewEventUrlNormalizer::REFERRER_VERSION,
+          )
+        end
+
+        it "stores nil normalized_referrer when the referrer is blank" do
+          session_id = "xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx"
+
+          data =
+            Middleware::RequestTracker.get_data(
+              env(
+                "HTTP_DISCOURSE_TRACK_VIEW" => "1",
+                "HTTP_DISCOURSE_TRACK_VIEW_SESSION_ID" => session_id,
+                "HTTP_DISCOURSE_TRACK_VIEW_URL" => "https://discourse.org",
+                "action_dispatch.remote_ip" => "1.2.3.4",
+              ),
+              ["200", { "Content-Type" => "text/html" }],
+              0.2,
+            )
+
+          log_browser_pageview(data)
+
+          event = BrowserPageviewEvent.last
+          expect(event.normalized_referrer).to be_nil
+        end
+
+        it "takes precedence even when trigger_browser_pageview_events is also true" do
+          SiteSetting.trigger_browser_pageview_events = true
+          session_id = "xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx"
+
+          data =
+            Middleware::RequestTracker.get_data(
+              env(
+                "HTTP_DISCOURSE_TRACK_VIEW" => "1",
+                "HTTP_DISCOURSE_TRACK_VIEW_SESSION_ID" => session_id,
+                "HTTP_DISCOURSE_TRACK_VIEW_URL" => "https://discourse.org",
+                "action_dispatch.remote_ip" => "1.2.3.4",
+              ),
+              ["200", { "Content-Type" => "text/html" }],
+              0.2,
+            )
+
+          events =
+            DiscourseEvent.track_events(:browser_pageview) do
+              expect { log_browser_pageview(data) }.to change { BrowserPageviewEvent.count }.by(1)
+            end
+
+          expect(events).to be_empty
+        end
+
+        it "queues browser pageviews while PostgreSQL is readonly" do
+          session_id = "xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx"
+          Discourse.enable_readonly_mode(Discourse::PG_READONLY_MODE_KEY)
+
+          data =
+            Middleware::RequestTracker.get_data(
+              env(
+                "HTTP_DISCOURSE_TRACK_VIEW" => "1",
+                "HTTP_DISCOURSE_TRACK_VIEW_SESSION_ID" => session_id,
+                "HTTP_DISCOURSE_TRACK_VIEW_URL" => "https://discourse.org",
+                "action_dispatch.remote_ip" => "1.2.3.4",
+              ),
+              ["200", { "Content-Type" => "text/html" }],
+              0.2,
+            )
+
+          expect { log_browser_pageview(data) }.not_to change { BrowserPageviewEvent.count }
+          expect(BrowserPageviewEvent.queued_count).to eq(1)
+
+          Discourse.disable_readonly_mode(Discourse::PG_READONLY_MODE_KEY)
+
+          expect { flush_browser_pageview_events }.to change { BrowserPageviewEvent.count }.by(1)
+          expect(BrowserPageviewEvent.queued_count).to eq(0)
+        end
+      end
+    end
+  end
+
+  describe "beacon pageview tracking via /srv/pv" do
+    before do
+      SiteSetting.dashboard_improvements = true
+      SiteSetting.trigger_browser_pageview_events = true
+      freeze_time
+      ApplicationRequest.clear_cache!
+    end
+
+    def beacon_env(body_hash, extra = {})
+      json_body = JSON.generate(body_hash)
+      env(
+        {
+          :path => "/srv/pv",
+          "HTTP_HOST" => "test.localhost",
+          "REQUEST_METHOD" => "POST",
+          "CONTENT_TYPE" => "application/json",
+          "rack.input" => StringIO.new(json_body),
+        }.merge(extra),
+      )
+    end
+
+    let(:same_origin) { { "HTTP_ORIGIN" => "http://test.localhost" } }
+
+    it "returns 204 and does not call the app" do
+      app_called = false
+      middleware =
+        Middleware::RequestTracker.new(
+          lambda do |env|
+            app_called = true
+            [200, {}, ["OK"]]
+          end,
+        )
+      status, = middleware.call(beacon_env({}, same_origin))
+
+      expect(status).to eq(204)
+      expect(app_called).to eq(false)
+    end
+
+    it "returns 204 for beacon requests in a subfolder setup" do
+      set_subfolder "/forum"
+      middleware = Middleware::RequestTracker.new(lambda { |env| [200, {}, ["OK"]] })
+      status, = middleware.call(beacon_env({}, same_origin.merge(path: "/forum/srv/pv")))
+
+      expect(status).to eq(204)
+    end
+
+    it "handles malformed JSON body gracefully" do
+      middleware = Middleware::RequestTracker.new(lambda { |env| [200, {}, ["OK"]] })
+      status, =
+        middleware.call(
+          env(
+            :path => "/srv/pv",
+            "HTTP_HOST" => "test.localhost",
+            "HTTP_ORIGIN" => "http://test.localhost",
+            "REQUEST_METHOD" => "POST",
+            "CONTENT_TYPE" => "application/json",
+            "rack.input" => StringIO.new("not json"),
+          ),
+        )
+
+      expect(status).to eq(204)
+    end
+
+    it "increments beacon-specific counters and fires beacon event with correct data" do
+      SiteSetting.trigger_browser_pageview_events = true
+      DiscourseIpInfo.stubs(:get).returns(country_code: "US")
+      middleware = Middleware::RequestTracker.new(lambda { |env| [200, {}, ["OK"]] })
+      language = "en-US"
+
+      events =
+        DiscourseEvent.track_events(:beacon_browser_pageview) do
+          middleware.call(
+            beacon_env(
+              {
+                url: "https://test.com/t/topic/123",
+                referrer: "https://test.com/",
+                language:,
+                session_id: "abc123",
+                topic_id: 123,
+              },
+              same_origin,
+            ),
+          )
+        end
+
+      CachedCounting.flush
+
+      expect(ApplicationRequest.page_view_anon_browser_beacon.first.count).to eq(1)
+      expect(ApplicationRequest.page_view_anon.first).to be_nil
+      expect(ApplicationRequest.page_view_anon_browser.first).to be_nil
+
+      event = events[0][:params].last
+      expect(event[:url]).to eq("https://test.com/t/topic/123")
+      expect(event[:referrer]).to eq("https://test.com/")
+      expect(event[:language]).to eq(language)
+      expect(event[:session_id]).to eq("abc123")
+      expect(event[:topic_id]).to eq(123)
+      expect(event[:country_code]).to eq("US")
+      expect(event[:user_agent]).to eq(
+        "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36",
+      )
+    end
+
+    it "persists beacon pageviews to browser_pageview_events with beacon source" do
+      SiteSetting.persist_browser_pageview_events = true
+      DiscourseIpInfo.stubs(:get).returns(country_code: "US")
+      middleware = Middleware::RequestTracker.new(lambda { |env| [200, {}, ["OK"]] })
+
+      expect {
+        middleware.call(
+          beacon_env(
+            {
+              url: "https://test.com/t/topic/123",
+              referrer: "https://test.com/",
+              language: "en-US",
+              session_id: "abc123",
+              topic_id: 123,
+            },
+            same_origin.merge("action_dispatch.remote_ip" => "1.2.3.4"),
+          ),
+        )
+      }.to change { BrowserPageviewEvent.count }.by(1)
+
+      event = BrowserPageviewEvent.last
+      expect(event.url).to eq("https://test.com/t/topic/123")
+      expect(event.referrer).to eq("https://test.com/")
+      expect(event.language).to eq("en-US")
+      expect(event.session_id).to eq("abc123")
+      expect(event.topic_id).to eq(123)
+      expect(event.country_code).to eq("US")
+      expect(event.ip_address.to_s).to eq("1.2.3.4")
+      expect(event.source).to eq("beacon")
+    end
+
+    it "increments legacy and BPV counters from non-beacon requests" do
+      middleware = Middleware::RequestTracker.new(lambda { |env| [200, {}, ["OK"]] })
+      middleware.call(env("HTTP_DISCOURSE_TRACK_VIEW" => "1"))
+      CachedCounting.flush
+
+      expect(ApplicationRequest.page_view_anon.first.count).to eq(1)
+      expect(ApplicationRequest.page_view_anon_browser.first.count).to eq(1)
+
+      expect(ApplicationRequest.page_view_anon_browser_beacon.first).to be_nil
+    end
+
+    it "skips beacon page view when the remote IP resolves to a crawler ASN" do
+      DiscourseIpInfo.stubs(:get).returns({ asn: SiteSetting.crawler_asns_map.first.to_i })
+      middleware = Middleware::RequestTracker.new(lambda { |env| [200, {}, ["OK"]] })
+      middleware.call(beacon_env({}, same_origin.merge("action_dispatch.remote_ip" => "1.2.3.4")))
+      CachedCounting.flush
+
+      expect(ApplicationRequest.page_view_anon_browser_beacon.first).to be_nil
+    end
+
+    it "counts beacon page view when the remote IP is not a crawler ASN" do
+      DiscourseIpInfo.stubs(:get).returns({ asn: 1 })
+      middleware = Middleware::RequestTracker.new(lambda { |env| [200, {}, ["OK"]] })
+      middleware.call(beacon_env({}, same_origin.merge("action_dispatch.remote_ip" => "1.2.3.4")))
+      CachedCounting.flush
+
+      expect(ApplicationRequest.page_view_anon_browser_beacon.first.count).to eq(1)
+    end
+
+    it "returns 403 for cross-origin beacon requests" do
+      middleware = Middleware::RequestTracker.new(lambda { |env| [200, {}, ["OK"]] })
+      status, = middleware.call(beacon_env({}, { "HTTP_ORIGIN" => "https://evil.example" }))
+      CachedCounting.flush
+
+      expect(status).to eq(403)
+      expect(ApplicationRequest.page_view_anon_browser_beacon.first).to be_nil
+    end
+
+    it "returns 403 when Origin and Referer are both absent" do
+      middleware = Middleware::RequestTracker.new(lambda { |env| [200, {}, ["OK"]] })
+      status, = middleware.call(beacon_env({}))
+      CachedCounting.flush
+
+      expect(status).to eq(403)
+      expect(ApplicationRequest.page_view_anon_browser_beacon.first).to be_nil
+    end
+
+    it "returns 403 when Origin matches the request Host but differs from the canonical hostname" do
+      SiteSetting.force_hostname = "canonical.example"
+      middleware = Middleware::RequestTracker.new(lambda { |env| [200, {}, ["OK"]] })
+      status, =
+        middleware.call(
+          beacon_env({}, { "HTTP_HOST" => "evil.example", "HTTP_ORIGIN" => "http://evil.example" }),
+        )
+      CachedCounting.flush
+
+      expect(status).to eq(403)
+      expect(ApplicationRequest.page_view_anon_browser_beacon.first).to be_nil
+    end
+
+    it "accepts beacon when Origin is absent but Referer is same-origin" do
+      middleware = Middleware::RequestTracker.new(lambda { |env| [200, {}, ["OK"]] })
+      status, =
+        middleware.call(beacon_env({}, { "HTTP_REFERER" => "http://test.localhost/some/page" }))
+
+      expect(status).to eq(204)
+    end
+
+    context "when dashboard_improvements is disabled" do
+      before { SiteSetting.dashboard_improvements = false }
+
+      it "returns the app's response for beacon requests instead of 204" do
+        app_called = false
+        middleware =
+          Middleware::RequestTracker.new(
+            lambda do |env|
+              app_called = true
+              [404, {}, ["unknown app path"]]
+            end,
+          )
+        status, = middleware.call(beacon_env({}))
+
+        expect(status).to eq(404)
+        expect(app_called).to eq(true)
+      end
+    end
+
+    context "when browser pageview persistence and events are disabled" do
+      before do
+        SiteSetting.persist_browser_pageview_events = false
+        SiteSetting.trigger_browser_pageview_events = false
+      end
+
+      it "returns the app's response for beacon requests instead of 204" do
+        app_called = false
+        middleware =
+          Middleware::RequestTracker.new(
+            lambda do |env|
+              app_called = true
+              [404, {}, ["unknown app path"]]
+            end,
+          )
+        status, = middleware.call(beacon_env({}))
+
+        expect(status).to eq(404)
+        expect(app_called).to eq(true)
       end
     end
   end
@@ -855,6 +1406,46 @@ RSpec.describe Middleware::RequestTracker do
         expect(status).to eq(200)
 
         status, _ = middleware.call(env2)
+        expect(status).to eq(200)
+      end
+    end
+
+    describe "health check rate limits" do
+      def health_check_env(ip, subfolder: nil)
+        request_env = env(:path => "#{subfolder}/srv/status", "REMOTE_ADDR" => ip)
+        request_env.merge!("SCRIPT_NAME" => subfolder, "PATH_INFO" => "/srv/status") if subfolder
+        request_env
+      end
+
+      before do
+        global_setting :max_reqs_per_ip_per_10_seconds, 1
+        global_setting :max_reqs_per_ip_mode, "block"
+      end
+
+      it "gives each backend its own budget in subfolder installs" do
+        Discourse.stubs(:os_hostname).returns("backend-1")
+        status, _ = middleware.call(health_check_env("1.2.3.4", subfolder: "/forum"))
+        expect(status).to eq(200)
+
+        Discourse.stubs(:os_hostname).returns("backend-2")
+        status, _ = middleware.call(health_check_env("1.2.3.4", subfolder: "/forum"))
+        expect(status).to eq(200)
+
+        Discourse.stubs(:os_hostname).returns("backend-1")
+        status, headers = middleware.call(health_check_env("1.2.3.4", subfolder: "/forum"))
+        expect(status).to eq(429)
+        expect(headers["Discourse-Rate-Limit-Error-Code"]).to eq("health_check_10_secs_limit")
+      end
+
+      it "keeps other paths on a separate rate limit budget" do
+        status, _ = middleware.call(health_check_env("1.2.3.4"))
+        expect(status).to eq(200)
+
+        status, headers = middleware.call(health_check_env("1.2.3.4"))
+        expect(status).to eq(429)
+        expect(headers["Discourse-Rate-Limit-Error-Code"]).to eq("health_check_10_secs_limit")
+
+        status, _ = middleware.call(env("REMOTE_ADDR" => "1.2.3.4"))
         expect(status).to eq(200)
       end
     end
@@ -1418,9 +2009,179 @@ RSpec.describe Middleware::RequestTracker do
       app = lambda { |env| raise RateLimiter::LimitExceeded, 1 }
       tracker = Middleware::RequestTracker.new(app)
       expect { tracker.call(env) }.to raise_error(RateLimiter::LimitExceeded)
+
       CachedCounting.flush
-      expect(ApplicationRequest.stats).to include("http_total_total" => 1)
+      expect(ApplicationRequest.stats["http_total_total"]).to eq(1)
       expect(fake_logger.warnings).to be_empty
+    end
+  end
+
+  describe "session engagement tracking via /srv/se" do
+    before { SiteSetting.persist_browser_pageview_events = true }
+
+    def engagement_env(body_hash, extra = {})
+      env(
+        {
+          :path => "/srv/se",
+          "HTTP_HOST" => "test.localhost",
+          "REQUEST_METHOD" => "POST",
+          "CONTENT_TYPE" => "application/json",
+          "rack.input" => StringIO.new(JSON.generate(body_hash)),
+        }.merge(extra),
+      )
+    end
+
+    let(:same_origin) { { "HTTP_ORIGIN" => "http://test.localhost" } }
+    let(:payload) do
+      {
+        session_id: "sess-1",
+        mouse_move_events: 12,
+        click_events: 3,
+        key_events: 5,
+        scroll_events: 7,
+        touch_events: 0,
+        back_forward_events: 1,
+        engaged_seconds: 420,
+        time_to_first_interaction_ms: 800,
+      }
+    end
+
+    it "returns 204 and inserts the row for a same-origin request" do
+      middleware = Middleware::RequestTracker.new(lambda { |_env| [200, {}, ["OK"]] })
+
+      expect {
+        status, = middleware.call(engagement_env(payload, same_origin))
+        expect(status).to eq(204)
+      }.to change { BrowserPageviewSessionEngagement.count }.by(1)
+
+      row = BrowserPageviewSessionEngagement.find_by(session_id: "sess-1")
+      expect(row.mouse_move_events).to eq(12)
+      expect(row.back_forward_events).to eq(1)
+      expect(row.engaged_seconds).to eq(420)
+      expect(row.time_to_first_interaction_ms).to eq(800)
+    end
+
+    it "updates the existing row on a later snapshot for the same session" do
+      middleware = Middleware::RequestTracker.new(lambda { |_env| [200, {}, ["OK"]] })
+      middleware.call(engagement_env(payload, same_origin))
+
+      later = payload.merge(mouse_move_events: 40, engaged_seconds: 900)
+
+      expect { middleware.call(engagement_env(later, same_origin)) }.not_to change {
+        BrowserPageviewSessionEngagement.count
+      }
+
+      row = BrowserPageviewSessionEngagement.find_by(session_id: "sess-1")
+      expect(row.mouse_move_events).to eq(40)
+      expect(row.engaged_seconds).to eq(900)
+    end
+
+    it "returns 403 and writes nothing for a cross-origin request" do
+      middleware = Middleware::RequestTracker.new(lambda { |_env| [200, {}, ["OK"]] })
+
+      expect {
+        status, = middleware.call(engagement_env(payload, "HTTP_ORIGIN" => "https://evil.example"))
+        expect(status).to eq(403)
+      }.not_to change { BrowserPageviewSessionEngagement.count }
+    end
+
+    it "handles a malformed JSON body without writing a row" do
+      middleware = Middleware::RequestTracker.new(lambda { |_env| [200, {}, ["OK"]] })
+
+      expect {
+        status, =
+          middleware.call(engagement_env({}, same_origin).merge("rack.input" => StringIO.new("x")))
+        expect(status).to eq(204)
+      }.not_to change { BrowserPageviewSessionEngagement.count }
+    end
+
+    it "ignores a parseable JSON body that is not an object" do
+      middleware = Middleware::RequestTracker.new(lambda { |_env| [200, {}, ["OK"]] })
+
+      expect {
+        status, =
+          middleware.call(
+            engagement_env({}, same_origin).merge("rack.input" => StringIO.new("[1,2,3]")),
+          )
+        expect(status).to eq(204)
+      }.not_to change { BrowserPageviewSessionEngagement.count }
+    end
+
+    it "coerces string and float metric values to integers" do
+      middleware = Middleware::RequestTracker.new(lambda { |_env| [200, {}, ["OK"]] })
+
+      middleware.call(
+        engagement_env(payload.merge(click_events: "9", engaged_seconds: 1234.9), same_origin),
+      )
+
+      expect(BrowserPageviewSessionEngagement.find_by(session_id: "sess-1")).to have_attributes(
+        click_events: 9,
+        engaged_seconds: 1234,
+      )
+    end
+
+    it "treats a null or blank time to first interaction as null rather than zero" do
+      middleware = Middleware::RequestTracker.new(lambda { |_env| [200, {}, ["OK"]] })
+
+      [nil, ""].each do |value|
+        middleware.call(
+          engagement_env(payload.merge(time_to_first_interaction_ms: value), same_origin),
+        )
+
+        expect(
+          BrowserPageviewSessionEngagement.find_by(
+            session_id: "sess-1",
+          ).time_to_first_interaction_ms,
+        ).to be_nil
+      end
+    end
+
+    it "discards malformed-but-parseable payloads instead of raising in the deferred write" do
+      middleware = Middleware::RequestTracker.new(lambda { |_env| [200, {}, ["OK"]] })
+
+      [
+        payload.merge(session_id: 123),
+        payload.merge(mouse_move_events: { "x" => 1 }),
+        payload.merge(mouse_move_events: 9_999_999_999),
+      ].each do |malformed|
+        expect {
+          status, = middleware.call(engagement_env(malformed, same_origin))
+          expect(status).to eq(204)
+        }.not_to change { BrowserPageviewSessionEngagement.count }
+      end
+    end
+
+    it "clamps engaged seconds to the configured maximum" do
+      SiteSetting.browser_pageview_max_engaged_seconds = 60
+      middleware = Middleware::RequestTracker.new(lambda { |_env| [200, {}, ["OK"]] })
+
+      middleware.call(engagement_env(payload.merge(engaged_seconds: 5000), same_origin))
+
+      expect(BrowserPageviewSessionEngagement.find_by(session_id: "sess-1").engaged_seconds).to eq(
+        60,
+      )
+    end
+
+    it "writes nothing when the database is in readonly mode" do
+      Discourse.stubs(:pg_readonly_mode?).returns(true)
+      middleware = Middleware::RequestTracker.new(lambda { |_env| [200, {}, ["OK"]] })
+
+      expect {
+        status, = middleware.call(engagement_env(payload, same_origin))
+        expect(status).to eq(204)
+      }.not_to change { BrowserPageviewSessionEngagement.count }
+    end
+
+    it "does not intercept the request when persist_browser_pageview_events is disabled" do
+      SiteSetting.persist_browser_pageview_events = false
+      SiteSetting.trigger_browser_pageview_events = true
+      SiteSetting.dashboard_improvements = true
+      middleware = Middleware::RequestTracker.new(lambda { |_env| [200, {}, ["OK"]] })
+
+      expect {
+        status, = middleware.call(engagement_env(payload, same_origin))
+        expect(status).to eq(200)
+      }.not_to change { BrowserPageviewSessionEngagement.count }
     end
   end
 end

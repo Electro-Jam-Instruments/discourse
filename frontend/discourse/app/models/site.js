@@ -1,12 +1,14 @@
-import { cached } from "@glimmer/tracking";
-import EmberObject, { computed, get } from "@ember/object";
+import { cached, tracked } from "@glimmer/tracking";
+import EmberObject, { computed, get, set } from "@ember/object";
 import { dependentKeyCompat } from "@ember/object/compat";
-import { alias, sort } from "@ember/object/computed";
 import { trackedArray } from "@ember/reactive/collections";
 import { service } from "@ember/service";
 import { trustHTML } from "@ember/template";
 import { isEmpty } from "@ember/utils";
-import { removeValueFromArray } from "discourse/lib/array-tools";
+import {
+  arraySortedByProperties,
+  removeValueFromArray,
+} from "discourse/lib/array-tools";
 import { AUTO_GROUPS } from "discourse/lib/constants";
 import deprecated, { withSilencedDeprecations } from "discourse/lib/deprecated";
 import { isRailsTesting, isTesting } from "discourse/lib/environment";
@@ -86,19 +88,23 @@ export default class Site extends RestModel {
   @service siteSettings;
   @service capabilities;
 
+  @tracked topicCountDesc = ["topic_count:desc"];
   @autoTrackedArray categories = [];
   @autoTrackedArray groups = [];
 
-  @alias("is_readonly") isReadOnly;
-
-  @sort("categories", "topicCountDesc") categoriesByCount;
-
   #siteInitialized = false;
 
-  init() {
-    super.init(...arguments);
+  @computed("is_readonly")
+  get isReadOnly() {
+    return this.is_readonly;
+  }
 
-    this.topicCountDesc = ["topic_count:desc"];
+  set isReadOnly(value) {
+    set(this, "is_readonly", value);
+  }
+
+  get categoriesByCount() {
+    return arraySortedByProperties(this.categories, this.topicCountDesc);
   }
 
   get groupsById() {
@@ -106,6 +112,16 @@ export default class Site extends RestModel {
     Object.values(AUTO_GROUPS).forEach((g) => (map[g.id] = g));
     this.groups?.forEach((g) => (map[g.id] = g));
     return map;
+  }
+
+  groupName(groupId) {
+    const group = this.groupsById[groupId];
+    return group ? group.name : null;
+  }
+
+  groupFullName(groupId) {
+    const group = this.groupsById[groupId];
+    return group ? group.full_name : null;
   }
 
   @dependentKeyCompat
@@ -144,14 +160,10 @@ export default class Site extends RestModel {
       return true;
     }
 
-    if (this.siteSettings.viewport_based_mobile_mode) {
-      return withSilencedDeprecations(
-        "discourse.static-viewport-initialization",
-        () => !this.capabilities.viewport.sm
-      );
-    } else {
-      return Mobile.mobileView;
-    }
+    return withSilencedDeprecations(
+      "discourse.static-viewport-initialization",
+      () => !this.capabilities.viewport.sm
+    );
   }
 
   @dependentKeyCompat

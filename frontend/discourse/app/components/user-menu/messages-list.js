@@ -1,4 +1,5 @@
 import { service } from "@ember/service";
+import UserMenuMessagesListEmptyState from "discourse/components/user-menu/messages-list-empty-state";
 import UserMenuNotificationsList from "discourse/components/user-menu/notifications-list";
 import { ajax } from "discourse/lib/ajax";
 import UserMenuMessageItem from "discourse/lib/user-menu/message-item";
@@ -36,7 +37,7 @@ export default class UserMenuMessagesList extends UserMenuNotificationsList {
   }
 
   get emptyStateComponent() {
-    return "user-menu/messages-list-empty-state";
+    return UserMenuMessagesListEmptyState;
   }
 
   get #unreadMessagesNotifications() {
@@ -67,6 +68,7 @@ export default class UserMenuMessagesList extends UserMenuNotificationsList {
       content.push(
         new UserMenuNotificationItem({
           notification,
+          appEvents: this.appEvents,
           currentUser: this.currentUser,
           siteSettings: this.siteSettings,
           site: this.site,
@@ -103,6 +105,7 @@ export default class UserMenuMessagesList extends UserMenuNotificationsList {
         content.push(
           new UserMenuNotificationItem({
             notification: item,
+            appEvents: this.appEvents,
             currentUser: this.currentUser,
             siteSettings: this.siteSettings,
             site: this.site,

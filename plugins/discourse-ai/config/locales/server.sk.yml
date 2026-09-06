@@ -42,7 +42,6 @@ sk:
     ai_sentiment_enabled: "Povoľte modul sentimentu."
     ai_sentiment_inference_service_api_endpoint: "URL adresa, na ktorej je spustené API pre modul sentimentu"
     ai_sentiment_inference_service_api_key: "Kľúč API pre API sentimentu"
-    ai_sentiment_models: "Modely, ktoré sa majú použiť na odvodzovanie. Sentiment klasifikuje príspevok v priestore pozitívny/neutrálny/negatívny. Emócia klasifikuje príspevok v priestore hnev/znechutenie/strach/radosť/neutrálny/smútok/prekvapenie."
     ai_nsfw_detection_enabled: "Povoľte modul NSFW."
     ai_nsfw_inference_service_api_endpoint: "URL adresa, na ktorej je spustené API pre modul NSFW"
     ai_nsfw_inference_service_api_key: "Kľúč API pre rozhranie NSFW API"
@@ -60,10 +59,8 @@ sk:
     ai_helper_allowed_in_pm: "Povolenie pomocníka AI skladateľa v PM."
     ai_helper_automatic_chat_thread_title_delay: "Oneskorenie v minútach, kým pomocník AI automaticky nastaví názov chatového vlákna."
     ai_helper_automatic_chat_thread_title: "Automatické nastavenie názvov chatových vlákien na základe obsahu vlákna."
-    ai_helper_enabled_features: "Vyberte funkcie, ktoré chcete povoliť v pomocníkovi AI."
     post_ai_helper_allowed_groups: "Skupiny používateľov majú povolený prístup k funkciám AI Helper v príspevkoch"
     ai_embeddings_selected_model: "Použitie vybraného modelu na generovanie vložených súborov."
-    ai_embeddings_generate_for_pms: "Generovanie vložených osobných správ."
     ai_embeddings_semantic_related_topics_enabled: "Použite sémantické vyhľadávanie pre súvisiace témy."
     ai_embeddings_semantic_related_topics: "Maximálny počet tém, ktoré sa majú zobraziť v sekcii súvisiacich tém."
     ai_embeddings_backfill_batch_size: "Počet vnorení na zasypanie každých 15 minút."
@@ -74,7 +71,6 @@ sk:
     ai_summarization_enabled: "Povolenie funkcie sumarizácie"
     ai_pm_summarization_allowed_groups: "Skupiny môžu vytvárať a zobrazovať súhrny v PM."
     ai_summary_gists_enabled: "Automatické generovanie stručných zhrnutí najnovších odpovedí v témach"
-    ai_summary_backfill_maximum_topics_per_hour: "Počet tematických súhrnov na doplnenie za hodinu."
     ai_bot_enabled: "Povolenie modulu AI Bot."
     ai_bot_allowed_groups: "Keď má bot GPT prístup k PM, bude odpovedať členom týchto skupín."
     ai_bot_debugging_allowed_groups: "Povoľte týmto skupinám zobrazenie tlačidla na ladenie príspevkov, ktoré zobrazuje nespracovanú požiadavku a odpoveď AI."
@@ -87,7 +83,6 @@ sk:
     ai_discord_app_public_key: "Verejný kľúč aplikácie Discord, ku ktorej chcete prepojiť vyhľadávanie Discord"
     ai_discord_search_mode: "Vyberte režim vyhľadávania, ktorý chcete použiť na vyhľadávanie v službe Discord"
     ai_discord_allowed_guilds: "Discord cechy (servery), kde môže bot vyhľadávať"
-    ai_translation_backfill_max_age_days: "Maximálny vek príspevku a témy, ktoré sa majú preložiť. Príspevky a témy staršie ako táto hodnota nebudú preložené. Hodnota 0 zakáže spätné dopĺňanie, ale nezakáže preklad nových príspevkov."
   reviewables:
     reasons:
       flagged_by_toxicity: Plugin AI to označil po tom, čo to klasifikoval ako toxické.
@@ -98,92 +93,91 @@ sk:
       description: "Táto správa poskytuje analýzu nálad pre príspevky zoskupené podľa kategórií s pozitívnym, negatívnym a neutrálnym hodnotením pre každý príspevok a kategóriu."
     overall_sentiment:
       title: "Celkový sentiment"
-      description: 'V grafe je porovnaný počet príspevkov klasifikovaných ako pozitívne alebo negatívne. Tie sa vypočítajú, keď pozitívne alebo negatívne skóre > nastavené prahové skóre. To znamená, že neutrálne príspevky sa nezobrazujú. Osobné správy (PM) sú tiež vylúčené. Klasifikované pomocou "cardiffnlp/twitter-roberta-base-sentiment-latest"'
       xaxis: "Pozitívne (%)"
       yaxis: "Dátum"
     emotion_admiration:
-      title: "\U0001F929 Obdiv"
+      title: "🤩 Obdiv"
       description: "Príspevky klasifikované emóciou obdiv prostredníctvom AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_amusement:
-      title: "\U0001F604 Zábava"
+      title: "😄 Zábava"
       description: "Príspevky klasifikované pomocou emócie amusement prostredníctvom AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_anger:
-      title: "\U0001F620 Hnev"
+      title: "😠 Hnev"
       description: "Príspevky klasifikované emóciou hnev pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_annoyance:
-      title: "\U0001F612 Otravnosť"
+      title: "😒 Otravnosť"
       description: "Príspevky klasifikované pomocou emócie otravnosti pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_approval:
-      title: "\U0001F44D Schválenie"
+      title: "👍 Schválenie"
       description: "Príspevky klasifikované so schválením emócie pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_caring:
-      title: "\U0001F917 Starostlivosť"
+      title: "🤗 Starostlivosť"
       description: "Príspevky klasifikované pomocou emócie starostlivosť prostredníctvom AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_confusion:
-      title: "\U0001F615 Zmätok"
+      title: "😕 Zmätok"
       description: "Príspevky klasifikované pomocou zámeny emócií pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_curiosity:
-      title: "\U0001F914 Zvedavosť"
+      title: "🤔 Zvedavosť"
       description: "Príspevky klasifikované pomocou emócie zvedavosť prostredníctvom AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_desire:
-      title: "\U0001F60D Túžba"
+      title: "😍 Túžba"
       description: "Príspevky klasifikované pomocou emócie túžby pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_disappointment:
-      title: "\U0001F61E Sklamanie"
+      title: "😞 Sklamanie"
       description: "Príspevky klasifikované pomocou emócie sklamanie pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_disapproval:
-      title: "\U0001F44E Nesúhlas"
+      title: "👎 Nesúhlas"
       description: "Príspevky klasifikované emóciou nesúhlasu pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_disgust:
-      title: "\U0001F922 Znechutenie"
+      title: "🤢 Znechutenie"
       description: "Príspevky klasifikované emóciou znechutenia pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_embarrassment:
-      title: "\U0001F633 Rozpaky"
+      title: "😳 Rozpaky"
       description: "Príspevky klasifikované emóciou rozpaky pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_excitement:
-      title: "\U0001F92A Vzrušenie"
+      title: "🤪 Vzrušenie"
       description: "Príspevky klasifikované pomocou emócie vzrušenie pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_fear:
-      title: "\U0001F628 Strach"
+      title: "😨 Strach"
       description: "Príspevky klasifikované emóciou strach pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_gratitude:
-      title: "\U0001F64F Vďačnosť"
+      title: "🙏 Vďačnosť"
       description: "Príspevky klasifikované pomocou emócie vďačnosti pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_grief:
-      title: "\U0001F622 Smútok"
+      title: "😢 Smútok"
       description: "Príspevky klasifikované emóciou smútok pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_joy:
-      title: "\U0001F60A Radosť"
+      title: "😊 Radosť"
       description: "Príspevky klasifikované s emóciou radosti prostredníctvom AI s použitím modelu „SamLowe/roberta-base-go_emotions“."
     emotion_love:
       title: '❤️ Láska'
       description: "Príspevky klasifikované s emóciou láska prostredníctvom AI s použitím modelu „SamLowe/roberta-base-go_emotions“."
     emotion_nervousness:
-      title: "\U0001F630 Nervozita"
+      title: "😰 Nervozita"
       description: "Príspevky klasifikované emóciou nervozita pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_neutral:
-      title: "\U0001F610 Neutrálna"
+      title: "😐 Neutrálna"
       description: "Príspevky klasifikované pomocou AI s neutrálnou emóciou pomocou modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_optimism:
-      title: "\U0001F31F Optimizmus"
+      title: "🌟 Optimizmus"
       description: "Príspevky klasifikované pomocou emócie optimizmus pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_pride:
-      title: "\U0001F981 Hrdosť"
+      title: "🦁 Hrdosť"
       description: "Príspevky klasifikované s emóciou hrdosti prostredníctvom AI s použitím modelu „SamLowe/roberta-base-go_emotions“."
     emotion_realization:
-      title: "\U0001F4A1 Realizácia"
+      title: "💡 Realizácia"
       description: "Príspevky klasifikované pomocou realizácie emócií pomocou AI s použitím modelu 'SamLowe/roberta-base-go_emotions'."
     emotion_relief:
-      title: "\U0001F60C Úľava"
+      title: "😌 Úľava"
       description: "Príspevky klasifikované s úľavou od emócií prostredníctvom AI s použitím modelu „SamLowe/roberta-base-go_emotions“."
     emotion_remorse:
-      title: "\U0001F614 Výčitky svedomia"
+      title: "😔 Výčitky svedomia"
       description: "Príspevky klasifikované s emóciou ľútosti prostredníctvom AI s použitím modelu „SamLowe/roberta-base-go_emotions“."
     emotion_sadness:
-      title: "\U0001F62D Smútok"
+      title: "😭 Smútok"
       description: "Príspevky klasifikované pomocou emócie smútku pomocou AI s použitím modelu „SamLowe/roberta-base-go_emotions“."
     emotion_surprise:
-      title: "\U0001F632 Prekvapenie"
+      title: "😲 Prekvapenie"
       description: "Príspevky klasifikované s emóciou prekvapenia prostredníctvom AI s použitím modelu „SamLowe/roberta-base-go_emotions“."
   discourse_ai:
     ai_artifact:
@@ -222,15 +216,12 @@ sk:
         completion_request_failed: "Pri pokuse o poskytnutie návrhov sa niečo pokazilo. Prosím, skúste to znova."
       prompts:
         translate: Preložiť do %{language}
-        generate_titles: Navrhnite názvy tém
         proofread: Korektúra textu
         markdown_table: Generovať tabuľku Markdown
         custom_prompt: "Vlastný prompt"
         explain: "Vysvetlite"
         illustrate_post: "Ilustrovať príspevok"
         replace_dates: "Inteligentné dátumy"
-      image_caption:
-        attribution: "S titulkami od AI"
     share_ai:
       read_more: "Prečítať celý prepis"
       onebox_title: "Konverzácia AI s %{llm_name}"
@@ -252,8 +243,9 @@ sk:
     ai_bot:
       reply_error: "Ospravedlňujeme sa, ale zdá sa, že náš systém narazil na neočakávaný problém pri pokuse o odpoveď.\n\n[details='Error details']\n%{details}\n[/details]"
       default_pm_prefix: "[Bez názvu AI bot PM]"
+      read_post:
+        unknown_post: "príspevok"
       agents:
-        default_llm_required: "Predvolený model LLM sa vyžaduje pred povolením funkcie Chat"
         cannot_have_duplicate_tools: "Nemôže mať duplicitné nástroje"
         github_helper:
           name: "Pomocník GitHub"
@@ -402,6 +394,8 @@ sk:
         random_picker: "Náhodný výber"
         categories: "Zoznam kategórií"
         flag_post: "Príspevok s vlajkou"
+        suspend_user: "Pozastavenie používateľa"
+        silence_user: "Umlčať používateľa"
         search: "Hľadať"
         tags: "Zoznam značiek"
         time: "Čas"
@@ -430,6 +424,7 @@ sk:
         random_picker: "Výber náhodného čísla alebo náhodného prvku zoznamu"
         categories: "Zoznam všetkých verejne viditeľných kategórií na fóre"
         delete_topic: "Odstránenie témy"
+        create_category: "Vytvoriť novú kategóriu"
         search: "Vyhľadávanie vo všetkých verejných témach na fóre"
         tags: "Zoznam všetkých značiek na fóre"
         time: "Zisťovanie času v rôznych časových pásmach"
@@ -505,10 +500,6 @@ sk:
           few: "Nájdených %{count} výsledkov pre '%{query}'"
           many: "Nájdených %{count} výsledkov pre '%{query}'"
           other: "Nájdené %{count} výsledky pre '%{query}'"
-      discoveries:
-        continue_conversation:
-          title: "Konverzácia o objavovaní: Hľadať %{query}"
-          raw: "Pri hľadaní na stránke %{query}ste mi ukázali tieto informácie:\n\n%{context}\n\nPokračujme v konverzácii."
       close_topic:
         errors:
           not_found: "Téma sa nenašla."
@@ -518,10 +509,13 @@ sk:
       delete_topic:
         errors:
           not_found: "Téma sa nenašla."
-      edit_tags:
+      change_topic_tags:
         errors:
           not_found: "Téma sa nenašla."
       edit_category:
+        errors:
+          not_found: "Kategória sa nenašla."
+      change_topic_category:
         errors:
           not_found: "Téma sa nenašla."
           category_not_found: "Kategória sa nenašla."
@@ -555,13 +549,13 @@ sk:
       reports:
         overall_sentiment: "Celkový sentiment (pozitívny - negatívny)"
         post_emotion:
-          sadness: "Smútok \U0001F622"
-          surprise: "Prekvapenie \U0001F631"
-          neutral: "Neutrálna \U0001F610"
-          fear: "Strach \U0001F628"
-          anger: "Hnev \U0001F621"
-          joy: "Radosť \U0001F600"
-          disgust: "Znechutenie \U0001F922"
+          sadness: "Smútok 😢"
+          surprise: "Prekvapenie 😱"
+          neutral: "Neutrálna 😐"
+          fear: "Strach 😨"
+          anger: "Hnev 😡"
+          joy: "Radosť 😀"
+          disgust: "Znechutenie 🤢"
         sentiment_analysis:
           positive: "Pozitívne"
           negative: "Negatívne"
@@ -603,7 +597,6 @@ sk:
       removed: "odstránené"
     errors:
       quota_exceeded: "Prekročili ste kvótu pre tento model. Skúste to prosím znova na stránke %{relative_time}."
-      quota_required: "Pre tento model je potrebné zadať maximálny počet tokenov alebo použití"
       no_query_specified: Parameter dopytu je povinný, prosím, zadajte ho.
       no_user_specified: Používateľské meno alebo parameter user_unique_id je povinný, prosím, zadajte ho.
       user_not_found: Zadaný používateľ neexistuje. Skontrolujte parameter používateľské meno.

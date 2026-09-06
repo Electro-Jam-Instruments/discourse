@@ -8,7 +8,6 @@ import { trackedArray, trackedMap } from "@ember/reactive/collections";
 import { service } from "@ember/service";
 import { TrackedAsyncData } from "ember-async-data";
 import { modifier } from "ember-modifier";
-import DButton from "discourse/components/d-button";
 import ShareTopicModal from "discourse/components/modal/share-topic";
 import PluginOutlet from "discourse/components/plugin-outlet";
 import PostA11yHeading from "discourse/components/post/a11y-heading";
@@ -22,7 +21,6 @@ import PostMetaData from "discourse/components/post/meta-data";
 import PostMetaDataReplyToTab from "discourse/components/post/meta-data/reply-to-tab";
 import PostNotice from "discourse/components/post/notice";
 import TopicMap from "discourse/components/topic-map";
-import concatClass from "discourse/helpers/concat-class";
 import lazyHash from "discourse/helpers/lazy-hash";
 import { isTesting } from "discourse/lib/environment";
 import { relativeAge } from "discourse/lib/formatter";
@@ -36,6 +34,8 @@ import {
 import DiscourseURL from "discourse/lib/url";
 import { clipboardCopy } from "discourse/lib/utilities";
 import { and, eq, not, or } from "discourse/truth-helpers";
+import DButton from "discourse/ui-kit/d-button";
+import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
 import { i18n } from "discourse-i18n";
 
 export default class Post extends Component {
@@ -344,7 +344,7 @@ export default class Post extends Component {
   }
 
   @action
-  async expandFirstPost() {
+  expandFirstPost() {
     this.expandedFirstPost = new TrackedAsyncData(this.args.post.expand());
   }
 
@@ -501,7 +501,7 @@ export default class Post extends Component {
       aria-label={{this.postRowAriaLabel}}
       class={{unless
         @cloaked
-        (concatClass
+        (dConcatClass
           "topic-post"
           "clearfix"
           (unless this.site.mobileView "post--sticky-avatar sticky-avatar")
@@ -516,7 +516,7 @@ export default class Post extends Component {
           (if @post.deleted "post--deleted deleted")
           (if
             @post.primary_group_name
-            (concatClass
+            (dConcatClass
               (concat "post--group-" @post.primary_group_name)
               (concat "group-" @post.primary_group_name)
             )
@@ -557,7 +557,7 @@ export default class Post extends Component {
           <PluginOutlet @name="post-article" @outletArgs={{postOutletArgs}}>
             <article
               id={{@elementId}}
-              class={{concatClass
+              class={{dConcatClass
                 "boxed"
                 "onscreen-post"
                 (if
@@ -642,7 +642,7 @@ export default class Post extends Component {
                       />
                     </PluginOutlet>
                     <div
-                      class={{concatClass
+                      class={{dConcatClass
                         "post__regular regular"
                         "post__contents contents"
                         (if
@@ -674,7 +674,7 @@ export default class Post extends Component {
                       {{#if
                         (and @post.cooked_hidden @post.can_see_hidden_post)
                       }}
-                        {{! template-lint-disable no-invalid-interactive }}
+                        {{! eslint-disable ember/template-no-invalid-interactive }}
                         <a
                           class="post__expand-hidden expand-hidden"
                           {{on "click" @expandHidden}}
@@ -695,12 +695,16 @@ export default class Post extends Component {
                           @translatedLabel={{if
                             this.expandedFirstPost.isPending
                             (i18n "loading")
-                            (concat (i18n "post.show_full") "...")
+                            (i18n "post.show_more")
                           }}
                         />
                       {{/if}}
 
-                      <section class="post__menu-area post-menu-area clearfix">
+                      <section
+                        class="post__menu-area post-menu-area clearfix"
+                        role="group"
+                        aria-label={{i18n "post.controls.menu_label"}}
+                      >
                         <PostMenu
                           @post={{@post}}
                           @prevPost={{@prevPost}}

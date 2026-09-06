@@ -5,8 +5,8 @@ import { action, computed } from "@ember/object";
 import { dependentKeyCompat } from "@ember/object/compat";
 import { service } from "@ember/service";
 import { tagName } from "@ember-decorators/component";
-import concatClass from "discourse/helpers/concat-class";
 import { filterTypeForMode } from "discourse/lib/filter-mode";
+import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
 
 @tagName("")
 export default class NavigationItem extends Component {
@@ -36,7 +36,7 @@ export default class NavigationItem extends Component {
     return (
       !this.active &&
       this.currentUser &&
-      !this.currentUser.new_new_view_enabled &&
+      !this.currentUser.unified_new_enabled &&
       this.currentUser.trust_level > 0 &&
       (this.content?.name === "new" || this.content?.name === "unread") &&
       this.content?.count < 1
@@ -107,7 +107,7 @@ export default class NavigationItem extends Component {
   <template>
     <li
       title={{this.content.title}}
-      class={{concatClass
+      class={{dConcatClass
         (if this.active "active")
         (if this.content.hasIcon "has-icon")
         this.content.classNames
