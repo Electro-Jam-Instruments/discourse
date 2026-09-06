@@ -38,7 +38,7 @@ export default class Header extends Component {
     const columnNameMap = {
       "bulk-select": null, // Don't announce bulk select
       topic: i18n("topic.title"),
-      posters: i18n("topic_list.header.posters"),
+      posters: i18n("category.sort_options.posters"),
       replies: i18n("replies"),
       views: i18n("views"),
       activity: i18n("activity"),
