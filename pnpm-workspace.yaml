@@ -2,9 +2,9 @@ strictPeerDependencies: true
 strictDepBuilds: true
 onlyBuiltDependencies:
 - lefthook
+- core-js
 ignoredBuiltDependencies:
 - "@zoom/meetingsdk"
-- core-js
 - rete
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
