@@ -171,12 +171,10 @@ separately.
 
 ## Deploying to Production
 
-Only after staging has been verified.
-
-```bash
-cd /var/discourse
-./launcher rebuild app
-```
+**See `docs/grid/PRODUCTION-UPGRADE-RUNBOOK.md`.** Moving production onto this
+branch is not a routine rebuild: the launcher upgrades PostgreSQL from 15 to 18,
+stops halfway and requires a second rebuild, and runs five months of migrations
+against real data. A single `./launcher rebuild app` leaves the site down.
 
 Take a snapshot or database backup first. Recent deploy logs show pre-deploy
 backups being written to
