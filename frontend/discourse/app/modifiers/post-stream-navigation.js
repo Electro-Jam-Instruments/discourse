@@ -9,6 +9,17 @@ import {
 } from "discourse/lib/keyboard-navigation-utils";
 import { preventCloaking } from "discourse/modifiers/post-stream-viewport-tracker";
 
+// Set to true to trace focus/cloaking decisions while debugging keyboard
+// navigation. Left off so the traces never reach a production console.
+const DEBUG_NAV = false;
+
+function debugLog(...args) {
+  if (DEBUG_NAV) {
+    // eslint-disable-next-line no-console
+    console.log(...args);
+  }
+}
+
 /**
  * Post stream navigation modifier implementing WAI-ARIA grid pattern
  * for keyboard navigation within topic post lists.
@@ -44,6 +55,17 @@ export default class PostStreamNavigationModifier extends Modifier {
   activeFocusableIndex = -1; // -1 means the row itself is focused (full highlight)
   inDocumentMode = false;
   initialFocusComplete = false; // Track if we've done the initial auto-focus
+  options = {
+    // Row selector includes topic header row and post rows
+    rowSelector: '.topic-header-row[role="row"], .topic-post[role="row"]',
+    focusableSelector:
+      'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    toolbarSelector: '.actions[role="toolbar"]',
+    // Selector for cooked content - does NOT require role="document" since that's added dynamically
+    cookedSelector: ".cooked",
+    pageSize: 5,
+    wrap: false,
+  };
   // Track post IDs that have cloaking prevented (to allow cloaking when focus moves)
   // Uses a Set to manage a "protection window" of adjacent posts for navigation
   // This prevents focus loss when navigating to a post that would otherwise be cloaked
@@ -66,17 +88,6 @@ export default class PostStreamNavigationModifier extends Modifier {
   // Track if user has interacted with the post stream at all (any navigation, click, Tab focus)
   // Once set, never cleared for this page load - prevents focusFirstUnreadPost from stealing focus
   _userHasInteractedWithStream = false;
-  options = {
-    // Row selector includes topic header row and post rows
-    rowSelector: '.topic-header-row[role="row"], .topic-post[role="row"]',
-    focusableSelector:
-      'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    toolbarSelector: '.actions[role="toolbar"]',
-    // Selector for cooked content - does NOT require role="document" since that's added dynamically
-    cookedSelector: '.cooked',
-    pageSize: 5,
-    wrap: false,
-  };
 
   constructor(owner, args) {
     super(owner, args);
@@ -115,7 +126,7 @@ export default class PostStreamNavigationModifier extends Modifier {
       // of focus jumping. Tabindices are now only updated by:
       // 1. focusRowWithArray() - keyboard navigation
       // 2. handleFocusIn() - user clicks/tabs into grid
-      console.log(`[A11Y-NAV] modify(): SETUP - running initial tabindex setup`);
+      debugLog(`[A11Y-NAV] modify(): SETUP - running initial tabindex setup`);
       this.updateTabindices();
       this.setInternalTabindices();
     }
@@ -133,7 +144,7 @@ export default class PostStreamNavigationModifier extends Modifier {
       this._navigationCloakCycle >= 0 &&
       newCloakCycle > this._navigationCloakCycle + 2
     ) {
-      console.log(
+      debugLog(
         `[A11Y-NAV] modify(): cloaking settled - cycle ${newCloakCycle} > nav ${this._navigationCloakCycle} + 2, clearing guard`
       );
       this._navigationCloakCycle = -1;
@@ -154,7 +165,7 @@ export default class PostStreamNavigationModifier extends Modifier {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (this._currentCloakCycle === this._navigationCloakCycle) {
-            console.log(
+            debugLog(
               `[A11Y-NAV] modify(): no-scroll settlement - no cloaking after double-rAF, clearing guard`
             );
             this._navigationCloakCycle = -1;
@@ -187,7 +198,7 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     // Auto-focus first unread post on initial load if user navigated via keyboard
     if (!this.initialFocusComplete && this.focusHistory.keyboardMode) {
-      console.log(`[A11Y-NAV] modify(): SCHEDULING INITIAL FOCUS`);
+      debugLog(`[A11Y-NAV] modify(): SCHEDULING INITIAL FOCUS`);
       this.scheduleInitialFocus(named.lastReadPostNumber);
     }
   }
@@ -220,13 +231,17 @@ export default class PostStreamNavigationModifier extends Modifier {
     // GUARD 0 (NEW): Don't auto-focus if user has already interacted with the stream at all
     // This handles the case where user navigated TO the header (not away from it)
     if (this._userHasInteractedWithStream) {
-      console.log(`[A11Y-NAV] focusFirstUnreadPost: ABORTED - user already interacted with stream`);
+      debugLog(
+        `[A11Y-NAV] focusFirstUnreadPost: ABORTED - user already interacted with stream`
+      );
       return;
     }
 
     // GUARD 1: Don't auto-focus if user has already started navigating away from header
     if (this.activeRowId !== "header") {
-      console.log(`[A11Y-NAV] focusFirstUnreadPost: ABORTED - user already navigated to ${this.activeRowId}`);
+      debugLog(
+        `[A11Y-NAV] focusFirstUnreadPost: ABORTED - user already navigated to ${this.activeRowId}`
+      );
       return;
     }
 
@@ -236,20 +251,24 @@ export default class PostStreamNavigationModifier extends Modifier {
       this._navigationCloakCycle >= 0 &&
       this._currentCloakCycle <= this._navigationCloakCycle + 2
     ) {
-      console.log(`[A11Y-NAV] focusFirstUnreadPost: ABORTED - cloaking still settling (cycle ${this._currentCloakCycle} <= nav ${this._navigationCloakCycle} + 2)`);
+      debugLog(
+        `[A11Y-NAV] focusFirstUnreadPost: ABORTED - cloaking still settling (cycle ${this._currentCloakCycle} <= nav ${this._navigationCloakCycle} + 2)`
+      );
       return;
     }
 
     // GUARD 3: Don't auto-focus if focus is already somewhere useful in the post stream
     const activeElement = document.activeElement;
     if (activeElement && this.element.contains(activeElement)) {
-      console.log(`[A11Y-NAV] focusFirstUnreadPost: ABORTED - focus already in post stream`);
+      debugLog(
+        `[A11Y-NAV] focusFirstUnreadPost: ABORTED - focus already in post stream`
+      );
       return;
     }
 
     const rows = this.rows;
     if (rows.length === 0) {
-      console.log(`[A11Y-NAV] focusFirstUnreadPost: NO ROWS, aborting`);
+      debugLog(`[A11Y-NAV] focusFirstUnreadPost: NO ROWS, aborting`);
       return;
     }
 
@@ -261,7 +280,9 @@ export default class PostStreamNavigationModifier extends Modifier {
     const targetRowId = String(targetPostNumber);
     const targetIndex = this.findRowIndexById(targetRowId);
 
-    console.log(`[A11Y-NAV] focusFirstUnreadPost: lastRead=${lastReadPostNumber}, targetPost=${targetPostNumber}, targetIndex=${targetIndex}, rows.length=${rows.length}`);
+    debugLog(
+      `[A11Y-NAV] focusFirstUnreadPost: lastRead=${lastReadPostNumber}, targetPost=${targetPostNumber}, targetIndex=${targetIndex}, rows.length=${rows.length}`
+    );
 
     if (targetIndex !== -1) {
       // Found the target post
@@ -289,7 +310,9 @@ export default class PostStreamNavigationModifier extends Modifier {
         }
       }
 
-      console.log(`[A11Y-NAV] focusFirstUnreadPost: target not found, using viewport-nearest index=${bestIndex}`);
+      debugLog(
+        `[A11Y-NAV] focusFirstUnreadPost: target not found, using viewport-nearest index=${bestIndex}`
+      );
       this.focusRow(bestIndex);
     }
   }
@@ -373,9 +396,9 @@ export default class PostStreamNavigationModifier extends Modifier {
    */
   findRowByPostNumber(rows, postNumber) {
     if (postNumber === "header") {
-      return rows.find(r => r.classList.contains('topic-header-row')) || null;
+      return rows.find((r) => r.classList.contains("topic-header-row")) || null;
     }
-    return rows.find(r => r.dataset.postNumber === postNumber) || null;
+    return rows.find((r) => r.dataset.postNumber === postNumber) || null;
   }
 
   /**
@@ -402,7 +425,9 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     for (const row of rows) {
       const pn = parseInt(row.dataset.postNumber, 10);
-      if (isNaN(pn)) continue;
+      if (isNaN(pn)) {
+        continue;
+      }
 
       if (direction > 0 && pn >= target) {
         // Going DOWN - find first post >= target
@@ -436,10 +461,14 @@ export default class PostStreamNavigationModifier extends Modifier {
    * @param {HTMLElement} row - The row element to focus
    */
   focusRowByElement(row) {
-    if (!row) return;
+    if (!row) {
+      return;
+    }
 
     const newRowId = this.getRowId(row);
-    console.log(`[A11Y-NAV] focusRowByElement: newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`);
+    debugLog(
+      `[A11Y-NAV] focusRowByElement: newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`
+    );
 
     // CRITICAL: Mark that user has interacted with the stream
     // This prevents focusFirstUnreadPost from stealing focus later
@@ -495,12 +524,14 @@ export default class PostStreamNavigationModifier extends Modifier {
     // Parse the row ID to get post number
     if (this.activeRowId === "header") {
       // Header should always be visible, but fallback to 0
-      console.log(`[A11Y-NAV] getActiveRowIndex: header cloaked? returning 0`);
+      debugLog(`[A11Y-NAV] getActiveRowIndex: header cloaked? returning 0`);
       return 0;
     }
     const targetPostNumber = parseInt(this.activeRowId, 10);
     if (isNaN(targetPostNumber)) {
-      console.log(`[A11Y-NAV] getActiveRowIndex: invalid activeRowId=${this.activeRowId}, returning 0`);
+      debugLog(
+        `[A11Y-NAV] getActiveRowIndex: invalid activeRowId=${this.activeRowId}, returning 0`
+      );
       return 0;
     }
 
@@ -508,7 +539,9 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     // DEBUG: Log visible row IDs
     const rowIds = rowsArray.map((r) => this.getRowId(r));
-    console.log(`[A11Y-NAV] getActiveRowIndex: FALLBACK target=${targetPostNumber}, direction=${direction}, visibleRows=[${rowIds.join(",")}]`);
+    debugLog(
+      `[A11Y-NAV] getActiveRowIndex: FALLBACK target=${targetPostNumber}, direction=${direction}, visibleRows=[${rowIds.join(",")}]`
+    );
 
     // Directional fallback: find the first visible row in the navigation direction
     // This prevents focus jumping when cloaking changes during keystroke delays
@@ -523,14 +556,20 @@ export default class PostStreamNavigationModifier extends Modifier {
           continue;
         }
         const postNumber = parseInt(rowId, 10);
-        if (!isNaN(postNumber) && postNumber <= targetPostNumber && postNumber > bestPostNumber) {
+        if (
+          !isNaN(postNumber) &&
+          postNumber <= targetPostNumber &&
+          postNumber > bestPostNumber
+        ) {
           bestPostNumber = postNumber;
           bestIndex = i;
         }
       }
       // If no post found before target, use first visible post
       const result = bestPostNumber > -Infinity ? bestIndex : 0;
-      console.log(`[A11Y-NAV] getActiveRowIndex: UP fallback -> index ${result} (post ${bestPostNumber})`);
+      debugLog(
+        `[A11Y-NAV] getActiveRowIndex: UP fallback -> index ${result} (post ${bestPostNumber})`
+      );
       return result;
     } else if (direction > 0) {
       // Navigating DOWN - find the first visible post AFTER or AT the target
@@ -543,14 +582,21 @@ export default class PostStreamNavigationModifier extends Modifier {
           continue;
         }
         const postNumber = parseInt(rowId, 10);
-        if (!isNaN(postNumber) && postNumber >= targetPostNumber && postNumber < bestPostNumber) {
+        if (
+          !isNaN(postNumber) &&
+          postNumber >= targetPostNumber &&
+          postNumber < bestPostNumber
+        ) {
           bestPostNumber = postNumber;
           bestIndex = i;
         }
       }
       // If no post found after target, use last visible post
-      const result = bestPostNumber < Infinity ? bestIndex : rowsArray.length - 1;
-      console.log(`[A11Y-NAV] getActiveRowIndex: DOWN fallback -> index ${result} (post ${bestPostNumber})`);
+      const result =
+        bestPostNumber < Infinity ? bestIndex : rowsArray.length - 1;
+      debugLog(
+        `[A11Y-NAV] getActiveRowIndex: DOWN fallback -> index ${result} (post ${bestPostNumber})`
+      );
       return result;
     }
 
@@ -571,7 +617,9 @@ export default class PostStreamNavigationModifier extends Modifier {
         }
       }
     }
-    console.log(`[A11Y-NAV] getActiveRowIndex: CLOSEST fallback -> index ${closestIndex}`);
+    debugLog(
+      `[A11Y-NAV] getActiveRowIndex: CLOSEST fallback -> index ${closestIndex}`
+    );
     return closestIndex;
   }
 
@@ -613,7 +661,9 @@ export default class PostStreamNavigationModifier extends Modifier {
     const isHeaderRow = row.classList.contains("topic-header-row");
     if (isHeaderRow) {
       // PM link (if present)
-      const pmLink = row.querySelector(".private-message-glyph-wrapper a[href]");
+      const pmLink = row.querySelector(
+        ".private-message-glyph-wrapper a[href]"
+      );
       if (pmLink) {
         focusables.push(pmLink);
       }
@@ -666,9 +716,7 @@ export default class PostStreamNavigationModifier extends Modifier {
     // Toolbar buttons (regular posts have these in .actions toolbar)
     const toolbar = row.querySelector(this.options.toolbarSelector);
     const toolbarButtons = toolbar
-      ? Array.from(
-          toolbar.querySelectorAll("button:not([disabled]), a[href]")
-        )
+      ? Array.from(toolbar.querySelectorAll("button:not([disabled]), a[href]"))
       : [];
 
     // Small action buttons (edit, delete, recover)
@@ -676,7 +724,11 @@ export default class PostStreamNavigationModifier extends Modifier {
       ".small-action-buttons button:not([disabled])"
     );
 
-    return [...focusables, ...toolbarButtons, ...Array.from(smallActionButtons)];
+    return [
+      ...focusables,
+      ...toolbarButtons,
+      ...Array.from(smallActionButtons),
+    ];
   }
 
   /**
@@ -805,7 +857,9 @@ export default class PostStreamNavigationModifier extends Modifier {
         // DUAL GUARD: Skip state update during keyboard navigation
         // Guard 1: Boolean flag (handles synchronous focus events)
         if (this._isNavigating) {
-          console.log(`[A11Y-NAV] handleFocusIn: BLOCKED ${this.activeRowId} → ${newRowId} (boolean guard)`);
+          debugLog(
+            `[A11Y-NAV] handleFocusIn: BLOCKED ${this.activeRowId} → ${newRowId} (boolean guard)`
+          );
           return;
         }
 
@@ -818,18 +872,25 @@ export default class PostStreamNavigationModifier extends Modifier {
           this._navigationCloakCycle >= 0 &&
           this._currentCloakCycle <= this._navigationCloakCycle + 2
         ) {
-          console.log(
+          debugLog(
             `[A11Y-NAV] handleFocusIn: BLOCKED ${this.activeRowId} → ${newRowId} (cloaking guard: cycle ${this._currentCloakCycle} <= nav ${this._navigationCloakCycle} + 2)`
           );
           return;
         }
 
         // DEBUG: Log when handleFocusIn changes state
-        console.log(`[A11Y-NAV] handleFocusIn: STATE CHANGE ${this.activeRowId} → ${newRowId}`);
-        console.log(`[A11Y-NAV]   - cloakCycle: ${this._currentCloakCycle}, navCycle: ${this._navigationCloakCycle}`);
-        console.log(`[A11Y-NAV]   - event.target:`, event.target);
-        console.log(`[A11Y-NAV]   - event.relatedTarget (where focus came FROM):`, event.relatedTarget);
-        console.log(`[A11Y-NAV]   - CALL STACK:`, new Error().stack);
+        debugLog(
+          `[A11Y-NAV] handleFocusIn: STATE CHANGE ${this.activeRowId} → ${newRowId}`
+        );
+        debugLog(
+          `[A11Y-NAV]   - cloakCycle: ${this._currentCloakCycle}, navCycle: ${this._navigationCloakCycle}`
+        );
+        debugLog(`[A11Y-NAV]   - event.target:`, event.target);
+        debugLog(
+          `[A11Y-NAV]   - event.relatedTarget (where focus came FROM):`,
+          event.relatedTarget
+        );
+        debugLog(`[A11Y-NAV]   - CALL STACK:`, new Error().stack);
 
         // CRITICAL: Mark that user has interacted with the stream
         // This prevents focusFirstUnreadPost from stealing focus later
@@ -873,7 +934,9 @@ export default class PostStreamNavigationModifier extends Modifier {
   handleFocusOut(event) {
     // Just log for debugging - don't auto-recover
     if (!event.relatedTarget || !this.element.contains(event.relatedTarget)) {
-      console.log(`[A11Y-NAV] handleFocusOut: Focus left grid, activeRowId=${this.activeRowId}`);
+      debugLog(
+        `[A11Y-NAV] handleFocusOut: Focus left grid, activeRowId=${this.activeRowId}`
+      );
     }
   }
 
@@ -898,33 +961,47 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     // Check if this is within our post stream
     const isInPostStream = this.element && this.element.contains(event.target);
-    const postNumber = event.target.closest('[data-post-number]')?.dataset?.postNumber || 'N/A';
+    const postNumber =
+      event.target.closest("[data-post-number]")?.dataset?.postNumber || "N/A";
 
-    console.log(`[A11Y-GLOBAL-FOCUS] Focus event (cloakCycle=${this._currentCloakCycle}, navCycle=${this._navigationCloakCycle})`);
-    console.log(`[A11Y-GLOBAL-FOCUS]   target:`, event.target);
-    console.log(`[A11Y-GLOBAL-FOCUS]   postNumber: ${postNumber}`);
-    console.log(`[A11Y-GLOBAL-FOCUS]   isInPostStream: ${isInPostStream}`);
-    console.log(`[A11Y-GLOBAL-FOCUS]   relatedTarget (from):`, event.relatedTarget);
-    console.log(`[A11Y-GLOBAL-FOCUS]   CALL STACK:`, new Error().stack);
+    debugLog(
+      `[A11Y-GLOBAL-FOCUS] Focus event (cloakCycle=${this._currentCloakCycle}, navCycle=${this._navigationCloakCycle})`
+    );
+    debugLog(`[A11Y-GLOBAL-FOCUS]   target:`, event.target);
+    debugLog(`[A11Y-GLOBAL-FOCUS]   postNumber: ${postNumber}`);
+    debugLog(`[A11Y-GLOBAL-FOCUS]   isInPostStream: ${isInPostStream}`);
+    debugLog(
+      `[A11Y-GLOBAL-FOCUS]   relatedTarget (from):`,
+      event.relatedTarget
+    );
+    debugLog(`[A11Y-GLOBAL-FOCUS]   CALL STACK:`, new Error().stack);
   }
 
   focusNextRow() {
     // PURE POST-NUMBER NAVIGATION - no index conversion, immune to race conditions
     const rows = this.rows;
-    if (rows.length === 0) return;
+    if (rows.length === 0) {
+      return;
+    }
 
     this._lastNavigationDirection = 1; // Down/forward
 
     // DEBUG: Log all rows when navigating to see what's available
-    const rowIds = rows.map(r => this.getRowId(r));
-    console.log(`[A11Y-NAV] focusNextRow: activeRowId=${this.activeRowId}, rows=[${rowIds.join(',')}]`);
+    const rowIds = rows.map((r) => this.getRowId(r));
+    debugLog(
+      `[A11Y-NAV] focusNextRow: activeRowId=${this.activeRowId}, rows=[${rowIds.join(",")}]`
+    );
 
     // DEBUG: Special logging when on header row
     if (this.activeRowId === "header") {
-      console.log(`[A11Y-NAV] focusNextRow: ON HEADER ROW - about to navigate DOWN from header`);
-      console.log(`[A11Y-NAV]   - header is at index 0? ${rowIds[0] === 'header'}`);
-      console.log(`[A11Y-NAV]   - next row should be: ${rowIds[1] || 'NONE'}`);
-      console.log(`[A11Y-NAV]   - total rows: ${rows.length}`);
+      debugLog(
+        `[A11Y-NAV] focusNextRow: ON HEADER ROW - about to navigate DOWN from header`
+      );
+      debugLog(
+        `[A11Y-NAV]   - header is at index 0? ${rowIds[0] === "header"}`
+      );
+      debugLog(`[A11Y-NAV]   - next row should be: ${rowIds[1] || "NONE"}`);
+      debugLog(`[A11Y-NAV]   - total rows: ${rows.length}`);
     }
 
     // Find current row BY POST NUMBER directly
@@ -934,11 +1011,15 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Current row is visible - get next in array
       const currentIndex = rows.indexOf(currentRow);
       const nextIndex = currentIndex + 1;
-      console.log(`[A11Y-NAV] focusNextRow: VISIBLE - currentRow found at index ${currentIndex}, targeting index ${nextIndex}`);
+      debugLog(
+        `[A11Y-NAV] focusNextRow: VISIBLE - currentRow found at index ${currentIndex}, targeting index ${nextIndex}`
+      );
 
       // DEBUG: Extra logging when leaving header
       if (this.activeRowId === "header") {
-        console.log(`[A11Y-NAV] focusNextRow: LEAVING HEADER - will focus rows[${nextIndex}] which is rowId=${rowIds[nextIndex]}`);
+        debugLog(
+          `[A11Y-NAV] focusNextRow: LEAVING HEADER - will focus rows[${nextIndex}] which is rowId=${rowIds[nextIndex]}`
+        );
       }
       if (nextIndex < rows.length) {
         this.focusRowByElement(rows[nextIndex]);
@@ -946,7 +1027,9 @@ export default class PostStreamNavigationModifier extends Modifier {
       // else: at end, don't wrap
     } else {
       // Current row is cloaked - find proxy in navigation direction
-      console.log(`[A11Y-NAV] focusNextRow: CLOAKED - finding proxy for ${this.activeRowId}`);
+      debugLog(
+        `[A11Y-NAV] focusNextRow: CLOAKED - finding proxy for ${this.activeRowId}`
+      );
       const proxy = this.findProxyRow(rows, this.activeRowId, 1);
       if (proxy) {
         this.focusRowByElement(proxy);
@@ -957,13 +1040,17 @@ export default class PostStreamNavigationModifier extends Modifier {
   focusPreviousRow() {
     // PURE POST-NUMBER NAVIGATION - no index conversion, immune to race conditions
     const rows = this.rows;
-    if (rows.length === 0) return;
+    if (rows.length === 0) {
+      return;
+    }
 
     this._lastNavigationDirection = -1; // Up/backward
 
     // DEBUG: Log all rows when navigating to see what's available
-    const rowIds = rows.map(r => this.getRowId(r));
-    console.log(`[A11Y-NAV] focusPreviousRow: activeRowId=${this.activeRowId}, rows=[${rowIds.join(',')}]`);
+    const rowIds = rows.map((r) => this.getRowId(r));
+    debugLog(
+      `[A11Y-NAV] focusPreviousRow: activeRowId=${this.activeRowId}, rows=[${rowIds.join(",")}]`
+    );
 
     // Find current row BY POST NUMBER directly
     const currentRow = this.findRowByPostNumber(rows, this.activeRowId);
@@ -972,11 +1059,15 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Current row is visible - get previous in array
       const currentIndex = rows.indexOf(currentRow);
       const prevIndex = currentIndex - 1;
-      console.log(`[A11Y-NAV] focusPreviousRow: VISIBLE - currentRow found at index ${currentIndex}, targeting index ${prevIndex}`);
+      debugLog(
+        `[A11Y-NAV] focusPreviousRow: VISIBLE - currentRow found at index ${currentIndex}, targeting index ${prevIndex}`
+      );
 
       // DEBUG: Extra logging when about to arrive at header
-      if (prevIndex === 0 && rowIds[0] === 'header') {
-        console.log(`[A11Y-NAV] focusPreviousRow: ARRIVING AT HEADER - will focus the header row`);
+      if (prevIndex === 0 && rowIds[0] === "header") {
+        debugLog(
+          `[A11Y-NAV] focusPreviousRow: ARRIVING AT HEADER - will focus the header row`
+        );
       }
       if (prevIndex >= 0) {
         this.focusRowByElement(rows[prevIndex]);
@@ -984,7 +1075,9 @@ export default class PostStreamNavigationModifier extends Modifier {
       // else: at start, don't wrap
     } else {
       // Current row is cloaked - find proxy in navigation direction
-      console.log(`[A11Y-NAV] focusPreviousRow: CLOAKED - finding proxy for ${this.activeRowId}`);
+      debugLog(
+        `[A11Y-NAV] focusPreviousRow: CLOAKED - finding proxy for ${this.activeRowId}`
+      );
       const proxy = this.findProxyRow(rows, this.activeRowId, -1);
       if (proxy) {
         this.focusRowByElement(proxy);
@@ -1013,7 +1106,9 @@ export default class PostStreamNavigationModifier extends Modifier {
   focusRowByOffset(offset) {
     // PURE POST-NUMBER NAVIGATION for Page Up/Down
     const rows = this.rows;
-    if (rows.length === 0) return;
+    if (rows.length === 0) {
+      return;
+    }
 
     this._lastNavigationDirection = offset > 0 ? 1 : offset < 0 ? -1 : 0;
 
@@ -1023,11 +1118,18 @@ export default class PostStreamNavigationModifier extends Modifier {
     if (currentRow) {
       // Current row is visible - apply offset
       const currentIndex = rows.indexOf(currentRow);
-      const newIndex = Math.max(0, Math.min(rows.length - 1, currentIndex + offset));
+      const newIndex = Math.max(
+        0,
+        Math.min(rows.length - 1, currentIndex + offset)
+      );
       this.focusRowByElement(rows[newIndex]);
     } else {
       // Current row is cloaked - find proxy first
-      const proxy = this.findProxyRow(rows, this.activeRowId, offset > 0 ? 1 : -1);
+      const proxy = this.findProxyRow(
+        rows,
+        this.activeRowId,
+        offset > 0 ? 1 : -1
+      );
       if (proxy) {
         this.focusRowByElement(proxy);
       }
@@ -1046,7 +1148,9 @@ export default class PostStreamNavigationModifier extends Modifier {
       // Track by row ID (post number) not index
       const newRowId = this.getRowId(row);
       // DEBUG: Log focusRow
-      console.log(`[A11Y-NAV] focusRowWithArray: index=${index}, newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`);
+      debugLog(
+        `[A11Y-NAV] focusRowWithArray: index=${index}, newRowId=${newRowId}, prevActiveRowId=${this.activeRowId}`
+      );
       this.activeRowId = newRowId;
       this.activeFocusableIndex = -1; // Row itself is focused
       this.inDocumentMode = false;
@@ -1063,7 +1167,9 @@ export default class PostStreamNavigationModifier extends Modifier {
       // scrollIntoView with block: "nearest" doesn't reliably honor scroll-margin-top
       this.scrollRowIntoView(row);
     } else {
-      console.log(`[A11Y-NAV] focusRowWithArray: INVALID index=${index}, rows.length=${rows.length}`);
+      debugLog(
+        `[A11Y-NAV] focusRowWithArray: INVALID index=${index}, rows.length=${rows.length}`
+      );
     }
   }
 
@@ -1083,12 +1189,18 @@ export default class PostStreamNavigationModifier extends Modifier {
    * @returns {string|null} The post ID or null
    */
   getPostIdFromRow(row) {
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
     // Header row has no post ID
-    if (row.classList.contains("topic-header-row")) return null;
+    if (row.classList.contains("topic-header-row")) {
+      return null;
+    }
     // Post ID is on the article element inside the row, or directly on the row
     const article = row.querySelector("article[data-post-id]");
-    if (article) return article.dataset.postId;
+    if (article) {
+      return article.dataset.postId;
+    }
     // Fallback: check if it's directly on the row
     return row.dataset?.postId || null;
   }
@@ -1112,7 +1224,9 @@ export default class PostStreamNavigationModifier extends Modifier {
 
     if (currentIndex === -1) {
       // Row not found in current rows array (shouldn't happen, but be safe)
-      console.log(`[A11Y-NAV] updateCloakingPrevention: row not found in rows array`);
+      debugLog(
+        `[A11Y-NAV] updateCloakingPrevention: row not found in rows array`
+      );
       return;
     }
 
@@ -1145,7 +1259,9 @@ export default class PostStreamNavigationModifier extends Modifier {
     for (const oldId of this._preventedCloakingPostIds) {
       if (!newProtectedIds.has(oldId)) {
         preventCloaking(parseInt(oldId, 10), false);
-        console.log(`[A11Y-NAV] updateCloakingPrevention: UNPROTECTED post ${oldId}`);
+        debugLog(
+          `[A11Y-NAV] updateCloakingPrevention: UNPROTECTED post ${oldId}`
+        );
       }
     }
 
@@ -1153,14 +1269,18 @@ export default class PostStreamNavigationModifier extends Modifier {
     for (const newId of newProtectedIds) {
       if (!this._preventedCloakingPostIds.has(newId)) {
         preventCloaking(parseInt(newId, 10), true);
-        console.log(`[A11Y-NAV] updateCloakingPrevention: PROTECTED post ${newId}`);
+        debugLog(
+          `[A11Y-NAV] updateCloakingPrevention: PROTECTED post ${newId}`
+        );
       }
     }
 
     // Update the tracked set
     this._preventedCloakingPostIds = newProtectedIds;
 
-    console.log(`[A11Y-NAV] updateCloakingPrevention: window=[${Array.from(newProtectedIds).join(",")}]`);
+    debugLog(
+      `[A11Y-NAV] updateCloakingPrevention: window=[${Array.from(newProtectedIds).join(",")}]`
+    );
   }
 
   /**
@@ -1172,7 +1292,7 @@ export default class PostStreamNavigationModifier extends Modifier {
       preventCloaking(parseInt(postId, 10), false);
     }
     this._preventedCloakingPostIds.clear();
-    console.log(`[A11Y-NAV] clearCloakingPrevention: cleared all`);
+    debugLog(`[A11Y-NAV] clearCloakingPrevention: cleared all`);
   }
 
   /**
@@ -1346,9 +1466,7 @@ export default class PostStreamNavigationModifier extends Modifier {
    * The edit button opens the full post editor, which is not what we want here
    */
   activateHeaderRow() {
-    const row = this.rows.find((r) =>
-      r.classList.contains("topic-header-row")
-    );
+    const row = this.rows.find((r) => r.classList.contains("topic-header-row"));
     if (!row) {
       return;
     }

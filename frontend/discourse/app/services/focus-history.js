@@ -89,21 +89,24 @@ export default class FocusHistoryService extends Service {
     let current = element;
 
     while (current && current !== document.body && path.length < 5) {
-      let selector = current.tagName.toLowerCase();
+      // Bind the node per iteration so the sibling filter below closes over
+      // this node rather than the loop variable, which is reassigned.
+      const node = current;
+      let selector = node.tagName.toLowerCase();
 
       // Add class if present (first class only for simplicity)
-      if (current.classList.length > 0) {
-        selector += `.${CSS.escape(current.classList[0])}`;
+      if (node.classList.length > 0) {
+        selector += `.${CSS.escape(node.classList[0])}`;
       }
 
       // Add nth-child if needed for uniqueness
-      const parent = current.parentElement;
+      const parent = node.parentElement;
       if (parent) {
         const siblings = Array.from(parent.children).filter(
-          (child) => child.tagName === current.tagName
+          (child) => child.tagName === node.tagName
         );
         if (siblings.length > 1) {
-          const index = siblings.indexOf(current) + 1;
+          const index = siblings.indexOf(node) + 1;
           selector += `:nth-child(${index})`;
         }
       }
@@ -185,6 +188,7 @@ export default class FocusHistoryService extends Service {
       }
     } catch (e) {
       // Invalid selector, ignore
+      // eslint-disable-next-line no-console
       console.warn("Focus restoration failed for selector:", state.selector, e);
     }
 
