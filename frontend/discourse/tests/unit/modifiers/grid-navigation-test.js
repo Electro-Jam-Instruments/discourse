@@ -1,5 +1,5 @@
+import { setupTest } from "ember-qunit";
 import { module, test } from "qunit";
-import { setupTest } from "discourse/tests/helpers/qunit-helpers";
 import {
   getNextIndex,
   getPreviousIndex,
@@ -65,8 +65,11 @@ module("Unit | Modifier | grid-navigation", function (hooks) {
     });
 
     test("updateRovingTabindex handles empty array", function (assert) {
-      assert.ok(true, "should not throw");
-      updateRovingTabindex([], 0);
+      assert.strictEqual(
+        updateRovingTabindex([], 0),
+        undefined,
+        "returns early instead of throwing when there are no elements"
+      );
     });
   });
 
