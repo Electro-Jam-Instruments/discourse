@@ -14,7 +14,6 @@ import PluginOutlet from "discourse/components/plugin-outlet";
 import TagInfoButton from "discourse/components/tag-info-button";
 import TagNotificationsTracking from "discourse/components/tag-notifications-tracking";
 import TopicDismissButtons from "discourse/components/topic-dismiss-buttons";
-import i18n from "discourse/helpers/i18n";
 import lazyHash from "discourse/helpers/lazy-hash";
 import { filterTypeForMode } from "discourse/lib/filter-mode";
 import { NotificationLevels } from "discourse/lib/notification-levels";
@@ -28,6 +27,7 @@ import CategoriesAdminDropdown from "discourse/select-kit/components/categories-
 import TagCategoryAdminDropdown from "discourse/select-kit/components/tag-category-admin-dropdown";
 import { and, gt } from "discourse/truth-helpers";
 import DButton from "discourse/ui-kit/d-button";
+import { i18n } from "discourse-i18n";
 
 @tagName("")
 export default class DNavigation extends Component {

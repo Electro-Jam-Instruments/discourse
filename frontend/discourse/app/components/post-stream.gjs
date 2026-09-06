@@ -39,13 +39,13 @@ export default class PostStream extends Component {
   @tracked keyboardSelection;
   @tracked suppressLoadAbove = false;
 
+  viewportTracker = new PostStreamViewportTracker();
+
   // Counter incremented each time cloaking boundaries actually change.
   // Used by PostStreamNavigation to detect when cloaking updates from
   // navigation-triggered scrolls have settled, replacing the old
   // NAVIGATION_GUARD_MS timing hack.
   @tracked _cloakCycle = 0;
-
-  viewportTracker = new PostStreamViewportTracker();
 
   constructor() {
     super(...arguments);

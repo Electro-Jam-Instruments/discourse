@@ -144,7 +144,6 @@ export default class DHorizontalOverflowNav extends Component {
 
   <template>
     {{! eslint-disable ember/template-no-pointer-down-event-binding }}
-    {{! eslint-disable ember/template-no-invalid-interactive }}
 
     <nav
       class="horizontal-overflow-nav {{if this.hasScroll 'has-scroll'}}"
