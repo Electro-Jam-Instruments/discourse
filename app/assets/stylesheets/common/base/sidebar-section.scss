@@ -79,10 +79,18 @@
         margin: 0;
       }
 
-      // Remove individual focus outline - wrapper handles it now
+      // A mouse click should not leave a ring, but keyboard focus must be
+      // visible on the button itself. The wrapper draws its own ring for the
+      // whole row, so without this a keyboard user cannot tell whether focus
+      // is on the row or on the button inside it - the two looked identical.
       &:focus {
-        outline: none;
         background-color: var(--token-color-surface-focused);
+      }
+
+      &:focus-visible {
+        outline: var(--d-toolbar-focus-outline-width) solid
+          var(--d-toolbar-focus-outline-color);
+        outline-offset: var(--d-toolbar-focus-outline-offset);
       }
     }
   }

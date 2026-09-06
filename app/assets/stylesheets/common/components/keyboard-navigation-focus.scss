@@ -1,0 +1,40 @@
+// Focus indicators for the WAI-ARIA toolbar pattern.
+//
+// Six components implement toolbars with roving tabindex and arrow-key
+// navigation in JavaScript - d-navigation, header/auth-buttons, header/icons,
+// post/menu, sidebar/section and topic-footer-buttons. The keyboard behaviour
+// was built without a matching focus style, so every one of them fell back to
+// the browser's default ring: outline-style: auto at 0.67px, which renders
+// dark on dark backgrounds and is close to invisible.
+//
+// This is one rule for the pattern rather than a rule per component, so a new
+// toolbar gets a focus indicator by having the role, not by remembering to
+// style it. See docs/accessibility/00-index.md.
+//
+// :focus-visible only - a mouse click should not leave a ring behind.
+[role="toolbar"] {
+  a,
+  button,
+  [tabindex] {
+    &:focus-visible {
+      outline: var(--d-toolbar-focus-outline-width) solid
+        var(--d-toolbar-focus-outline-color);
+      outline-offset: var(--d-toolbar-focus-outline-offset);
+
+      // Keep the ring clear of a neighbouring control's edge when the toolbar
+      // is tightly packed.
+      position: relative;
+      z-index: 1;
+    }
+  }
+}
+
+// Controls that sit outside a role="toolbar" container but belong to the same
+// keyboard flow, so the indicator stays consistent as focus moves between them.
+.nav-pills {
+  a:focus-visible {
+    outline: var(--d-toolbar-focus-outline-width) solid
+      var(--d-toolbar-focus-outline-color);
+    outline-offset: var(--d-toolbar-focus-outline-offset);
+  }
+}

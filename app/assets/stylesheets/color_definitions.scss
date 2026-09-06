@@ -172,4 +172,14 @@
   // Set to 0 for release - rectangle only. Change to 3px to enable left bar.
   --d-grid-focus-bar-width: 0;
   --d-grid-focus-bar-color: var(--d-nav-color--active);
+
+  // Toolbar focus indicator (accessibility)
+  // Deliberately not --tertiary: toolbar controls are frequently accent
+  // coloured themselves (primary buttons, the active nav tab), so an accent
+  // ring on them has no contrast. --primary is the foreground colour and
+  // inverts with the colour scheme, giving a near-white ring on dark and a
+  // near-black one on light, against any surface.
+  --d-toolbar-focus-outline-width: 2px;
+  --d-toolbar-focus-outline-color: var(--primary);
+  --d-toolbar-focus-outline-offset: 2px;
 }
