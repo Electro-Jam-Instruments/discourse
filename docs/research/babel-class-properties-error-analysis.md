@@ -275,7 +275,7 @@ Note: `disableDecoratorTransforms: true` means ember-cli-babel's built-in decora
 
 | File | Absolute Path |
 |------|---------------|
-| New Modifier | `C:\Users\direc\OneDrive - Electro Jam Instruments\01 - EJ Projects\10 - Code\41 - Discourse\frontend\discourse\app\modifiers\post-stream-navigation.js` |
-| Babel Config | `C:\Users\direc\OneDrive - Electro Jam Instruments\01 - EJ Projects\10 - Code\41 - Discourse\frontend\discourse\lib\common-babel-config.js` |
-| Package Lock | `C:\Users\direc\OneDrive - Electro Jam Instruments\01 - EJ Projects\10 - Code\41 - Discourse\pnpm-lock.yaml` |
-| Package JSON | `C:\Users\direc\OneDrive - Electro Jam Instruments\01 - EJ Projects\10 - Code\41 - Discourse\frontend\discourse\package.json` |
+| New Modifier | `C:\dev\Projects\41 - Discourse\frontend\discourse\app\modifiers\post-stream-navigation.js` |
+| Babel Config | `C:\dev\Projects\41 - Discourse\frontend\discourse\lib\common-babel-config.js` |
+| Package Lock | `C:\dev\Projects\41 - Discourse\pnpm-lock.yaml` |
+| Package JSON | `C:\dev\Projects\41 - Discourse\frontend\discourse\package.json` |

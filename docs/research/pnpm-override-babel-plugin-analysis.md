@@ -101,7 +101,7 @@ Both packages explicitly list `@babel/plugin-proposal-class-properties` as a dep
 **A. Using WSL (Windows Subsystem for Linux):**
 ```bash
 # In WSL terminal
-cd /mnt/c/Users/direc/OneDrive\ -\ Electro\ Jam\ Instruments/01\ -\ EJ\ Projects/10\ -\ Code/41\ -\ Discourse
+cd /mnt/c/dev/Projects/41\ -\ Discourse
 
 # Or clone to a shorter path in WSL
 git clone /mnt/c/...path.../41\ -\ Discourse ~/discourse
@@ -241,7 +241,7 @@ After running `pnpm install`, check that:
    # In WSL
    mkdir -p ~/code
    cd ~/code
-   git clone file:///mnt/c/Users/direc/OneDrive\ -\ Electro\ Jam\ Instruments/01\ -\ EJ\ Projects/10\ -\ Code/41\ -\ Discourse discourse
+   git clone file:///mnt/c/dev/Projects/41\ -\ Discourse discourse
    cd discourse
    ```
 
@@ -263,7 +263,7 @@ After running `pnpm install`, check that:
 
 5. **Copy lockfile back:**
    ```bash
-   cp pnpm-lock.yaml /mnt/c/Users/direc/OneDrive\ -\ Electro\ Jam\ Instruments/01\ -\ EJ\ Projects/10\ -\ Code/41\ -\ Discourse/
+   cp pnpm-lock.yaml /mnt/c/dev/Projects/41\ -\ Discourse/
    ```
 
 6. **Commit the regenerated lockfile:**
@@ -351,6 +351,6 @@ Simply adding an override to the header does not update sections 2 and 3. When p
 
 | File | Absolute Path |
 |------|---------------|
-| package.json | `C:\Users\direc\OneDrive - Electro Jam Instruments\01 - EJ Projects\10 - Code\41 - Discourse\package.json` |
-| pnpm-lock.yaml | `C:\Users\direc\OneDrive - Electro Jam Instruments\01 - EJ Projects\10 - Code\41 - Discourse\pnpm-lock.yaml` |
-| This analysis | `C:\Users\direc\OneDrive - Electro Jam Instruments\01 - EJ Projects\10 - Code\41 - Discourse\docs\research\pnpm-override-babel-plugin-analysis.md` |
+| package.json | `C:\dev\Projects\41 - Discourse\package.json` |
+| pnpm-lock.yaml | `C:\dev\Projects\41 - Discourse\pnpm-lock.yaml` |
+| This analysis | `C:\dev\Projects\41 - Discourse\docs\research\pnpm-override-babel-plugin-analysis.md` |
