@@ -302,15 +302,17 @@
       pointer-events: none;
     }
 
-    // we have a custom focus indicator via .selected
-    // we can remove the native one
+    // A mouse click on a title should not leave a ring behind - the row's
+    // .selected treatment is enough there.
     .title:focus {
       outline: none;
     }
 
-    .title:focus-visible {
-      outline: none;
-    }
+    // Keyboard focus still needs one. The .selected indicator this was
+    // originally deferring to is the left bar, and --d-grid-focus-bar-width is
+    // 0 for release, so nothing was drawn: the outline was removed in favour
+    // of an indicator that renders nothing. The global :focus-visible baseline
+    // supplies the ring.
   }
 
   .unread-indicator {
