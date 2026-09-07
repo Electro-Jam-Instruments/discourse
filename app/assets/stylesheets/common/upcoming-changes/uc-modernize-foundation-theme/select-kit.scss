@@ -21,6 +21,16 @@
     border-color: var(--primary-300);
   }
 
+  // The rule above removes the outline for the expanded, active and
+  // mouse-focus states, where a background tint is enough. Keyboard focus
+  // still needs a ring: a --primary-100 tint on its own is far too low
+  // contrast to show which control is focused, and the selector above is
+  // specific enough to beat the global :focus-visible baseline.
+  .select-kit.single-select .select-kit-header:not(.btn):focus-visible {
+    outline: var(--d-focus-outline-width) solid var(--d-focus-outline-color);
+    outline-offset: var(--d-focus-outline-offset);
+  }
+
   .select-kit.combo-box.category-drop .category-drop-header[data-value=""],
   .select-kit.combo-box.category-drop .caret-icon,
   .select-kit.combo-box.tag-drop .tag-drop-header,
