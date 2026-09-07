@@ -1,40 +1,50 @@
-// Focus indicators for the WAI-ARIA toolbar pattern.
+// Global keyboard focus indicator.
 //
-// Six components implement toolbars with roving tabindex and arrow-key
-// navigation in JavaScript - d-navigation, header/auth-buttons, header/icons,
-// post/menu, sidebar/section and topic-footer-buttons. The keyboard behaviour
-// was built without a matching focus style, so every one of them fell back to
-// the browser's default ring: outline-style: auto at 0.67px, which renders
-// dark on dark backgrounds and is close to invisible.
+// Discourse has no baseline focus style. It applies a `default-focus` mixin by
+// hand at roughly thirty call sites, and anything nobody remembered falls
+// through to the browser's own ring - outline-style: auto at 0.67px, which is
+// close to invisible on a dark background.
 //
-// This is one rule for the pattern rather than a rule per component, so a new
-// toolbar gets a focus indicator by having the role, not by remembering to
-// style it. See docs/accessibility/00-index.md.
+// That is not a small gap. Measured on a logged-out /latest page: 36 focusable
+// controls, 5 with a style, 31 without. Sidebar toggle, logo, header icons,
+// search input, sortable column headers and topic rows all had none.
 //
-// :focus-visible only - a mouse click should not leave a ring behind.
+// The earlier version of this file styled only [role="toolbar"], which fixed
+// the three controls that had been reported and left the other 31. A baseline
+// is the only version that actually holds: anything focusable gets a visible
+// ring by default, and a component that wants something different overrides
+// it.
+//
+// Specificity here is deliberately minimal (0,1,0) so any existing rule -
+// `default-focus`, the grid styles, component rules - wins without needing
+// !important.
+//
+// :focus-visible only, so a mouse click leaves nothing behind.
+:focus-visible {
+  outline: var(--d-focus-outline-width) solid var(--d-focus-outline-color);
+  outline-offset: var(--d-focus-outline-offset);
+}
+
+// Toolbar controls sit tightly packed, so lift the focused one above its
+// neighbours to stop an adjacent edge clipping the ring.
 [role="toolbar"] {
   a,
   button,
   [tabindex] {
     &:focus-visible {
-      outline: var(--d-toolbar-focus-outline-width) solid
-        var(--d-toolbar-focus-outline-color);
-      outline-offset: var(--d-toolbar-focus-outline-offset);
-
-      // Keep the ring clear of a neighbouring control's edge when the toolbar
-      // is tightly packed.
       position: relative;
       z-index: 1;
     }
   }
 }
 
-// Controls that sit outside a role="toolbar" container but belong to the same
-// keyboard flow, so the indicator stays consistent as focus moves between them.
-.nav-pills {
-  a:focus-visible {
-    outline: var(--d-toolbar-focus-outline-width) solid
-      var(--d-toolbar-focus-outline-color);
-    outline-offset: var(--d-toolbar-focus-outline-offset);
+// Rows in the grid pattern keep their own inset ring - the outline sits inside
+// the row rather than outside it, so it cannot overlap the row above.
+[role="grid"] {
+  [role="row"]:focus-visible,
+  [role="gridcell"]:focus-visible {
+    outline: var(--d-grid-focus-outline-width) solid
+      var(--d-grid-focus-outline-color);
+    outline-offset: var(--d-grid-focus-outline-offset);
   }
 }

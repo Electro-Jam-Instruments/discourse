@@ -88,9 +88,8 @@
       }
 
       &:focus-visible {
-        outline: var(--d-toolbar-focus-outline-width) solid
-          var(--d-toolbar-focus-outline-color);
-        outline-offset: var(--d-toolbar-focus-outline-offset);
+        outline: var(--d-focus-outline-width) solid var(--d-focus-outline-color);
+        outline-offset: var(--d-focus-outline-offset);
       }
     }
   }
