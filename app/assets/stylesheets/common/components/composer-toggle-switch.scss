@@ -8,10 +8,7 @@
   padding: 0;
   background: transparent;
 
-  &:focus-visible {
-    outline: none;
-  }
-
+  // ring supplied by the global :focus-visible baseline
   &[disabled] {
     opacity: 0.5;
     cursor: not-allowed;

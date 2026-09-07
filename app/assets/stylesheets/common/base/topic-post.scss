@@ -1271,9 +1271,8 @@ aside.quote {
 
 .small-action-desc,
 .topic-body {
-  &:focus-visible {
-    outline: none;
-  }
+  // Focus ring intentionally left to the global :focus-visible baseline -
+  // these receive keyboard focus during post stream navigation.
 }
 
 .post-info {

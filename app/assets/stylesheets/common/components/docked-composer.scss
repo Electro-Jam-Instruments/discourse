@@ -144,9 +144,7 @@
       // reserve room for the absolutely-positioned send button
       padding-right: 3.5em;
 
-      &:focus-visible {
-        outline: none;
-      }
+      // ring supplied by the global :focus-visible baseline
     }
   }
 

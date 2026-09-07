@@ -304,7 +304,7 @@
 
     // A mouse click on a title should not leave a ring behind - the row's
     // .selected treatment is enough there.
-    .title:focus {
+    .title:focus:not(:focus-visible) {
       outline: none;
     }
 

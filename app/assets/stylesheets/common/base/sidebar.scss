@@ -552,7 +552,8 @@
     height: var(--d-sidebar-row-height);
     cursor: pointer;
 
-    &:focus {
+    &:focus:not(:focus-visible) {
+      // outline removed for mouse focus only; keyboard focus keeps the global ring
       outline: none;
     }
   }

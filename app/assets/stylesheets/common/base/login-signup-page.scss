@@ -224,7 +224,7 @@ body.signup-page {
       border-radius: var(--d-input-border-radius);
     }
 
-    input:not(.filter-input):focus {
+    input:not(.filter-input):focus:not(:focus-visible) {
       outline: none;
       border: 1px solid var(--tertiary);
       box-shadow: 0 0 0 2px rgb(var(--tertiary-rgb), 0.25);

@@ -37,9 +37,10 @@
     &:focus-within {
       background: var(--d-sidebar-highlight-background);
 
-      // Full-row focus ring when any element in the header toolbar is focused
-      outline: 2px solid var(--token-color-background-accent-bolder);
-      outline-offset: -2px;
+      // Full-row focus ring when any element in the header toolbar is focused.
+      // Uses the shared focus tokens, not a colour of its own.
+      outline: var(--d-focus-outline-width) solid var(--d-focus-outline-color);
+      outline-offset: var(--d-focus-outline-offset-inset);
     }
 
     .sidebar-section-header-button {
@@ -144,7 +145,11 @@
         outline: none;
       }
 
-      // Focus-visible also handled by wrapper now
+      // Deliberate, and verified: the wrapper above draws a real ring on
+      // :focus-within, so the header link would otherwise double up. This is
+      // the one place a suppression is legitimate - elsewhere in this codebase
+      // the same comment was written about an indicator that had been disabled
+      // and drew nothing.
       &:focus-visible {
         outline: none;
       }

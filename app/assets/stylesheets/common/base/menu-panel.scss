@@ -78,7 +78,6 @@
     &:hover,
     &:focus {
       background-color: var(--d-hover);
-      outline: none;
     }
 
     .d-icon {
@@ -106,7 +105,6 @@
     &:hover,
     &:focus {
       background-color: var(--d-hover);
-      outline: none;
     }
 
     .d-icon {
@@ -540,7 +538,8 @@
   /* as a big ol' click target, don't let text inside be selected */
   @include unselectable;
 
-  &:focus {
+  &:focus:not(:focus-visible) {
+    // outline removed for mouse focus only; keyboard focus keeps the global ring
     outline: none;
   }
 

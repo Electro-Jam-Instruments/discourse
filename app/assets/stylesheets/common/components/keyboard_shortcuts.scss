@@ -51,7 +51,8 @@
     }
   }
 
-  &:focus {
+  &:focus:not(:focus-visible) {
+    // mouse focus only - keyboard focus keeps the global ring
     outline: none;
   }
 
