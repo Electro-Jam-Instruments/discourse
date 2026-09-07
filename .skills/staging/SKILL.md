@@ -170,19 +170,23 @@ document.querySelectorAll('[role="toolbar"]').length   // nav, post menu
 document.querySelectorAll('[role="tree"]').length      // sidebar
 ```
 
-**Focus styles must be measured, not eyeballed.** Tab to a control with a real
-keypress — programmatic `.focus()` does not trigger `:focus-visible` and gives
-misleading values — then:
+**Focus styles: run the audit. Do not eyeball, and do not measure one
+control.** See [references/focus-audit.md](references/focus-audit.md) — paste
+the script into the console and it reports every focusable control on the page
+as `ok`, `suppressed` (naming the selector responsible) or `browserDefault`.
 
-```js
-const c = getComputedStyle(document.activeElement);
-c.outlineStyle;   // "auto" means OUR RULE IS NOT APPLYING
-c.outlineWidth;   // 0.67px is the browser default; ours is 2px
-```
+The pass condition is `total === ok`. Anything else is a finding.
 
-`outline-style: auto` is the user-agent ring. Chrome ignores `outline-color`
-when it is set, so a colour-only fix does nothing and the ring stays dark. A
-screenshot cannot tell the two apart.
+Do not substitute a screenshot or a single measurement. All three have given
+wrong answers here: `outline-style: auto` is the browser's own ring and looks
+plausible; Chrome ignores `outline-color` when it is set, so a colour-only fix
+appears to do nothing; and programmatic `.focus()` does not trigger
+`:focus-visible` at all. The audit avoids all three by reading the CSSOM rather
+than focusing anything.
+
+Run it logged out **and** logged in — roughly half the interface, including
+New Topic, post menus and topic-row controls, does not render for anonymous
+users.
 
 Then by hand: arrow keys through the topic list and post stream; open a
 dropdown menu and use arrows, Home, End, Escape; confirm the console is silent.

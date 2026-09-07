@@ -126,7 +126,11 @@
   }
 
   &:focus-visible {
-    outline: none;
+    // No outline: none here. This mixin backs every button variant, so
+    // suppressing the ring here removes the keyboard focus indicator from
+    // every button in the app - the hover background alone does not show
+    // which control is focused, least of all on a filled button where it
+    // barely changes. The global :focus-visible baseline supplies the ring.
     background-color: $hover-bg-color;
     color: $hover-text-color;
 
@@ -465,7 +469,8 @@
   }
 
   &:focus-visible {
-    outline: none;
+    // Ring comes from the global :focus-visible baseline; this only adds the
+    // background treatment on top.
     background: var(--primary-low);
 
     .d-icon {
