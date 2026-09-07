@@ -146,10 +146,15 @@ $hpad: 0.65em;
   }
 }
 
+/// Focus treatment for inputs and controls that need the ring drawn inside
+/// their own box, so it cannot overlap an adjacent field.
+///
+/// Reads the same tokens as the global :focus-visible rule - there is one
+/// focus colour in the app, not a separate one for inputs.
 @mixin default-focus() {
-  border-color: var(--d-input-focused-color);
-  outline: 2px solid var(--d-input-focused-color);
-  outline-offset: -2px;
+  border-color: var(--d-focus-outline-color);
+  outline: var(--d-focus-outline-width) solid var(--d-focus-outline-color);
+  outline-offset: var(--d-focus-outline-offset-inset);
 }
 
 /// Helper function to easily use an SVG inline in CSS

@@ -126,7 +126,8 @@
   }
 
   &:focus-visible {
-    // No outline: none here. This mixin backs every button variant, so
+    // The ring is deliberately not suppressed here. This mixin backs every
+    // button variant, so
     // suppressing the ring here removes the keyboard focus indicator from
     // every button in the app - the hover background alone does not show
     // which control is focused, least of all on a filled button where it

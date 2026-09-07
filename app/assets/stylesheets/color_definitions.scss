@@ -162,30 +162,28 @@
     var(--tertiary)
   );
 
-  // Grid focus indicator settings (accessibility)
-  // Rectangle outline (used for row-level focus)
-  --d-grid-focus-outline-width: 2px;
-  --d-grid-focus-outline-color: var(--tertiary);
-  --d-grid-focus-outline-offset: -2px;
-
-  // Left bar highlight (used for element-level focus within row)
-  // Set to 0 for release - rectangle only. Change to 3px to enable left bar.
-  --d-grid-focus-bar-width: 0;
-  --d-grid-focus-bar-color: var(--d-nav-color--active);
-
-  // Keyboard focus indicator (accessibility)
+  // Keyboard focus indicator - the single source for every focus ring.
   //
-  // Deliberately not --tertiary: interactive controls are frequently accent
-  // coloured themselves (primary buttons, the active nav tab), so an accent
-  // ring on them has no contrast. --primary is the foreground colour and
-  // inverts with the colour scheme, giving a near-white ring on dark and a
-  // near-black one on light, against any surface.
+  // Deliberately not --tertiary: controls are frequently accent coloured
+  // themselves (primary buttons, the active nav tab), so an accent ring on
+  // them has no contrast. --primary is the foreground colour and inverts with
+  // the scheme, giving a near-white ring on dark and near-black on light
+  // against any surface.
+  //
+  // Consumed by the global :focus-visible rule in
+  // common/components/keyboard-navigation-focus.scss and by the default-focus
+  // mixin. Components should not define their own focus colours.
   --d-focus-outline-width: 2px;
   --d-focus-outline-color: var(--primary);
   --d-focus-outline-offset: 2px;
 
-  // Retained so existing references keep working.
-  --d-toolbar-focus-outline-width: var(--d-focus-outline-width);
-  --d-toolbar-focus-outline-color: var(--d-focus-outline-color);
-  --d-toolbar-focus-outline-offset: var(--d-focus-outline-offset);
+  // Inset variant, for controls where an outset ring would overlap a
+  // neighbour: table rows, and form fields sitting flush against each other.
+  --d-focus-outline-offset-inset: -2px;
+
+  // Aliases kept so the grid stylesheets keep working. Same values - there is
+  // no separate grid focus colour any more.
+  --d-grid-focus-outline-width: var(--d-focus-outline-width);
+  --d-grid-focus-outline-color: var(--d-focus-outline-color);
+  --d-grid-focus-outline-offset: var(--d-focus-outline-offset-inset);
 }
