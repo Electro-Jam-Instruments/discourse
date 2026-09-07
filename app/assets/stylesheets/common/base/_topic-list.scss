@@ -111,52 +111,9 @@
       margin-block: 0;
     }
   }
-
-  // Focus styles for grid navigation - full rectangle highlight
-  // Uses CSS variables for theme customization (see color_definitions.scss)
-  &:focus {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-
-  &:focus-visible {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
 }
 
-// Header row focus styles for grid navigation
-.topic-list-header tr[role="row"] {
-  &:focus {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-
-  &:focus-visible {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-}
-
-// Footer and empty state row focus styles for grid navigation
 .topic-list-footer-row,
-.topic-list-empty-row {
-  &:focus {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-
-  &:focus-visible {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-}
 
 // Empty state row styling
 .topic-list-empty-row .topic-list-empty-cell {

@@ -1,57 +1,14 @@
 @use "lib/viewport";
 
-// Focus styles for post-stream grid navigation
-// Enables visible focus ring when navigating posts with keyboard (arrow keys)
-// Uses same CSS variables as topic-list for consistent theming
 .topic-post[role="row"] {
   // Ensure focused rows scroll into view below the sticky header
   // Uses --header-offset CSS variable which accounts for header height
   scroll-margin-top: calc(var(--header-offset) + 1em);
-
-  &:focus {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-
-  &:focus-visible {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
 }
 
-// Focus styles for gridcells within posts (avatar, body)
-.topic-post [role="gridcell"] {
-  &:focus {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-
-  &:focus-visible {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-}
-
-// Small action posts also need focus styles
 .small-action[role="row"] {
   // Ensure focused rows scroll into view below the sticky header
   scroll-margin-top: calc(var(--header-offset) + 1em);
-
-  &:focus {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-
-  &:focus-visible {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
 }
 
 // Topic header row in post stream grid
@@ -61,18 +18,6 @@
 
   // Ensure focused rows scroll into view below the sticky header
   scroll-margin-top: calc(var(--header-offset) + 1em);
-
-  &:focus {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-
-  &:focus-visible {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
 
   .topic-header-row__content {
     display: flex;
@@ -96,23 +41,6 @@
   .topic-header-row__tags {
     display: inline-flex;
     align-items: center;
-  }
-}
-
-// Focus styles for cooked content
-// When Arrow Right navigates to .cooked, it needs visible focus
-// role="document" is added dynamically only when entering document mode (Ctrl+Enter)
-.topic-post .cooked {
-  &:focus {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-
-  &:focus-visible {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
   }
 }
 

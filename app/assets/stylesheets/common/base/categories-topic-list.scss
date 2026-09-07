@@ -29,20 +29,6 @@
   align-items: center;
   gap: var(--space-4);
 
-  // Focus styles for grid navigation - full rectangle highlight
-  // Uses CSS variables for theme customization (see color_definitions.scss)
-  &:focus {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-
-  &:focus-visible {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-
   .topic-poster {
     position: relative;
 
@@ -103,20 +89,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-
-  // Focus styles for grid navigation
-  // Uses CSS variables for theme customization (see color_definitions.scss)
-  &:focus {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-
-  &:focus-visible {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
 }
 
 .latest-topic-list-empty-cell {

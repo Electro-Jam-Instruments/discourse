@@ -8,22 +8,6 @@
 .category-list {
   table-layout: fixed;
 
-  // Focus styles for grid navigation - full rectangle highlight
-  // Uses CSS variables for theme customization (see color_definitions.scss)
-  tbody tr[role="row"] {
-    &:focus {
-      outline: var(--d-grid-focus-outline-width) solid
-        var(--d-grid-focus-outline-color);
-      outline-offset: var(--d-grid-focus-outline-offset);
-    }
-
-    &:focus-visible {
-      outline: var(--d-grid-focus-outline-width) solid
-        var(--d-grid-focus-outline-color);
-      outline-offset: var(--d-grid-focus-outline-offset);
-    }
-  }
-
   @include viewport.from(sm) {
     margin-bottom: 10px;
     width: 100%;
@@ -645,22 +629,6 @@
 
 .anon .muted-categories-link {
   display: none;
-}
-
-// Empty state row focus styles for grid navigation
-// Uses CSS variables for theme customization (see color_definitions.scss)
-.category-list-empty-row {
-  &:focus {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
-
-  &:focus-visible {
-    outline: var(--d-grid-focus-outline-width) solid
-      var(--d-grid-focus-outline-color);
-    outline-offset: var(--d-grid-focus-outline-offset);
-  }
 }
 
 // Empty state row styling
