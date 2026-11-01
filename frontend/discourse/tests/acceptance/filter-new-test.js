@@ -71,7 +71,7 @@ acceptance("Filter unified New", function (needs) {
     );
     assert
       .dom(".topics-replies-toggle.--all")
-      .hasAttribute("aria-pressed", "true", "New All is selected");
+      .hasAttribute("aria-selected", "true", "New All is selected");
     assert
       .dom(".topics-replies-toggle.--topics")
       .hasText("Topics (1)", "shows scoped new count");

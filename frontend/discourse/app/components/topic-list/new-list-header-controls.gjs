@@ -39,7 +39,8 @@ export default class NewListHeaderControls extends Component {
 
   <template>
     <button
-      aria-pressed={{if this.allActive "true" "false"}}
+      role="tab"
+      aria-selected={{if this.allActive "true" "false"}}
       class={{dConcatClass
         "topics-replies-toggle --all"
         (if this.allActive "active")
@@ -51,7 +52,8 @@ export default class NewListHeaderControls extends Component {
     </button>
 
     <button
-      aria-pressed={{if this.topicsActive "true" "false"}}
+      role="tab"
+      aria-selected={{if this.topicsActive "true" "false"}}
       class={{dConcatClass
         "topics-replies-toggle --topics"
         (if this.topicsActive "active")
@@ -63,7 +65,8 @@ export default class NewListHeaderControls extends Component {
     </button>
 
     <button
-      aria-pressed={{if this.repliesActive "true" "false"}}
+      role="tab"
+      aria-selected={{if this.repliesActive "true" "false"}}
       class={{dConcatClass
         "topics-replies-toggle --replies"
         (if this.repliesActive "active")

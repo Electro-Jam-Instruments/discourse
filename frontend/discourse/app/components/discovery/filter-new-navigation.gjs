@@ -4,6 +4,7 @@ import { action } from "@ember/object";
 import { LinkTo } from "@ember/routing";
 import { service } from "@ember/service";
 import NewListHeaderControls from "discourse/components/topic-list/new-list-header-controls";
+import tablistNavigation from "discourse/modifiers/tablist-navigation";
 import DHorizontalOverflowNav from "discourse/ui-kit/d-horizontal-overflow-nav";
 import { i18n } from "discourse-i18n";
 
@@ -58,7 +59,12 @@ export default class FilterNewNavigation extends Component {
         </li>
       </DHorizontalOverflowNav>
       {{#if this.selection}}
-        <div class="topic-replies-toggle-wrapper">
+        <div
+          class="topic-replies-toggle-wrapper"
+          role="tablist"
+          aria-label={{i18n "filters.new.subset_label"}}
+          {{tablistNavigation}}
+        >
           <NewListHeaderControls
             @changeNewListSubset={{this.changeSubset}}
             @current={{this.selection}}
