@@ -144,6 +144,40 @@ RSpec.describe Middleware::AnonymousCache do
 
         expect(new_helper(env).cache_key).to include("l=#{Discourse.anonymous_locale(request)}")
       end
+
+      it "keys locale param URLs on the locale the plain URL serves when crawler URLs are localized" do
+        SiteSetting.allow_user_locale = true
+        SiteSetting.set_locale_from_param = true
+        SiteSetting.set_locale_from_accept_language_header = true
+        SiteSetting.content_localization_enabled = true
+        SiteSetting.content_localization_supported_locales = "ja"
+        path = "http://test.com/path?#{Discourse::LOCALE_PARAM}=en"
+
+        key_for = ->(opts = {}) { new_helper(path:, **opts).cache_key }
+
+        expect(key_for.call).to eq(key_for.call("HTTP_ACCEPT_LANGUAGE" => "ja"))
+
+        SiteSetting.content_localization_crawler_param = true
+
+        expect(key_for.call).not_to eq(key_for.call("HTTP_ACCEPT_LANGUAGE" => "ja"))
+        expect(key_for.call).to eq(key_for.call("HTTP_ACCEPT_LANGUAGE" => "en"))
+        expect(new_helper.cache_key).to eq(new_helper("HTTP_ACCEPT_LANGUAGE" => "en").cache_key)
+      end
+
+      it "keys blank locale param URLs on the locale the plain URL serves when crawler URLs are localized" do
+        SiteSetting.allow_user_locale = true
+        SiteSetting.set_locale_from_param = true
+        SiteSetting.set_locale_from_accept_language_header = true
+        SiteSetting.content_localization_enabled = true
+        SiteSetting.content_localization_crawler_param = true
+        SiteSetting.content_localization_supported_locales = "ja"
+        path = "http://test.com/path?#{Discourse::LOCALE_PARAM}="
+
+        key_for = ->(opts = {}) { new_helper(path:, **opts).cache_key }
+
+        expect(key_for.call).not_to eq(key_for.call("HTTP_ACCEPT_LANGUAGE" => "ja"))
+        expect(key_for.call).to eq(key_for.call("HTTP_ACCEPT_LANGUAGE" => "en"))
+      end
     end
 
     it "handles old browsers" do
@@ -292,7 +326,7 @@ RSpec.describe Middleware::AnonymousCache do
   end
 
   describe "background request rate limit" do
-    it "will rate limit background requests" do
+    it "rate limits background requests" do
       app = Middleware::AnonymousCache.new(lambda { |env| [200, {}, ["ok"]] })
 
       global_setting :background_requests_max_queue_length, "0.5"
@@ -332,7 +366,7 @@ RSpec.describe Middleware::AnonymousCache do
   describe "#force_anonymous!" do
     before { RateLimiter.enable }
 
-    it "will revert to anonymous once we reach the limit" do
+    it "reverts to anonymous when the limit is reached" do
       is_anon = false
 
       app =
@@ -485,7 +519,7 @@ RSpec.describe Middleware::AnonymousCache do
       expect(@status).to eq(200)
     end
 
-    it "should never block robots.txt" do
+    it "allows robots.txt requests" do
       SiteSetting.blocked_crawler_user_agents = "Googlebot"
 
       get "/robots.txt",
@@ -496,7 +530,7 @@ RSpec.describe Middleware::AnonymousCache do
       expect(@status).to eq(200)
     end
 
-    it "should never block srv/status" do
+    it "allows srv/status requests" do
       SiteSetting.blocked_crawler_user_agents = "Googlebot"
 
       get "/srv/status",

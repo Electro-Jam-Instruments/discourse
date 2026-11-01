@@ -4,10 +4,10 @@ import BlockOutlet from "discourse/blocks/block-outlet";
 import { MAIN_PANEL } from "discourse/lib/sidebar/panels";
 import sidebarTreeNavigation from "discourse/modifiers/sidebar-tree-navigation";
 import { i18n } from "discourse-i18n";
-import ApiSections from "../api-sections";
-import CategoriesSection from "./categories-section";
-import CustomSections from "./custom-sections";
-import TagsSection from "./tags-section";
+import ApiSections from "../api-sections.gjs";
+import CategoriesSection from "./categories-section.gjs";
+import CustomSections from "./custom-sections.gjs";
+import TagsSection from "./tags-section.gjs";
 
 export default class SidebarAnonymousSections extends Component {
   @service sidebarState;
@@ -28,9 +28,9 @@ export default class SidebarAnonymousSections extends Component {
 
       <CustomSections
         @collapsable={{@collapsableSections}}
-        @toggleNavigationMenu={{@toggleNavigationMenu}}
         @expandActiveSection={{this.mainPanel.expandActiveSection}}
         @scrollActiveLinkIntoView={{this.mainPanel.scrollActiveLinkIntoView}}
+        @toggleNavigationMenu={{@toggleNavigationMenu}}
       />
       <CategoriesSection
         @collapsable={{@collapsableSections}}

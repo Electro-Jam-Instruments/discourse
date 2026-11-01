@@ -1,6 +1,10 @@
 import { waitForPromise } from "@ember/test-waiters";
 import AllowLister from "pretty-text/allow-lister";
-import { buildEmojiUrl, performEmojiUnescape } from "pretty-text/emoji";
+import {
+  buildAnimatedEmojiUrl,
+  buildEmojiUrl,
+  performEmojiUnescape,
+} from "pretty-text/emoji";
 import { sanitize as textSanitize } from "pretty-text/sanitizer";
 import deprecated from "discourse/lib/deprecated";
 import { getURLWithCDN } from "discourse/lib/get-url";
@@ -35,6 +39,11 @@ export async function generateCookFunction(options) {
   return await withEngine("generateCookFunction", options);
 }
 
+/**
+ * Loads the markdown engine and returns its link matcher for `options`.
+ *
+ * @returns {Promise<import("discourse/lib/link-matcher").LinkMatcher>}
+ */
 export async function generateLinkifyFunction(options) {
   return await withEngine("generateLinkifyFunction", options);
 }
@@ -89,6 +98,13 @@ export function emojiUrlFor(code) {
   const opts = emojiOptions();
   if (opts) {
     return buildEmojiUrl(code, opts);
+  }
+}
+
+export function animatedEmojiUrlFor(code) {
+  const opts = emojiOptions();
+  if (opts) {
+    return buildAnimatedEmojiUrl(code, opts);
   }
 }
 
@@ -205,7 +221,7 @@ export function serializeBBCodeAttr(value, name) {
 /**
  * Builds a BBCode attributes string from an object of key-value pairs.
  *
- * @param {Object} attrs - Object containing attribute key-value pairs
+ * @param {Record<string, unknown>} attrs - Object containing attribute key-value pairs
  * @param {Object} [opts] - Options
  * @param {string[]} [opts.skipAttrs] - Array of attribute names to skip
  * @returns {string} The serialized attributes string (e.g., 'name=value foo="bar baz"')

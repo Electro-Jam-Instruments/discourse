@@ -15,7 +15,6 @@ import borderColor from "discourse/helpers/border-color";
 import categoryColorVariable from "discourse/helpers/category-color-variable";
 import lazyHash from "discourse/helpers/lazy-hash";
 import domFromString from "discourse/lib/dom-from-string";
-import { gt } from "discourse/truth-helpers";
 import DDecoratedHtml from "discourse/ui-kit/d-decorated-html";
 import dDirSpan from "discourse/ui-kit/helpers/d-dir-span";
 import { i18n } from "discourse-i18n";
@@ -130,10 +129,10 @@ export default class ParentCategoryRow extends CategoryListItem {
           }}
         />
         <div
+          class="category-list-item category {{if this.isMuted 'muted'}}"
           data-category-id={{this.category.id}}
           data-notification-level={{this.category.notificationLevelString}}
           style={{borderColor this.category.color}}
-          class="category-list-item category {{if this.isMuted 'muted'}}"
         >
           <table class="topic-list">
             <tbody>
@@ -206,8 +205,6 @@ export default class ParentCategoryRow extends CategoryListItem {
       {{else}}
 
         <tr
-          data-category-id={{this.category.id}}
-          data-notification-level={{this.category.notificationLevelString}}
           role="row"
           tabindex={{this.tabindex}}
           aria-rowindex={{this.ariaRowIndex}}
@@ -225,6 +222,8 @@ export default class ParentCategoryRow extends CategoryListItem {
               (hash category=this.category)
             }}
             {{if this.category.uploaded_logo.url 'has-logo' 'no-logo'}}"
+          data-category-id={{this.category.id}}
+          data-notification-level={{this.category.notificationLevelString}}
         >
 
           <PluginOutlet
@@ -241,8 +240,8 @@ export default class ParentCategoryRow extends CategoryListItem {
           >
             <CategoryTitleLink @category={{this.category}} />
             <PluginOutlet
-              @name="below-category-title-link"
               @connectorTagName="div"
+              @name="below-category-title-link"
               @outletArgs={{lazyHash category=this.category}}
             />
 
@@ -285,8 +284,8 @@ export default class ParentCategoryRow extends CategoryListItem {
                 {{#if (gt this.hiddenSubcategoryCount 0)}}
                   <div class="subcategories__more-subcategories">
                     <LinkTo
-                      @route="discovery.subcategories"
                       @model={{this.slugPath}}
+                      @route="discovery.subcategories"
                     >
                       {{i18n
                         "category_row.subcategory_count"
@@ -313,11 +312,11 @@ export default class ParentCategoryRow extends CategoryListItem {
                   this.category.stat
                 }}</div>
               <CategoryUnread
+                class="unread-new"
                 @category={{this.category}}
+                @newTopicsCount={{this.newTopicsCount}}
                 @tagName="div"
                 @unreadTopicsCount={{this.unreadTopicsCount}}
-                @newTopicsCount={{this.newTopicsCount}}
-                class="unread-new"
               />
             </td>
           </PluginOutlet>

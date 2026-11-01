@@ -16,10 +16,39 @@ module TopicListResponder
         render "list/list"
       end
       format.json { render_serialized(list, TopicListSerializer) }
+      format.md do
+        localize_topic_list_content(list)
+        title =
+          if @category
+            @category.name
+          elsif @tag_name
+            "##{@tag_name}"
+          else
+            action_name.titleize
+          end
+        render_markdown(
+          MarkdownEndpoint::TopicListRenderer.new(
+            topics: list.topics,
+            user: current_user,
+            title: title,
+            url: markdown_alternate_url,
+            page: params[:page],
+            next_page_url: (list.more_topics_url if list.topics.size == list.per_page),
+            previous_page_url: (list.prev_topics_url if params[:page].to_i.positive?),
+          ).render,
+        )
+      end
     end
   end
 
   private
+
+  def canonical_list_url(path)
+    url = "#{Discourse.base_url_no_prefix}#{path}"
+    page = params[:page]
+    url = "#{url}?page=#{page.to_i}" if TopicQuery.validate?(:page, page) && page.to_i > 0
+    canonical_url(url)
+  end
 
   def localize_topic_list_content(list)
     return if list.topics.blank? || !SiteSetting.content_localization_enabled

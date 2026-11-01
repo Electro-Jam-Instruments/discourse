@@ -2,7 +2,7 @@
 
 RSpec.describe AboutController do
   describe "#index" do
-    it "should display the about page for anonymous user when login_required is false" do
+    it "displays the about page anonymously when login is optional" do
       SiteSetting.login_required = false
       get "/about"
 
@@ -10,14 +10,14 @@ RSpec.describe AboutController do
       expect(response.body).to include("<title>About - Discourse</title>")
     end
 
-    it "should redirect to login page for anonymous user when login_required is true" do
+    it "redirects anonymous users to login when login is required" do
       SiteSetting.login_required = true
       get "/about"
 
       expect(response).to redirect_to "/login"
     end
 
-    it "should display the about page for logged in user when login_required is true" do
+    it "displays the about page to logged-in users when login is required" do
       SiteSetting.login_required = true
       sign_in(Fabricate(:user))
       get "/about"
@@ -26,13 +26,13 @@ RSpec.describe AboutController do
     end
 
     context "with crawler view" do
-      it "should include correct title" do
+      it "includes the page title" do
         get "/about", headers: { "HTTP_USER_AGENT" => "Googlebot" }
         expect(response.status).to eq(200)
         expect(response.body).to include("<title>About - Discourse</title>")
       end
 
-      it "should include correct user URLs" do
+      it "includes the user URLs" do
         Fabricate(:admin, username: "anAdminUser")
         get "/about", headers: { "HTTP_USER_AGENT" => "Googlebot" }
         expect(response.status).to eq(200)
@@ -69,6 +69,32 @@ RSpec.describe AboutController do
         expect(response.status).to eq(200)
         expect(response.parsed_body.dig("about", "title")).to eq("日本語タイトル")
         expect(response.parsed_body.dig("about", "description")).to eq("日本語の説明")
+      end
+
+      it "localizes JSON responses from Accept-Language for clients classified as crawlers" do
+        SiteSetting.allow_user_locale = true
+        SiteSetting.set_locale_from_accept_language_header = true
+        SiteSetting.content_localization_crawler_param = true
+        SiteSetting.content_localization_supported_locales = "ja"
+
+        get "/about.json",
+            headers: {
+              "HTTP_USER_AGENT" => "curl/8.0",
+              "HTTP_ACCEPT_LANGUAGE" => "ja",
+            }
+
+        expect(response.status).to eq(200)
+        expect(response.parsed_body.dig("about", "title")).to eq("日本語タイトル")
+
+        get "/about",
+            headers: {
+              "HTTP_USER_AGENT" => "curl/8.0",
+              "HTTP_ACCEPT" => "application/json, text/html;q=0.5",
+              "HTTP_ACCEPT_LANGUAGE" => "ja",
+            }
+
+        expect(response.status).to eq(200)
+        expect(response.parsed_body.dig("about", "title")).to eq("日本語タイトル")
       end
 
       it "falls back to default values when a localized value is blank" do

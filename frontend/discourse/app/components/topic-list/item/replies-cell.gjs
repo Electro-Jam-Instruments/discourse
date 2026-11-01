@@ -58,9 +58,9 @@ export default class RepliesCell extends Component {
       role="gridcell"
     >
       <a
-        href={{@topic.firstPostUrl}}
-        class="badge-posts"
         aria-label={{i18n "topic.reply_count_link" count=@topic.replyCount}}
+        class="badge-posts"
+        href={{@topic.firstPostUrl}}
       >
         <PluginOutlet
           @name="topic-list-before-reply-count"

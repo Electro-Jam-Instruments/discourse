@@ -45,6 +45,10 @@ de:
           rsvp_to_event_with_link: "Melde dich bei <a href='%{url}'>dem Ereignis</a> an, um mit dem Chatten zu beginnen"
           rsvp_body: "Tausch dich vor, während und nach dem Ereignis mit anderen Teilnehmern aus."
       preferences:
+        reminders:
+          preferences:
+            notification: "Benachrichtigung"
+            none: "Keine Erfassung"
         all_events_description: "Alle Forum-Ereignisse"
         my_events_description: "Ereignisse, die du besuchst oder an denen du interessiert bist"
       on_holiday: "Im Urlaub"
@@ -347,6 +351,8 @@ de:
         topic_id: "Themen-ID"
     discourse_post_event:
       new_event: "Neues Ereignis"
+      onebox:
+        all_day: "Ganztägig"
       notifications:
         before_event_reminder: "Ein Ereignis beginnt in Kürze"
         after_event_reminder: "Ein Ereignis wurde beendet"
@@ -389,6 +395,7 @@ de:
         filter_placeholder: "Benutzer filtern"
         remove_invitee: "Eingeladene Person aus der Liste entfernen"
         add_invitee: "Eingeladene Person zur Liste hinzufügen"
+        this_event: "Dieser Termin"
       bulk_invite_modal:
         confirm: "bestätigen"
         text: "CSV-Datei hochladen"
@@ -449,7 +456,6 @@ de:
               one: "%{count} Benutzer eingeladen"
               other: "%{count} Benutzer eingeladen"
         event:
-          expired: "Abgelaufen"
           closed: "Geschlossen"
           full: "Voll"
           status:
@@ -462,6 +468,8 @@ de:
             private:
               title: "Privat"
               description: "An einem privaten Ereignis können nur eingeladene Benutzer teilnehmen."
+      recording_modal:
+        save: "Speichern"
       composer:
         name_placeholder: "Name des Ereignisses"
         end_date_placeholder: "Enddatum"

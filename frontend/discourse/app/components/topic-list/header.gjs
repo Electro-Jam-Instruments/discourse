@@ -67,21 +67,21 @@ export default class Header extends Component {
     >
       {{#each @columns as |entry|}}
         <entry.value.header
+          @activeOrder={{@order}}
+          @ascending={{@ascending}}
+          @bulkSelectEnabled={{@bulkSelectEnabled}}
+          @bulkSelectHelper={{@bulkSelectHelper}}
+          @canBulkSelect={{@canBulkSelect}}
+          @canDoBulkActions={{@canDoBulkActions}}
+          @category={{@category}}
+          @changeSort={{@changeSort}}
+          @name={{@listTitle}}
+          @showBulkToggle={{@toggleInTitle}}
           @sortable={{applyValueTransformer
             "topic-list-header-sortable-column"
             @sortable
             (hash category=@category name=@name)
           }}
-          @activeOrder={{@order}}
-          @changeSort={{@changeSort}}
-          @ascending={{@ascending}}
-          @category={{@category}}
-          @name={{@listTitle}}
-          @bulkSelectEnabled={{@bulkSelectEnabled}}
-          @showBulkToggle={{@toggleInTitle}}
-          @canBulkSelect={{@canBulkSelect}}
-          @canDoBulkActions={{@canDoBulkActions}}
-          @bulkSelectHelper={{@bulkSelectHelper}}
         />
       {{/each}}
     </tr>

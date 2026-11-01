@@ -1,8 +1,8 @@
-/* eslint-disable ember/no-classic-components */
-import Component from "@ember/component";
+import Component from "@glimmer/component";
+import { cached, tracked } from "@glimmer/tracking";
 import { on } from "@ember/modifier";
-import { action, computed } from "@ember/object";
-import { tagName } from "@ember-decorators/component";
+import { action } from "@ember/object";
+import { service } from "@ember/service";
 import ParentCategoryRow from "discourse/components/parent-category-row";
 import PluginOutlet from "discourse/components/plugin-outlet";
 import lazyHash from "discourse/helpers/lazy-hash";
@@ -10,9 +10,10 @@ import gridNavigation from "discourse/modifiers/grid-navigation";
 import dIcon from "discourse/ui-kit/helpers/d-icon";
 import { i18n } from "discourse-i18n";
 
-@tagName("")
 export default class CategoriesOnly extends Component {
-  showMuted = false;
+  @service site;
+
+  @tracked showMuted = false;
 
   /**
    * Total row count for aria-rowcount (categories + header, or header + empty row)
@@ -41,7 +42,7 @@ export default class CategoriesOnly extends Component {
    * Column count for colspan on empty row
    */
   get columnCount() {
-    return this.showTopics ? 3 : 2;
+    return this.args.showTopics ? 3 : 2;
   }
 
   /**
@@ -56,14 +57,13 @@ export default class CategoriesOnly extends Component {
    */
   get categoryHeaderLabel() {
     const columns = [i18n("categories.category"), i18n("categories.topics")];
-    if (this.showTopics) {
+    if (this.args.showTopics) {
       columns.push(i18n("categories.latest"));
     }
     const instructions = i18n("sr_category_list_header");
     return `${columns.join(", ")}. ${instructions}`;
   }
 
-  @computed("showMutedCategories", "filteredCategories.length")
   get mutedToggleIcon() {
     if (this.filteredCategories?.length === 0) {
       return;
@@ -76,48 +76,49 @@ export default class CategoriesOnly extends Component {
     return "plus";
   }
 
-  @computed("showMuted", "filteredCategories.length")
   get showMutedCategories() {
     return this.showMuted || this.filteredCategories?.length === 0;
   }
 
-  @computed("categories", "categories.length")
+  @cached
   get filteredCategories() {
-    if (!this.categories || this.categories?.length === 0) {
+    const categories = this.args.categories;
+    if (!categories || categories?.length === 0) {
       return [];
     }
 
-    return this.categories.filter((cat) => !cat.isHidden);
+    return categories.filter((cat) => !cat.isHidden);
   }
 
-  @computed("categories", "categories.length")
+  @cached
   get mutedCategories() {
-    if (!this.categories || this.categories?.length === 0) {
+    const categories = this.args.categories;
+    if (!categories || categories?.length === 0) {
       return [];
     }
 
     // hide in single category pages
-    if (this.categories[0].parent_category_id) {
+    if (categories[0].parent_category_id) {
       return [];
     }
 
-    return this.categories.filter((category) => category.hasMuted);
+    return categories.filter((category) => category.hasMuted);
   }
 
   @action
   toggleShowMuted(event) {
     event?.preventDefault();
-    this.toggleProperty("showMuted");
+    this.showMuted = !this.showMuted;
   }
 
   <template>
     <PluginOutlet
       @name="categories-only-wrapper"
-      @outletArgs={{lazyHash categories=this.categories}}
+      @outletArgs={{lazyHash categories=@categories}}
     >
       {{#if this.site.mobileView}}
         {{#if this.filteredCategories}}
-          <div class="category-list {{if this.showTopics 'with-topics'}}">
+          <div class="category-list {{if @showTopics 'with-topics'}}">
             <PluginOutlet
               @name="mobile-categories"
               @outletArgs={{lazyHash categories=this.filteredCategories}}
@@ -125,7 +126,7 @@ export default class CategoriesOnly extends Component {
               {{#each this.filteredCategories as |c|}}
                 <ParentCategoryRow
                   @category={{c}}
-                  @showTopics={{this.showTopics}}
+                  @showTopics={{@showTopics}}
                 />
               {{/each}}
             </PluginOutlet>
@@ -133,7 +134,7 @@ export default class CategoriesOnly extends Component {
         {{/if}}
       {{else}}
         <table
-          class="category-list {{if this.showTopics 'with-topics'}}"
+          class="category-list {{if @showTopics 'with-topics'}}"
           role="grid"
           aria-labelledby="categories-only-category"
           aria-rowcount={{this.categoryRowCount}}
@@ -153,7 +154,7 @@ export default class CategoriesOnly extends Component {
               <th class="topics topic-list-data num" role="columnheader">{{i18n
                   "categories.topics"
                 }}</th>
-              {{#if this.showTopics}}
+              {{#if @showTopics}}
                 <th class="latest" role="columnheader">{{i18n "categories.latest"}}</th>
               {{/if}}
             </tr>
@@ -162,7 +163,7 @@ export default class CategoriesOnly extends Component {
             {{#each this.filteredCategories as |category index|}}
               <ParentCategoryRow
                 @category={{category}}
-                @showTopics={{this.showTopics}}
+                @showTopics={{@showTopics}}
                 @index={{index}}
               />
             {{/each}}
@@ -206,13 +207,13 @@ export default class CategoriesOnly extends Component {
             {{#if this.site.mobileView}}
               <div
                 class="category-list
-                  {{if this.showTopics 'with-topics'}}
+                  {{if @showTopics 'with-topics'}}
                   {{unless this.showMutedCategories 'hidden'}}"
               >
                 {{#each this.mutedCategories as |c|}}
                   <ParentCategoryRow
                     @category={{c}}
-                    @showTopics={{this.showTopics}}
+                    @showTopics={{@showTopics}}
                     @listType="muted"
                   />
                 {{/each}}
@@ -220,7 +221,7 @@ export default class CategoriesOnly extends Component {
             {{else}}
               <table
                 class="category-list
-                  {{if this.showTopics 'with-topics'}}
+                  {{if @showTopics 'with-topics'}}
                   {{unless this.showMutedCategories 'hidden'}}"
                 role="grid"
                 aria-labelledby="categories-only-category-muted"
@@ -241,7 +242,7 @@ export default class CategoriesOnly extends Component {
                     <th class="topics topic-list-data num" role="columnheader">{{i18n
                   "categories.topics"
                 }}</th>
-                    {{#if this.showTopics}}
+                    {{#if @showTopics}}
                       <th class="latest" role="columnheader">{{i18n "categories.latest"}}</th>
                     {{/if}}
                   </tr>
@@ -250,7 +251,7 @@ export default class CategoriesOnly extends Component {
                   {{#each this.mutedCategories as |category index|}}
                     <ParentCategoryRow
                       @category={{category}}
-                      @showTopics={{this.showTopics}}
+                      @showTopics={{@showTopics}}
                       @listType="muted"
                       @index={{index}}
                     />
@@ -266,8 +267,8 @@ export default class CategoriesOnly extends Component {
       @name="below-categories-only"
       @connectorTagName="div"
       @outletArgs={{lazyHash
-        categories=this.categories
-        showTopics=this.showTopics
+        categories=@categories
+        showTopics=@showTopics
       }}
     />
   </template>

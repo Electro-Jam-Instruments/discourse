@@ -1,51 +1,40 @@
-/* eslint-disable ember/no-classic-components */
-import Component from "@ember/component";
+import Component from "@glimmer/component";
 import { on } from "@ember/modifier";
-import { action, computed } from "@ember/object";
-import { dependentKeyCompat } from "@ember/object/compat";
+import { action } from "@ember/object";
 import { service } from "@ember/service";
-import { tagName } from "@ember-decorators/component";
 import { filterTypeForMode } from "discourse/lib/filter-mode";
 import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
 
-@tagName("")
 export default class NavigationItem extends Component {
+  @service currentUser;
   @service filterFocus;
+  @service siteSettings;
 
-  role = "presentation";
-  filterMode;
-  hidden = false;
-  activeClass = "";
-  hrefLink = null;
-
-  @dependentKeyCompat
   get filterType() {
-    return filterTypeForMode(this.filterMode);
+    return filterTypeForMode(this.args.filterMode);
   }
 
-  @computed("content.filterType", "filterType", "content.active")
   get active() {
-    if (this.content?.active !== undefined) {
-      return this.content?.active;
+    if (this.args.content?.active !== undefined) {
+      return this.args.content?.active;
     }
-    return this.content?.filterType === this.filterType;
+    return this.args.content?.filterType === this.filterType;
   }
 
-  @computed("content.count", "content.name")
   get isHidden() {
     return (
       !this.active &&
       this.currentUser &&
       !this.currentUser.unified_new_enabled &&
       this.currentUser.trust_level > 0 &&
-      (this.content?.name === "new" || this.content?.name === "unread") &&
-      this.content?.count < 1
+      (this.args.content?.name === "new" ||
+        this.args.content?.name === "unread") &&
+      this.args.content?.count < 1
     );
   }
 
-  didReceiveAttrs() {
-    super.didReceiveAttrs(...arguments);
-    const content = this.content;
+  get hrefLink() {
+    const content = this.args.content;
 
     let [href, searchParams] = content.get("href")?.split("?") || [];
 
@@ -54,7 +43,7 @@ export default class NavigationItem extends Component {
 
     // Include the category id if the option is present
     if (content.get("includeCategoryId")) {
-      let categoryId = this.get("content.category.id");
+      let categoryId = content.get("category.id");
       if (categoryId) {
         urlSearchParams.set("category_id", categoryId);
       }
@@ -85,9 +74,7 @@ export default class NavigationItem extends Component {
     if (addParamsEvenIfEmpty || (queryString && href)) {
       href = (href || "") + `?${queryString}`;
     }
-    this.set("hrefLink", href);
-
-    this.set("activeClass", this.active ? "active" : "");
+    return href;
   }
 
   /**
@@ -97,8 +84,6 @@ export default class NavigationItem extends Component {
    */
   @action
   handleClick(event) {
-    // event.detail === 0 means click was triggered by keyboard (Enter/Space)
-    // event.detail > 0 means it was a real mouse click
     if (event.detail === 0) {
       this.filterFocus.markKeyboardActivation();
     }
@@ -106,29 +91,29 @@ export default class NavigationItem extends Component {
 
   <template>
     <li
-      title={{this.content.title}}
       class={{dConcatClass
         (if this.active "active")
-        (if this.content.hasIcon "has-icon")
-        this.content.classNames
+        (if @content.hasIcon "has-icon")
+        @content.classNames
         (if this.isHidden "hidden")
-        this.content.name
+        @content.name
       }}
+      title={{@content.title}}
       role="presentation"
       ...attributes
     >
       <a
+        aria-current={{if this.active "page"}}
+        class={{if this.active "active"}}
         href={{this.hrefLink}}
-        class={{this.activeClass}}
         role="tab"
         aria-selected={{if this.active "true" "false"}}
-        aria-current={{if this.activeClass "page"}}
         {{on "click" this.handleClick}}
       >
         {{#if this.hasIcon}}
-          <span class={{this.content.name}}></span>
+          <span class={{@content.name}}></span>
         {{/if}}
-        {{this.content.displayName}}
+        {{@content.displayName}}
       </a>
     </li>
   </template>

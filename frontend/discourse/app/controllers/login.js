@@ -22,17 +22,19 @@ import { i18n } from "discourse-i18n";
 
 export default class LoginPageController extends Controller {
   @service siteSettings;
+
   @service capabilities;
   @service dialog;
   // eslint-disable-next-line discourse/no-unused-services
   @service site; // used in the route template
   @service login;
   @service modal;
-
   @controller application;
 
   @tracked loggingIn = false;
+
   @tracked loggedIn = false;
+  @tracked codeLoginSelected = false;
   @tracked showLoginButtons = true;
   @tracked showLogin = true;
   @tracked showSecondFactor = false;
@@ -50,7 +52,10 @@ export default class LoginPageController extends Controller {
   @tracked secondFactorToken;
   @tracked flash;
   @tracked flashType;
-  @tracked showCodeLoginForm = false;
+
+  /** @type {string | null} */
+  @tracked loginMode = null;
+  queryParams = [{ loginMode: "mode" }];
 
   /**
    * Set flash message, ensuring screen readers re-announce even if same message.
@@ -89,6 +94,13 @@ export default class LoginPageController extends Controller {
     );
   }
 
+  get showCodeLoginForm() {
+    return (
+      this.canUseCodeLogin &&
+      (this.codeLoginSelected || this.loginMode === "code")
+    );
+  }
+
   @computed("siteSettings.enable_local_logins_via_email")
   get canLoginLocalWithEmail() {
     return this.siteSettings.enable_local_logins_via_email;
@@ -114,8 +126,7 @@ export default class LoginPageController extends Controller {
     if (
       this.hasAtLeastOneLoginButton &&
       !this.showSecondFactor &&
-      !this.showSecurityKey &&
-      !this.showCodeLoginForm
+      !this.showSecurityKey
     ) {
       classes.push("has-alt-auth");
     }
@@ -195,12 +206,18 @@ export default class LoginPageController extends Controller {
 
   @action
   showCodeLogin() {
-    this.showCodeLoginForm = true;
+    this.codeLoginSelected = true;
   }
 
   @action
-  usePassword() {
-    this.showCodeLoginForm = false;
+  usePassword(email) {
+    if (typeof email === "string") {
+      this.loginName = email;
+    }
+    this.codeLoginSelected = false;
+    if (this.loginMode === "code") {
+      this.loginMode = "password";
+    }
   }
 
   @action
@@ -322,14 +339,7 @@ export default class LoginPageController extends Controller {
             set("redirect", window.location.href);
           }
 
-          if (this.capabilities.isIOS && this.capabilities.isSafari) {
-            // In case of Safari on iOS do not submit hidden login form
-            window.location.href = _form.querySelector(
-              "input[name=redirect]"
-            ).value;
-          } else {
-            _form.submit();
-          }
+          _form.submit();
         }
       }
     } catch (e) {

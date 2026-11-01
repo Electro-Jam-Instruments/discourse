@@ -1,5 +1,7 @@
 import { scheduleOnce } from "@ember/runloop";
 
+let focusedBeforeTransition;
+
 function _clean(transition) {
   if (window.MiniProfiler && transition.from) {
     window.MiniProfiler.pageTransition();
@@ -17,11 +19,16 @@ function _clean(transition) {
   // Close PhotoSwipe
   window.pswp?.close();
 
-  // Remove any link focus
+  // Remove focus from the link that triggered navigation, but keep focus the
+  // new page set deliberately (e.g. on a linked post)
   const { activeElement } = document;
-  if (activeElement && !activeElement.classList.contains("no-blur")) {
+  if (
+    activeElement === focusedBeforeTransition &&
+    !activeElement.classList.contains("no-blur")
+  ) {
     activeElement.blur();
   }
+  focusedBeforeTransition = null;
 
   this.lookup("route:application").send("closeModal");
 
@@ -62,6 +69,10 @@ export default {
     router.on("routeWillChange", () =>
       _prepareGridsForTeardown(focusHistory)
     );
+
+    router.on("routeWillChange", () => {
+      focusedBeforeTransition = document.activeElement;
+    });
 
     router.on("routeDidChange", (transition) => {
       if (transition.isAborted) {

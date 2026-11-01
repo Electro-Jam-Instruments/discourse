@@ -13,6 +13,11 @@ nb_NO:
             topic_id:
               label: Emne-ID
     discourse_events:
+      preferences:
+        reminders:
+          preferences:
+            notification: "Varsling"
+            none: "Ingen"
       disable_holiday: "Deaktiver"
       enable_holiday: "Aktiver"
       date: "Dato"
@@ -47,13 +52,14 @@ nb_NO:
         status: "Status"
       models:
         event:
-          expired: "Utløpt"
           closed: "Lukket"
           status:
             public:
               title: "Offentlig"
             private:
               title: "Privat"
+      recording_modal:
+        save: "Lagre"
       composer:
         url_placeholder: "Legg til URL"
         reminder:

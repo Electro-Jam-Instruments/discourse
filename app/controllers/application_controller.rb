@@ -9,6 +9,7 @@ class ApplicationController < ActionController::Base
   include GlobalPath
   include Hijack
   include ReadOnlyMixin
+  include ArchivedSiteMixin
   include ThemeResolver
   include VaryHeader
 
@@ -41,6 +42,7 @@ class ApplicationController < ActionController::Base
   before_action :clear_notifications
   around_action :with_resolved_locale
   before_action :block_if_readonly_mode
+  before_action :block_if_archived
   before_action :authorize_mini_profiler
   before_action :redirect_to_login_if_required
   before_action :block_if_requires_login
@@ -81,6 +83,16 @@ class ApplicationController < ActionController::Base
     @use_crawler_layout ||= CrawlerDetection.crawler_layout_request?(request)
   end
   helper_method :use_crawler_layout?
+
+  # Kept in the env so that Middleware::CrawlerHooks rewrites links to match the page's tags.
+  def plain_url_serves_default_locale?
+    key = ContentLocalization::PLAIN_URL_SERVES_DEFAULT_LOCALE_ENV
+    return request.env[key] if request.env.key?(key)
+
+    request.env[key] = current_user.nil? &&
+      ContentLocalization.plain_url_serves_default_locale?(request)
+  end
+  helper_method :plain_url_serves_default_locale?
 
   def include_splash_screen?
     !Rails.env.test?
@@ -163,7 +175,7 @@ class ApplicationController < ActionController::Base
     render_json_error I18n.t("site_setting_missing", name: e.message), status: 500
   end
 
-  rescue_from ActionController::RoutingError, PluginDisabled do
+  rescue_from ActionController::RoutingError, ActionDispatch::MissingController, PluginDisabled do
     # This error is raised outside of the normal request response cycle and is called via the
     # `DiscoursePublicExceptions` middleware which creates a new instance of the ApplicationController.
     # As a result, controller actions hooks are not called and we need to explicitly call `dont_cache_page` here.
@@ -254,6 +266,7 @@ class ApplicationController < ActionController::Base
       custom_message: e.custom_message,
       custom_message_params: e.custom_message_params,
       group: e.group,
+      authentication_failed: e.opts[:authentication_failed],
     )
   end
 
@@ -265,6 +278,21 @@ class ApplicationController < ActionController::Base
         end
         format.html do
           render status: :service_unavailable, layout: "no_ember", template: "exceptions/read_only"
+        end
+      end
+    end
+  end
+
+  rescue_from Discourse::SiteArchived do
+    unless response_body
+      respond_to do |format|
+        format.json do
+          render_json_error I18n.t("site_archived_error"), type: :site_archived, status: 503
+        end
+        format.html do
+          render status: :service_unavailable,
+                 layout: "no_ember",
+                 template: "exceptions/site_archived"
         end
       end
     end
@@ -331,20 +359,23 @@ class ApplicationController < ActionController::Base
     }
 
     if show_json_errors
+      authentication_failed = opts[:authentication_failed]
       opts = { type: type, status: status_code }
 
-      with_resolved_locale do
-        # Include error in HTML format for topics#show.
-        if (request.params[:controller] == "topics" && request.params[:action] == "show") ||
-             (
-               request.params[:controller] == "categories" &&
-                 request.params[:action] == "find_by_slug"
-             )
-          opts[:extras] = {
-            title: I18n.t("page_not_found.page_title"),
-            html: build_not_found_page(error_page_opts),
-            group: error_page_opts[:group],
-          }
+      if !authentication_failed
+        with_resolved_locale do
+          # Include error in HTML format for topics#show.
+          if (request.params[:controller] == "topics" && request.params[:action] == "show") ||
+               (
+                 request.params[:controller] == "categories" &&
+                   request.params[:action] == "find_by_slug"
+               )
+            opts[:extras] = {
+              title: I18n.t("page_not_found.page_title"),
+              html: build_not_found_page(error_page_opts),
+              group: error_page_opts[:group],
+            }
+          end
         end
       end
 
@@ -380,10 +411,7 @@ class ApplicationController < ActionController::Base
   end
 
   def set_current_user_for_logs
-    if current_user
-      Logster.add_to_env(request.env, "username", current_user.username)
-      response.headers["X-Discourse-Username"] = current_user.username
-    end
+    Logster.add_to_env(request.env, "username", current_user.username) if current_user
     response.headers["X-Discourse-Route"] = "#{controller_path}/#{action_name}"
   end
 
@@ -948,7 +976,7 @@ class ApplicationController < ActionController::Base
       end
     @subtitle = opts[:subtitle] || I18n.t("page_not_found.subtitle")
     @group = opts[:group]
-    @hide_search = true if SiteSetting.login_required
+    @hide_search = true if SiteSetting.login_required || !guardian.can_search?
 
     params[:slug] = params[:slug].first if params[:slug].kind_of?(Array)
     params[:id] = params[:id].first if params[:id].kind_of?(Array)
@@ -1126,6 +1154,24 @@ class ApplicationController < ActionController::Base
     yield
   ensure
     dont_cache_page
+    set_current_user_header_for_logs
+  end
+
+  def set_current_user_header_for_logs
+    return if !current_user
+
+    cache_control = response.cache_control
+    extras = cache_control[:extras]
+    # `dont_cache_page` sets both of these through `extras` rather than as
+    # their own keys, and Rails only populates `cache_control[:private]` when
+    # the directive was set that way, so both spellings have to be checked.
+    no_store = cache_control[:no_store] || extras&.include?("no-store")
+    private_response =
+      cache_control[:private] || extras&.include?("private") ||
+        (cache_control[:max_age] && !cache_control[:public])
+    return if !private_response && !no_store
+
+    response.headers["X-Discourse-Username"] = current_user.username
   end
 
   def persist_locale_param_to_cookie

@@ -94,7 +94,7 @@ class PostRevisor
   ]
 
   # Extensions can inspect revision options via the `:post_edited` event payload.
-  attr_reader :category_changed, :post_revision, :opts
+  attr_reader :category_changed, :post_revision, :opts, :editor
 
   def initialize(post, topic = post.topic)
     @post = post
@@ -244,7 +244,10 @@ class PostRevisor
   end
 
   def self.tag_list_to_raw(tag_list)
-    tag_list.sort.map { |tag_name| "##{tag_name}" }.join(", ")
+    HashtagAutocompleteService
+      .new(Discourse.system_user.guardian)
+      .hashtags_for("tag", tag_list.sort)
+      .join(", ")
   end
 
   def self.tag_change_noop?(topic, incoming)
@@ -331,9 +334,12 @@ class PostRevisor
     @topic.acting_user = @editor
     @revised_at = @opts[:revised_at] || Time.now
     @last_version_at = @post.last_version_at || Time.now
+    @latest_revision_unlisted =
+      @post.version > 1 &&
+        PostRevision.where(post_id: @post.id, number: @post.version).pick(:unlisted)
 
     if guardian.affected_by_slow_mode?(@topic) && !grace_period_edit? &&
-         SiteSetting.slow_mode_prevents_editing
+         SiteSetting.slow_mode_prevents_editing && !@opts[:bypass_slow_mode]
       @post.errors.add(:base, I18n.t("cannot_edit_on_slow_mode"))
       return false
     end
@@ -427,7 +433,7 @@ class PostRevisor
 
     Topic.reset_highest(@topic.id) unless only_user_id_changed
     post_process_post
-    alert_users
+    alert_users(old_raw)
     publish_changes
     grant_badge
 
@@ -482,11 +488,17 @@ class PostRevisor
       return true
     end
     edited_by_another_user? || flagged? || !grace_period_edit? || owner_changed? ||
-      force_new_version? || edit_reason_specified?
+      force_new_version? || edit_reason_specified? || latest_revision_unlisted?
   end
 
   def edit_reason_specified?
     @fields[:edit_reason].present? && @fields[:edit_reason] != @post.edit_reason
+  end
+
+  # Folding a new edit into an unlisted revision would also skip it for non-staff.
+  # Read up front because `should_create_new_version?` is re-checked after the bump.
+  def latest_revision_unlisted?
+    @latest_revision_unlisted
   end
 
   def flagged?
@@ -674,7 +686,7 @@ class PostRevisor
   end
 
   def remove_flags_and_unhide_post
-    return if @opts[:deleting_post]
+    return if @opts[:deleting_post] || @opts[:recovering_post]
     return unless editing_a_flagged_and_hidden_post?
 
     flaggers = []
@@ -873,9 +885,17 @@ class PostRevisor
     DiscourseEvent.trigger(:post_edited, @post, topic_changed?, self)
   end
 
-  def alert_users
+  def alert_users(old_raw)
     return if @editor.id == Discourse::SYSTEM_USER_ID
-    Jobs.enqueue(:post_alert, post_id: @post.id)
+
+    added_mentions =
+      if old_raw == @post.raw
+        []
+      else
+        @post.raw_mentions - PostAnalyzer.new(old_raw, @post.topic_id).raw_mentions
+      end
+
+    Jobs.enqueue(:post_alert, post_id: @post.id, added_mentions: added_mentions)
   end
 
   def publish_changes

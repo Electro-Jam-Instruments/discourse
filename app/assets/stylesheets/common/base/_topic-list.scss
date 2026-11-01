@@ -221,7 +221,7 @@
     border: none;
 
     .topic-list-data {
-      border-top: 1px solid var(--danger-medium);
+      border-top: 1px solid light-dark(var(--danger-medium), var(--danger));
       line-height: 0em;
       padding: 0;
       text-align: center;
@@ -230,7 +230,7 @@
     .topic-list-data span {
       position: relative; // Chrome needs this, otherwise the line is above the text
       background-color: var(--secondary);
-      color: var(--danger-medium);
+      color: light-dark(var(--danger-medium), var(--danger));
       padding: 0 var(--space-2);
       font-size: var(--font-down-1);
     }
@@ -680,6 +680,9 @@
 
     .activity {
       width: 4em;
+
+      // accommodates "MMM YYYY" without layout shift
+      min-width: 5.5em;
 
       &:lang(zh_CN) {
         width: 5.3em;

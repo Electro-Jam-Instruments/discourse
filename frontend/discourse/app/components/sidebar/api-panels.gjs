@@ -2,7 +2,7 @@ import Component from "@glimmer/component";
 import { service } from "@ember/service";
 import sidebarTreeNavigation from "discourse/modifiers/sidebar-tree-navigation";
 import { i18n } from "discourse-i18n";
-import ApiSections from "./api-sections";
+import ApiSections from "./api-sections.gjs";
 
 export default class SidebarApiPanels extends Component {
   @service sidebarState;
@@ -22,6 +22,7 @@ export default class SidebarApiPanels extends Component {
         @collapsable={{@collapsableSections}}
         @expandActiveSection={{this.sidebarState.currentPanel.expandActiveSection}}
         @scrollActiveLinkIntoView={{this.sidebarState.currentPanel.scrollActiveLinkIntoView}}
+        @toggleNavigationMenu={{@toggleNavigationMenu}}
       />
     </nav>
   </template>

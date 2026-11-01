@@ -24,7 +24,6 @@ import {
   applyValueTransformer,
 } from "discourse/lib/transformer";
 import DiscourseURL from "discourse/lib/url";
-import { and, eq } from "discourse/truth-helpers";
 import DUserLink from "discourse/ui-kit/d-user-link";
 import dAvatar from "discourse/ui-kit/helpers/d-avatar";
 import dCategoryLink from "discourse/ui-kit/helpers/d-category-link";
@@ -221,6 +220,45 @@ export default class Item extends Component {
     return parts.join(", ");
   }
 
+  get useMobileLayout() {
+    return applyValueTransformer(
+      "topic-list-item-mobile-layout",
+      this.site.mobileView,
+      this.#transformerContext
+    );
+  }
+
+  get additionalClasses() {
+    return applyValueTransformer(
+      "topic-list-item-class",
+      [],
+      this.#transformerContext
+    );
+  }
+
+  get style() {
+    const parts = applyValueTransformer(
+      "topic-list-item-style",
+      [],
+      this.#transformerContext
+    );
+
+    const safeParts = parts.filter(Boolean).filter((part) => {
+      if (isHTMLSafe(part)) {
+        return true;
+      }
+      // eslint-disable-next-line no-console
+      console.error(
+        "topic-list-item-style must be formed of htmlSafe strings. Skipped unsafe value:",
+        part
+      );
+    });
+
+    if (safeParts.length) {
+      return trustHTML(safeParts.join("\n"));
+    }
+  }
+
   @action
   navigateToTopic(topic, href) {
     this.historyStore.set("lastTopicIdViewed", topic.id);
@@ -378,55 +416,10 @@ export default class Item extends Component {
     }
   }
 
-  get useMobileLayout() {
-    return applyValueTransformer(
-      "topic-list-item-mobile-layout",
-      this.site.mobileView,
-      this.#transformerContext
-    );
-  }
-
-  get additionalClasses() {
-    return applyValueTransformer(
-      "topic-list-item-class",
-      [],
-      this.#transformerContext
-    );
-  }
-
-  get style() {
-    const parts = applyValueTransformer(
-      "topic-list-item-style",
-      [],
-      this.#transformerContext
-    );
-
-    const safeParts = parts.filter(Boolean).filter((part) => {
-      if (isHTMLSafe(part)) {
-        return true;
-      }
-      // eslint-disable-next-line no-console
-      console.error(
-        "topic-list-item-style must be formed of htmlSafe strings. Skipped unsafe value:",
-        part
-      );
-    });
-
-    if (safeParts.length) {
-      return trustHTML(safeParts.join("\n"));
-    }
-  }
-
   <template>
     <tr
-      {{this.highlightIfNeeded}}
-      {{on "keydown" this.keyDown}}
-      {{on "click" this.click}}
-      {{on "auxclick" this.click}}
       {{on "focusin" this.onRowFocusIn}}
       {{on "focusout" this.onRowFocusOut}}
-      data-topic-id={{@topic.id}}
-      role={{this.role}}
       tabindex={{this.tabindex}}
       aria-rowindex={{this.ariaRowIndex}}
       aria-label={{this.accessibleName}}
@@ -449,7 +442,13 @@ export default class Item extends Component {
         this.tagClassNames
         this.additionalClasses
       }}
+      data-topic-id={{@topic.id}}
+      role={{this.role}}
       style={{this.style}}
+      {{this.highlightIfNeeded}}
+      {{on "keydown" this.keyDown}}
+      {{on "click" this.click}}
+      {{on "auxclick" this.click}}
     >
       <PluginOutlet
         @name="above-topic-list-item"
@@ -480,9 +479,9 @@ export default class Item extends Component {
             <div class="pull-left">
               {{#if @bulkSelectEnabled}}
                 <BulkSelectCheckbox
-                  @topic={{@topic}}
                   @isSelected={{this.isSelected}}
                   @onToggle={{this.onBulkSelectToggle}}
+                  @topic={{@topic}}
                 />
               {{else}}
                 <PluginOutlet
@@ -518,7 +517,7 @@ export default class Item extends Component {
                   @outletArgs={{lazyHash topic=@topic}}
                 />
                 {{~! no whitespace ~}}
-                <TopicStatus @topic={{@topic}} @context="topic-list" />
+                <TopicStatus @context="topic-list" @topic={{@topic}} />
                 {{~! no whitespace ~}}
                 <TopicLink @topic={{@topic}} class="raw-link raw-topic-link" />
                 {{~#if @topic.featured_link~}}
@@ -557,8 +556,8 @@ export default class Item extends Component {
 
               <div class="pull-right">
                 <PostCountOrBadges
-                  @topic={{@topic}}
                   @postBadgesEnabled={{@showTopicPostBadges}}
+                  @topic={{@topic}}
                 />
               </div>
 
@@ -577,7 +576,15 @@ export default class Item extends Component {
                     />{{~! no whitespace ~}}
                   {{/unless}}
                   {{~! no whitespace ~}}
-                  {{dDiscourseTags @topic mode="list"}}
+                  <PluginOutlet
+                    @name="topic-list-tags-wrapper"
+                    @outletArgs={{lazyHash
+                      topic=@topic
+                      tags=@topic.visibleListTags
+                    }}
+                  >
+                    {{~dDiscourseTags @topic mode="list"~}}
+                  </PluginOutlet>
                 </span>
 
                 <div class="num activity last">
@@ -585,7 +592,7 @@ export default class Item extends Component {
                     @name="topic-list-item-mobile-bumped-at"
                     @outletArgs={{lazyHash topic=@topic}}
                   >
-                    <span title={{@topic.bumpedAtTitle}} class="age activity">
+                    <span class="age activity" title={{@topic.bumpedAtTitle}}>
                       <a href={{@topic.lastPostUrl}}>{{dFormatDate
                           @topic.bumpedAt
                           format="tiny"
@@ -600,14 +607,14 @@ export default class Item extends Component {
         {{else}}
           {{#each @columns as |entry|}}
             <entry.value.item
-              @topic={{@topic}}
               @bulkSelectEnabled={{@bulkSelectEnabled}}
-              @onBulkSelectToggle={{this.onBulkSelectToggle}}
-              @isSelected={{this.isSelected}}
-              @showTopicPostBadges={{@showTopicPostBadges}}
-              @hideCategory={{@hideCategory}}
-              @tagsForUser={{@tagsForUser}}
               @expandPinned={{this.expandPinned}}
+              @hideCategory={{@hideCategory}}
+              @isSelected={{this.isSelected}}
+              @onBulkSelectToggle={{this.onBulkSelectToggle}}
+              @showTopicPostBadges={{@showTopicPostBadges}}
+              @tagsForUser={{@tagsForUser}}
+              @topic={{@topic}}
             />
           {{/each}}
         {{/if}}
