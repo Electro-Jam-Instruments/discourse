@@ -65,8 +65,6 @@ interface DDropdownMenuSignature {
  * - Home/End jump to the first/last item
  * - Roving tabindex, with focus moved to the first item when the menu opens
  * - Escape is handled by the parent DMenu
- *
- * @component DDropdownMenu
  */
 export default class DDropdownMenu extends Component<DDropdownMenuSignature> {
   @action
