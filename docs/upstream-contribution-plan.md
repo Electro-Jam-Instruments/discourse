@@ -30,153 +30,60 @@ Before submitting code, post an RFC (Request for Comments) on meta.discourse.org
    - Link to community.electro-jam.com for live testing
    - Invite screen reader users to test and provide feedback
 
-### Phase 2: Feature-by-Feature PRs
+### Phase 2: Bundles that make a complete experience
 
-Split the 132 commits (82 titled A11Y) into logical PRs in dependency order:
+Updated 2026-11-07. The original nine pull requests were split by file. A
+member experiences the work as whole journeys, and several pieces only make
+sense together (a single Tab stop is only useful if the next stop lands
+somewhere sensible), so the pull requests are now grouped by experience.
 
-#### PR 1: Foundation - Keyboard Navigation Utilities
-**Files:**
-- `frontend/discourse/app/lib/keyboard-navigation-utils.js`
+Upstream already ships a general keyboard engine, `d-roving-focus`, and has
+no grid or tree patterns at all. See
+`docs/research/upstream-a11y-overlap-2026-11.md`. Every bundle below is built
+on that engine, keeping our roles, labels and behaviour, and keeps upstream's
+j/k row selection working alongside our arrow keys.
 
-**Commits to include:**
-- Shared navigation helpers
+Always on (no flag, nothing else depends on them):
 
----
+1. **Visible focus ring.** The single focus rule and its tokens.
+2. **Announcements.** Alert banners and live regions.
 
-#### PR 2: Toolbar Navigation Pattern
-**Files:**
-- `frontend/discourse/app/modifiers/toolbar-navigation.js`
-- `frontend/discourse/app/components/d-navigation.gjs`
-- `frontend/discourse/app/components/navigation-bar.gjs`
-- Related i18n strings
+Behind the opt-in setting (they change how Tab works). The setting ships with
+the first of these, bundle 3, not after it:
 
-**Commits to include:**
-- A11Y: Implement WAI-ARIA toolbar pattern for navigation
-- A11Y: Add tablist pattern to navigation
+3. **The top of every page.** Nav bar tabs, the breadcrumb toolbar, the New
+   Topic and dismiss toolbar, the New list All/Topics/Replies tab group,
+   dropdown menus, and focus landing in the list after a filter is chosen.
+4. **Find and open a topic.** Topic list grid, header row, empty states,
+   focus on the first unread, and focus restored on browser back.
+5. **Browse categories.** Category grid, its empty state, and the latest
+   topics list on that page. Reuses bundle 4's grid code.
+6. **Read a topic.** Post stream grid, topic header row, action toolbar, and
+   reading a post's content. Depends on bundle 4. Link-by-link navigation in
+   post text (docs/accessibility/16) is not built and stays out.
+7. **Site chrome.** Sidebar tree, header icon and sign-in toolbars. Sidebar
+   drag and drop needs a keyboard alternative; upstream's reorderable list
+   has a move menu that may supply one.
 
-**Features:**
-- Arrow key navigation between categories, tags, nav tabs
-- Single tab stop for entire navigation bar
-- Screen reader announcements
+Order: 1 and 2, then 3 with the setting, then 4, 5, 6, 7. Each bundle is
+rebuilt on upstream's code fresh from `upstream/main`, not copied from our branch.
 
----
+#### Where our branch stands against these bundles (2026-11-08)
 
-#### PR 3: Topic List Grid Pattern
-**Files:**
-- `frontend/discourse/app/modifiers/grid-navigation.js`
-- `frontend/discourse/app/components/topic-list/list.gjs`
-- `frontend/discourse/app/components/topic-list/item.gjs`
-- `frontend/discourse/app/components/topic-list/header.gjs`
-- Related styles and i18n strings
-
-**Commits to include:**
-- A11Y: Implement WAI-ARIA grid pattern for topic list
-- A11Y: Enhance grid navigation with Left/Right arrows and row labels
-- A11Y: Fix grid focus persistence and add poster names to row labels
-- A11Y: Allow Alt+Arrow for browser back/forward navigation
-
-**Features:**
-- Arrow Up/Down for row navigation
-- Arrow Left/Right for cell navigation within rows
-- Ctrl+Home/End for first/last row
-- Screen reader row labels with topic title, author, activity
-
----
-
-#### PR 4: Category List Grid Pattern
-**Files:**
-- `frontend/discourse/app/components/categories-only.gjs`
-- `frontend/discourse/app/components/parent-category-row.gjs`
-
-**Features:**
-- Same grid pattern as topic list
-- Category-specific row labels
-
----
-
-#### PR 5: Post Stream Grid Pattern
-**Files:**
-- `frontend/discourse/app/modifiers/post-stream-navigation.js`
-- `frontend/discourse/app/components/post-stream.gjs`
-- `frontend/discourse/app/components/post-stream/header-row.gjs`
-- `frontend/discourse/app/components/post.gjs`
-- `frontend/discourse/app/components/post/cooked-html.gjs`
-- `frontend/discourse/app/components/post/menu.gjs`
-
-**Commits to include:**
-- A11Y: Screen readers can now navigate posts with left/right arrow keys
-- A11Y: Enable full post content reading during keyboard navigation
-- A11Y: Fix NVDA reading post content when navigating
-- A11Y: Add topic header row to post stream grid navigation
-- A11Y: Unify topic header into post stream grid row
-
-**Features:**
-- Arrow Up/Down for post navigation
-- Arrow Right to enter post content for reading
-- Arrow Left to exit post content
-- Post actions toolbar with arrow key navigation
-- Topic header as first grid row
-
----
-
-#### PR 6: Sidebar Tree Navigation
-**Files:**
-- `frontend/discourse/app/components/sidebar/` (multiple files)
-- Tree navigation modifier
-
-**Commits to include:**
-- A11Y: Implement sidebar tree navigation with single tab stop
-
-**Features:**
-- Single tab stop for entire sidebar
-- Arrow Up/Down for item navigation
-- Arrow Left/Right for expand/collapse
-- Home/End for first/last item
-
----
-
-#### PR 7: Navigation Controls Toolbar
-**Files:**
-- Navigation controls component
-- Toolbar modifier integration
-
-**Commits to include:**
-- A11Y: Convert navigation controls to toolbar with arrow key navigation
-
-**Features:**
-- Dismiss, New Topic buttons as toolbar
-- Arrow key navigation between actions
-
----
-
-#### PR 8: Focus Management
-**Files:**
-- `frontend/discourse/app/instance-initializers/navigation-focus-restoration.js`
-- Focus restoration logic
-
-**Commits to include:**
-- A11Y: Move focus to first topic row after keyboard filter selection
-- A11Y: Add focus history restoration and header/sidebar toolbar patterns
-
-**Features:**
-- Focus restoration on browser back/forward
-- Focus moves to content after filter selection
-
----
-
-#### PR 9: Live Regions and Announcements
-**Files:**
-- Alert banner components
-- Live region setup
-
-**Commits to include:**
-- A11Y: Add assertive live regions and labels to alert banners
-
-**Features:**
-- Screen reader announcements for dynamic content
-- Alert banners with proper ARIA live regions
-
----
+- Done and tested on staging: focus ring rule; New list tab group; toolbars and
+  tab groups running on `d-roving-focus` (same results as before); selected
+  row kept in step with focus so j/k, o, l and s act on the row you are on;
+  one Tab stop kept after upstream's post-jump focus; header toolbar arrows no
+  longer pulled into the posts on a fresh topic page.
+- Deliberately deferred: sidebar tree on the engine. It has nested toolbars,
+  popups and, today, more than one Tab stop inside the tree, so it needs its
+  own careful before and after test.
+- Known gap: the grid, toolbar and tree roles render even when the enhanced
+  keyboard navigation setting is off, so a screen reader would hear "grid"
+  with no grid keys. Gate the roles on the same setting.
+- Known gap: sidebar drag and drop has no keyboard path (staging finding 5).
+- Known gap: the first j after arrowing used to select instead of move; fixed
+  by the selection sync, but upstream's own first-press behaviour is unchanged.
 
 ### Phase 3: Iteration and Review
 
@@ -203,20 +110,16 @@ Each PR should reference:
 
 ## Timeline Tracking
 
-| Phase | Status | Notes |
-|-------|--------|-------|
-| Demo deployed | Done | community.electro-jam.com |
-| RFC drafted | Pending | |
-| RFC posted to Meta | Pending | |
-| PR 1: Foundation | Pending | |
-| PR 2: Toolbar | Pending | |
-| PR 3: Topic Grid | Pending | |
-| PR 4: Category Grid | Pending | |
-| PR 5: Post Stream | Pending | |
-| PR 6: Sidebar Tree | Pending | |
-| PR 7: Nav Controls | Pending | |
-| PR 8: Focus Management | Pending | |
-| PR 9: Live Regions | Pending | |
+- Demo deployed: done, community.electro-jam.com (staging for testing)
+- Request for comments drafted: pending
+- Request for comments posted to Meta: pending
+- Bundle 1, focus ring: pending
+- Bundle 2, announcements: pending
+- Bundle 3, top of every page, with the opt-in setting: pending
+- Bundle 4, topic list: pending
+- Bundle 5, categories: pending
+- Bundle 6, reading a topic: pending
+- Bundle 7, site chrome: pending
 
 ## Community Testing Topic
 
