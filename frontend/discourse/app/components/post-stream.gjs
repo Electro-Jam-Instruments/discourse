@@ -62,7 +62,9 @@ export default class PostStream extends Component {
     }
 
     target.done = true;
-    body.setAttribute("tabindex", "0");
+    // Inside the post grid the roving tabindex owns the single Tab stop, so the
+    // body is only made programmatically focusable. Elsewhere it is the stop.
+    body.setAttribute("tabindex", body.closest('[role="row"]') ? "-1" : "0");
     // jumpToPost owns scrolling; letting focus scroll too makes the page jump
     body.focus({ preventScroll: true });
   });

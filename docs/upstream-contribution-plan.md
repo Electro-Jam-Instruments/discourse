@@ -5,8 +5,8 @@ This document outlines our plan to contribute our accessibility work back to the
 ## Demo Environment
 
 Our accessibility implementation can be tested at:
-- **URL**: https://community.electrojam.net
-- **Status**: Running our `accessibility` branch with 39 A11Y commits
+- **URL**: https://community.electro-jam.com
+- **Status**: Running our `accessibility` branch with 132 commits ahead of upstream, 82 of them titled A11Y (as of 2026-11-07)
 
 This live deployment serves as a demonstration of all accessibility features working together in production.
 
@@ -27,12 +27,12 @@ Before submitting code, post an RFC (Request for Comments) on meta.discourse.org
    - Build consensus before code review
 
 3. **Share demo**
-   - Link to community.electrojam.net for live testing
+   - Link to community.electro-jam.com for live testing
    - Invite screen reader users to test and provide feedback
 
 ### Phase 2: Feature-by-Feature PRs
 
-Split the 39 A11Y commits into logical PRs in dependency order:
+Split the 132 commits (82 titled A11Y) into logical PRs in dependency order:
 
 #### PR 1: Foundation - Keyboard Navigation Utilities
 **Files:**
@@ -205,7 +205,7 @@ Each PR should reference:
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| Demo deployed | Done | community.electrojam.net |
+| Demo deployed | Done | community.electro-jam.com |
 | RFC drafted | Pending | |
 | RFC posted to Meta | Pending | |
 | PR 1: Foundation | Pending | |
@@ -220,7 +220,7 @@ Each PR should reference:
 
 ## Community Testing Topic
 
-Create a topic on community.electrojam.net to guide testers and collect feedback.
+Create a topic on community.electro-jam.com to guide testers and collect feedback.
 
 ### Suggested Topic Title
 "Accessibility Testing Guide - Help Us Improve Keyboard & Screen Reader Navigation"
@@ -349,7 +349,7 @@ Your feedback helps us improve accessibility for everyone and will be shared wit
 
 For developers interested in the implementation:
 - GitHub: [Electro-Jam-Instruments/discourse](https://github.com/Electro-Jam-Instruments/discourse) (accessibility branch)
-- 39 accessibility commits implementing WAI-ARIA patterns
+- 132 commits ahead of upstream (82 titled A11Y) implementing WAI-ARIA patterns
 - Based on [WAI-ARIA Authoring Practices](https://www.w3.org/WAI/ARIA/apg/)
 ```
 
@@ -363,7 +363,7 @@ For developers interested in the implementation:
 ### Why We Need This
 
 Until accessibility work is merged upstream to Discourse, we need to:
-1. **Collect feedback** from our community.electrojam.net users
+1. **Collect feedback** from our community.electro-jam.com users
 2. **Track bugs locally** so nothing falls through the cracks
 3. **Integrate with Electro Jam's existing workflow** via Microsoft Teams
 4. **Triage and prioritize** issues using our standard process
@@ -373,11 +373,11 @@ This pipeline connects community feedback directly to our Teams channels where t
 
 ### How We'll Manage It (Short-Term)
 
-1. **Community reports issue** on community.electrojam.net testing topic
+1. **Community reports issue** on community.electro-jam.com testing topic
 2. **We create GitHub issue** with `accessibility` label in our fork
 3. **Teams notification fires** to `#discourse-accessibility` channel
 4. **Team triages** using priority levels below
-5. **Fix is implemented** and deployed to community.electrojam.net
+5. **Fix is implemented** and deployed to community.electro-jam.com
 6. **Issue closed** and tracked in local docs for upstream inclusion
 
 This keeps accessibility work visible alongside other Electro Jam projects and ensures timely response to user feedback.
@@ -496,7 +496,7 @@ Local Tracking (docs/bugs/)
 Fix Implemented
          │
          ▼
-Deploy to community.electrojam.net
+Deploy to community.electro-jam.com
          │
          ▼
 Close Issue + Update Local Tracker
@@ -532,5 +532,5 @@ Once accessibility work is merged to Discourse main:
 ## Contact
 
 For questions about this accessibility work:
-- Demo: community.electrojam.net
+- Demo: community.electro-jam.com
 - GitHub: Electro-Jam-Instruments/discourse (accessibility branch)
