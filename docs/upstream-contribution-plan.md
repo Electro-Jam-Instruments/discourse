@@ -78,9 +78,11 @@ rebuilt on upstream's code fresh from `upstream/main`, not copied from our branc
 - Deliberately deferred: sidebar tree on the engine. It has nested toolbars,
   popups and, today, more than one Tab stop inside the tree, so it needs its
   own careful before and after test.
-- Known gap: the grid, toolbar and tree roles render even when the enhanced
-  keyboard navigation setting is off, so a screen reader would hear "grid"
-  with no grid keys. Gate the roles on the same setting.
+- For the upstream pull requests only: the grid, toolbar and tree roles render
+  even when the enhanced keyboard navigation setting is off. That is fine for
+  our site, since a screen reader still gets rows, columns and headers in browse
+  mode. Reviewers may want the default experience unchanged unless the setting
+  is on, so decide when preparing each bundle whether the roles follow the flag.
 - Known gap: sidebar drag and drop has no keyboard path (staging finding 5).
 - Known gap: the first j after arrowing used to select instead of move; fixed
   by the selection sync, but upstream's own first-press behaviour is unchanged.
