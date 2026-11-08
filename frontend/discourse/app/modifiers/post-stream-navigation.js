@@ -267,6 +267,21 @@ export default class PostStreamNavigationModifier extends Modifier {
       return;
     }
 
+    // GUARD 4: Don't take focus from somewhere the user already put it, such as
+    // the header toolbar. The first key press switches keyboard mode on, so this
+    // can run long after the page loaded. Only an unfocused page (focus on the
+    // body, or lost when the previous page was torn down) should be given a post.
+    if (
+      activeElement &&
+      activeElement !== document.body &&
+      activeElement !== document.documentElement
+    ) {
+      debugLog(
+        `[A11Y-NAV] focusFirstUnreadPost: ABORTED - focus already on another element`
+      );
+      return;
+    }
+
     const rows = this.rows;
     if (rows.length === 0) {
       debugLog(`[A11Y-NAV] focusFirstUnreadPost: NO ROWS, aborting`);
