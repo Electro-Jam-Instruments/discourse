@@ -140,3 +140,35 @@ export function getOffsetIndex(currentIndex, offset, maxIndex) {
 
   return Math.max(0, Math.min(maxIndex, currentIndex + offset));
 }
+
+const SHORTCUT_ROW_SELECTOR =
+  ".topic-list-item, .latest-topic-list-item, .topic-post";
+
+/**
+ * Marks a row as the one Discourse's keyboard shortcuts act on.
+ *
+ * The j/k shortcuts, and the ones that follow them (o, l, s and the rest),
+ * work on the row carrying the "selected" class. Arrow key navigation moves
+ * focus without touching that class, so the shortcuts would act on a different
+ * row from the one the user is reading. Calling this whenever a row receives
+ * focus keeps the two the same. Rows of any other kind are ignored.
+ *
+ * @param {Element|null} row - The row that received focus
+ */
+export function syncShortcutSelection(row) {
+  if (!row?.matches?.(SHORTCUT_ROW_SELECTOR)) {
+    return;
+  }
+
+  const scope =
+    row.closest(".topic-list, .latest-topic-list-container, .post-stream") ||
+    document;
+  scope.querySelectorAll(
+    ".topic-list-item.selected, .latest-topic-list-item.selected, .topic-post.selected"
+  ).forEach((other) => {
+    if (other !== row) {
+      other.classList.remove("selected");
+    }
+  });
+  row.classList.add("selected");
+}

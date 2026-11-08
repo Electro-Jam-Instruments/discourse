@@ -5,6 +5,7 @@ import Modifier from "ember-modifier";
 import {
   getNextIndex,
   getPreviousIndex,
+  syncShortcutSelection,
   updateRovingTabindex,
 } from "discourse/lib/keyboard-navigation-utils";
 import { preventCloaking } from "discourse/modifiers/post-stream-viewport-tracker";
@@ -851,6 +852,7 @@ export default class PostStreamNavigationModifier extends Modifier {
     const row = event.target.closest(this.options.rowSelector);
 
     if (row) {
+      syncShortcutSelection(row);
       // Track by row ID (post number) not index
       const newRowId = this.getRowId(row);
       if (newRowId && newRowId !== this.activeRowId) {

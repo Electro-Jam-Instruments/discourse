@@ -4,6 +4,7 @@ import Modifier from "ember-modifier";
 import {
   getNextIndex,
   getPreviousIndex,
+  syncShortcutSelection,
   updateRovingTabindex,
 } from "discourse/lib/keyboard-navigation-utils";
 
@@ -313,6 +314,7 @@ export default class GridNavigationModifier extends Modifier {
     const row = headerRow || dataRow;
 
     if (row) {
+      syncShortcutSelection(row);
       const rowIndex = this.rows.indexOf(row);
       if (rowIndex !== -1) {
         if (rowIndex !== this.activeRowIndex) {
