@@ -12,7 +12,12 @@ import { i18n } from "discourse-i18n";
  *    - This optimizes keyboard workflow - users typically want to browse
  *      topics after selecting a filter
  *
- * 2. MOUSE click on filter tab:
+ * 2. FIRST PAGE LOAD:
+ *    - Focus moves to the first row of the list once it has rendered. The
+ *      list can draw after the route has settled, so this waits for the row
+ *      to appear instead of falling back to the nav bar.
+ *
+ * 3. MOUSE click on filter tab:
  *    - Focus stays on the active tab (preserves mouse user expectations)
  *
  * Uses next() instead of scheduleOnce("afterRender") to ensure this runs
@@ -72,6 +77,105 @@ function isTopicPage() {
 }
 
 /**
+ * Whether the page has not been given a first route transition yet.
+ * @type {boolean}
+ */
+let isInitialLoad = true;
+
+/**
+ * Stops watching for the list to render, when a watch is under way.
+ * @type {(() => void)|null}
+ */
+let cancelListWatch = null;
+
+/**
+ * Whether focus is somewhere this code may take it from: nowhere in particular,
+ * or the nav tab that was just used. Anything else means the user has moved on.
+ * @returns {boolean}
+ */
+function canTakeFocus() {
+  const active = document.activeElement;
+  return (
+    !active ||
+    active === document.body ||
+    active === document.documentElement ||
+    active === getActiveTab()
+  );
+}
+
+/**
+ * Get the first row of whichever list the page shows.
+ * @returns {HTMLElement|null}
+ */
+function getFirstListRow() {
+  return (
+    (hasCategoryGrid() ? getFirstCategoryRow() : null) || getFirstTopicRow()
+  );
+}
+
+/**
+ * Give the first row of the list focus, as soon as it exists.
+ *
+ * The row may already be there, or may draw a moment after the route settles,
+ * especially on the first load. Watching the page for it, and stopping when the
+ * route changes or the user acts, avoids both guessing a delay and falling back
+ * to the nav bar. An empty list is announced and focus stays on the tab.
+ *
+ * @param {Object} a11y - The a11y service for announcements
+ */
+function focusFirstRowWhenReady(a11y) {
+  cancelListWatch?.();
+
+  const outlet = document.getElementById("main-outlet") || document.body;
+
+  const stop = () => {
+    observer.disconnect();
+    document.removeEventListener("keydown", stop, true);
+    document.removeEventListener("mousedown", stop, true);
+    if (cancelListWatch === stop) {
+      cancelListWatch = null;
+    }
+  };
+
+  const check = () => {
+    const firstRow = getFirstListRow();
+    if (firstRow) {
+      stop();
+      if (canTakeFocus()) {
+        firstRow.focus();
+      }
+      return true;
+    }
+
+    // A list container with no rows is an empty list.
+    if (hasTopicList() && !hasCategoryGrid()) {
+      stop();
+      a11y.announce(i18n("topics.none.filter"), "polite");
+      getActiveTab()?.focus();
+      return true;
+    }
+
+    return false;
+  };
+
+  const observer = new MutationObserver(check);
+
+  // The first key press or click after this means the user is steering.
+  document.addEventListener("keydown", stop, true);
+  document.addEventListener("mousedown", stop, true);
+  cancelListWatch = stop;
+
+  if (!check()) {
+    observer.observe(outlet, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["tabindex"],
+    });
+  }
+}
+
+/**
  * Handle focus restoration after route transition.
  * @param {Object} filterFocus - The filterFocus service
  * @param {Object} a11y - The a11y service for announcements
@@ -79,6 +183,8 @@ function isTopicPage() {
  */
 function handleFocusRestoration(filterFocus, a11y, focusHistory) {
   const wasKeyboardActivation = filterFocus.consumeKeyboardActivation();
+  const firstLoad = isInitialLoad;
+  isInitialLoad = false;
 
   // If focus-history-tracking has a pending restore (browser back/forward),
   // yield entirely - let it handle focus restoration to the user's previous position
@@ -92,37 +198,17 @@ function handleFocusRestoration(filterFocus, a11y, focusHistory) {
     return;
   }
 
-  // Keyboard mode: user arrived via keyboard (filter tab, category Enter, sidebar link, etc.)
-  // Focus the first content row for optimal keyboard workflow
-  if (wasKeyboardActivation || focusHistory.keyboardMode) {
-    // Check category grid first (category pages don't have topic lists)
-    if (hasCategoryGrid()) {
-      const firstRow = getFirstCategoryRow();
-      if (firstRow) {
-        next(() => {
-          firstRow.focus();
-        });
-        return;
-      }
-    }
+  // The nav bar is on every list page, so seeing it means a list is on its way
+  // even when it has not drawn yet.
+  const onListPage = getActiveTab() !== null;
 
-    // Then check topic list
-    if (hasTopicList()) {
-      const firstRow = getFirstTopicRow();
-
-      if (firstRow) {
-        // Focus the first topic row for optimal keyboard workflow
-        firstRow.focus();
-      } else {
-        // Empty list - announce and keep focus on tab
-        a11y.announce(i18n("topics.none.filter"), "polite");
-        const activeTab = getActiveTab();
-        if (activeTab) {
-          activeTab.focus();
-        }
-      }
-      return;
-    }
+  // Keyboard mode or a first load: focus the first content row, once it exists.
+  if (
+    onListPage &&
+    (wasKeyboardActivation || focusHistory.keyboardMode || firstLoad)
+  ) {
+    focusFirstRowWhenReady(a11y);
+    return;
   }
 
   // Mouse click or page without list - restore focus to active tab
@@ -140,6 +226,8 @@ export default {
     const filterFocus = owner.lookup("service:filter-focus");
     const a11y = owner.lookup("service:a11y");
     const focusHistory = owner.lookup("service:focus-history");
+
+    router.on("routeWillChange", () => cancelListWatch?.());
 
     router.on("routeDidChange", (transition) => {
       if (transition.isAborted) {
