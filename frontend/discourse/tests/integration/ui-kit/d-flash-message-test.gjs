@@ -54,6 +54,50 @@ module("Integration | ui-kit | DFlashMessage", function (hooks) {
     assert.dom(".alert").hasClass("alert-info");
   });
 
+  test("an error is announced as an alert", async function (assert) {
+    const flash = "Error message";
+    const type = "error";
+
+    await render(
+      <template><DFlashMessage @flash={{flash}} @type={{type}} /></template>
+    );
+
+    assert.dom(".alert").hasAttribute("role", "alert");
+  });
+
+  test("success, warning, info and untyped messages are announced as a status", async function (assert) {
+    const flash = "A message";
+    const types = ["success", "warning", "info", undefined];
+
+    for (const type of types) {
+      await render(
+        <template><DFlashMessage @flash={{flash}} @type={{type}} /></template>
+      );
+
+      assert
+        .dom(".alert")
+        .hasAttribute("role", "status", `${type ?? "untyped"} is a status`);
+    }
+  });
+
+  test("@announce overrides how a message is announced", async function (assert) {
+    const flash = "A message";
+
+    await render(
+      <template>
+        <DFlashMessage @announce="alert" @flash={{flash}} @type="warning" />
+      </template>
+    );
+    assert.dom(".alert").hasAttribute("role", "alert");
+
+    await render(
+      <template>
+        <DFlashMessage @announce={{false}} @flash={{flash}} @type="error" />
+      </template>
+    );
+    assert.dom(".alert").doesNotHaveAttribute("role");
+  });
+
   test("it does not render anything when flash is not provided", async function (assert) {
     await render(<template><DFlashMessage /></template>);
 
