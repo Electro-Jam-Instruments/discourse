@@ -152,6 +152,12 @@ $hpad: 0.65em;
   outline-offset: -2px;
 }
 
+// Keyboard focus ring for controls that show hover another way.
+@mixin focus-ring() {
+  outline: 2px solid var(--d-input-focused-color);
+  outline-offset: 2px;
+}
+
 /// Helper function to easily use an SVG inline in CSS
 /// without encoding it to base64, saving bytes.
 /// It also helps with browser support, especially for IE11.
