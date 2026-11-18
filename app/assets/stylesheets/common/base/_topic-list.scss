@@ -242,16 +242,6 @@
       // important to prevent clicks registering on non-link elements and resulting in a full page reload
       pointer-events: none;
     }
-
-    // we have a custom focus indicator via .selected
-    // we can remove the native one
-    .title:focus {
-      outline: none;
-    }
-
-    .title:focus-visible {
-      outline: none;
-    }
   }
 
   .unread-indicator {
