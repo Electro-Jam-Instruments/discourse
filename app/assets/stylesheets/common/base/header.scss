@@ -180,20 +180,22 @@
     padding: 0.2143em;
     text-decoration: none;
     cursor: pointer;
-    outline: none;
 
     img.avatar {
       width: 2.1333em;
       height: 2.1333em;
     }
 
-    .discourse-no-touch &:hover,
-    .discourse-no-touch &:focus-visible {
+    .discourse-no-touch &:hover {
       background-color: var(--d-header-icon-background--hover);
 
       > .d-icon {
         color: var(--d-header-icon-color--hover);
       }
+    }
+
+    &:focus-visible {
+      @include focus-ring;
     }
   }
 
@@ -323,7 +325,10 @@
     height: 2.2857em;
     padding: 0.2143em;
 
-    &:focus-visible,
+    &:focus-visible {
+      @include focus-ring;
+    }
+
     .discourse-no-touch & {
       &:hover {
         background-color: var(--primary-low);
