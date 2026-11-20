@@ -131,7 +131,7 @@ export default class SidebarTree extends Component {
 
   <template>
     <div
-      aria-label={{i18n "sidebar.aria_label"}}
+      aria-label={{i18n "sidebar.title"}}
       role="tree"
       ...attributes
       {{didInsert this.watch}}
