@@ -12,6 +12,7 @@ export default class SidebarApiPanels extends Component {
   <template>
     <div class="sidebar-sections {{this.panelCssClass}}">
       <ApiSections
+        @asTree={{true}}
         @collapsable={{@collapsableSections}}
         @expandActiveSection={{this.sidebarState.currentPanel.expandActiveSection}}
         @scrollActiveLinkIntoView={{this.sidebarState.currentPanel.scrollActiveLinkIntoView}}

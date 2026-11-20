@@ -3,6 +3,7 @@ import { service } from "@ember/service";
 import BlockOutlet from "discourse/blocks/block-outlet";
 import { MAIN_PANEL } from "discourse/lib/sidebar/panels";
 import ApiSections from "../api-sections.gjs";
+import SidebarTree from "../tree.gjs";
 import CategoriesSection from "./categories-section.gjs";
 import CustomSections from "./custom-sections.gjs";
 import TagsSection from "./tags-section.gjs";
@@ -16,7 +17,7 @@ export default class SidebarAnonymousSections extends Component {
   }
 
   <template>
-    <div class="sidebar-sections sidebar-sections-anonymous">
+    <SidebarTree class="sidebar-sections sidebar-sections-anonymous">
       <BlockOutlet @name="sidebar-blocks" />
 
       <CustomSections
@@ -44,6 +45,6 @@ export default class SidebarAnonymousSections extends Component {
         @expandActiveSection={{this.mainPanel.expandActiveSection}}
         @scrollActiveLinkIntoView={{this.mainPanel.scrollActiveLinkIntoView}}
       />
-    </div>
+    </SidebarTree>
   </template>
 }

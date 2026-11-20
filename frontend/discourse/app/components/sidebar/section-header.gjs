@@ -6,8 +6,8 @@ const SidebarSectionHeader = <template>
       aria-controls={{@sidebarSectionContentId}}
       aria-expanded={{if @isExpanded "true" "false"}}
       class="sidebar-section-header sidebar-section-header-collapsable btn-transparent"
-      role="treeitem"
       data-sidebar-keep-open
+      role="treeitem"
       @action={{@toggleSectionDisplay}}
       @forwardEvent={{true}}
       @title="sidebar.toggle_section"

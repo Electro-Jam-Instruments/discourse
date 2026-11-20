@@ -19,6 +19,7 @@ export default class SidebarPanelPage extends Component {
     {{#if this.panel}}
       <div class="sidebar-panel-page sidebar-sections {{@panelKey}}-panel">
         <ApiSections
+          @asTree={{true}}
           @collapsable={{true}}
           @expandActiveSection={{this.panel.expandActiveSection}}
           @panel={{this.panel}}

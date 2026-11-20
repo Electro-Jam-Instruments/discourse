@@ -26,6 +26,7 @@ import dDragAndDropTarget from "discourse/ui-kit/modifiers/d-drag-and-drop-targe
 import dDragDwell from "discourse/ui-kit/modifiers/d-drag-dwell";
 import { i18n } from "discourse-i18n";
 import ApiSections from "../api-sections.gjs";
+import SidebarTree from "../tree.gjs";
 import CategoriesSection from "./categories-section.gjs";
 import CustomSections from "./custom-sections.gjs";
 import TagsSection from "./tags-section.gjs";
@@ -219,7 +220,7 @@ export default class SidebarUserSections extends Component {
         section below the fold if the scrolling happens here. Both origins are
         named, since a drag from the page and one from outside the window arrive
         through different adapters. }}
-    <div
+    <SidebarTree
       class="sidebar-sections"
       {{dDragAndDropAutoScroll
         types=(array WEB_LINK_ADOPTION.type "sidebar-link")
@@ -302,6 +303,6 @@ export default class SidebarUserSections extends Component {
           @scrollActiveLinkIntoView={{this.mainPanel.scrollActiveLinkIntoView}}
         />
       {{/unless}}
-    </div>
+    </SidebarTree>
   </template>
 }
