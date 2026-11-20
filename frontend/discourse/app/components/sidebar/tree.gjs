@@ -8,9 +8,13 @@ import dRovingFocus from "discourse/ui-kit/modifiers/d-roving-focus";
 import { i18n } from "discourse-i18n";
 
 const ITEM = '[role="treeitem"]';
+const SECTION = ".sidebar-section";
 const HEADER = ".sidebar-section-header";
-const NESTED_ACTIONS =
-  ".sidebar-section-hover-button, .sidebar-section-header-button, .sidebar-section-header-dropdown";
+const HEADER_ROW = ".sidebar-section-header-wrapper";
+const HEADER_ACTIONS =
+  ".sidebar-section-header-button, .sidebar-section-header-dropdown";
+const HOVER_BUTTON = ".sidebar-section-hover-button";
+const NESTED_ACTIONS = `${HOVER_BUTTON}, ${HEADER_ACTIONS}`;
 
 /**
  * The sidebar as one tree: a single Tab stop, Up and Down between items, Right
@@ -24,24 +28,37 @@ const NESTED_ACTIONS =
  */
 export default class SidebarTree extends Component {
   @tracked revision = 0;
+  @tracked currentPage = null;
 
   #observer = null;
   #api = null;
+  #element = null;
+  #menuKeyDown = false;
 
   @action
   watch(element) {
-    this.#removeNestedTabStops(element);
+    this.#element = element;
+    this.#removeNestedTabStops();
+    this.currentPage = this.#currentPageKey();
+
     this.#observer = new MutationObserver(() => {
-      this.#removeNestedTabStops(element);
+      this.#removeNestedTabStops();
       this.revision++;
+      this.currentPage = this.#currentPageKey();
     });
-    this.#observer.observe(element, { childList: true, subtree: true });
+    this.#observer.observe(element, {
+      attributeFilter: ["aria-current"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
   }
 
   @action
   unwatch() {
     this.#observer?.disconnect();
     this.#observer = null;
+    this.#element = null;
   }
 
   @action
@@ -69,20 +86,20 @@ export default class SidebarTree extends Component {
 
       if (isHeader) {
         const headerAction = item
-          .closest(".sidebar-section-header-wrapper")
-          ?.querySelector(NESTED_ACTIONS);
+          .closest(HEADER_ROW)
+          ?.querySelector(HEADER_ACTIONS);
         if (headerAction) {
           headerAction.focus();
           return true;
         }
 
         const first = item
-          .closest(".sidebar-section")
+          .closest(SECTION)
           ?.querySelector(`.sidebar-section-content ${ITEM}`);
         return first ? this.#api?.focusElement(first) : false;
       }
 
-      const hoverButton = item.querySelector(".sidebar-section-hover-button");
+      const hoverButton = item.querySelector(HOVER_BUTTON);
       if (hoverButton) {
         hoverButton.focus();
         return true;
@@ -91,50 +108,142 @@ export default class SidebarTree extends Component {
       return false;
     }
 
-    if (isHeader) {
-      if (expanded === "true") {
-        this.#toggle(item);
-        return true;
-      }
-      return false;
+    if (isHeader && expanded === "true") {
+      this.#toggle(item);
+      return true;
     }
 
-    const header = item
-      .closest(".sidebar-section")
-      ?.querySelector(`${HEADER}${ITEM}`);
-    return header ? this.#api?.focusElement(header) : false;
+    const parent = this.#parentHeader(item);
+    return parent ? this.#api?.focusElement(parent) : false;
   }
 
   @action
   handleKey(event) {
-    if (event.key === " " && event.target.matches(`${HEADER}${ITEM}`)) {
+    const target = event.target;
+    const headerAction = target.closest(HEADER_ACTIONS);
+
+    if (headerAction && !headerAction.closest(ITEM)) {
+      this.#headerActionKey(headerAction, event);
+      return;
+    }
+
+    if (event.key === " " && target.matches(`${HEADER}${ITEM}`)) {
       event.preventDefault();
-      this.#toggle(event.target);
+      this.#toggle(target);
       return;
     }
 
     if (
-      event.key !== "ContextMenu" &&
-      !(event.shiftKey && event.key === "F10")
+      event.key === "ContextMenu" ||
+      (event.shiftKey && event.key === "F10")
     ) {
+      this.#openMenu(target, event);
       return;
     }
 
-    const item = event.target.closest(ITEM);
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      const items = this.#api?.items() ?? [];
+      const item = target.closest(ITEM);
+      const edge = event.key === "ArrowUp" ? items[0] : items.at(-1);
+      if (item && item === edge) {
+        event.preventDefault();
+      }
+    }
+  }
+
+  @action
+  endKey() {
+    this.#menuKeyDown = false;
+  }
+
+  @action
+  suppressNativeMenu(event) {
+    if (this.#menuKeyDown) {
+      event.preventDefault();
+    }
+  }
+
+  #openMenu(target, event) {
+    const item = target.closest(ITEM);
     if (!item) {
       return;
     }
 
     const button = item.matches(HEADER)
       ? item
-          .closest(".sidebar-section-header-wrapper")
-          ?.querySelector(NESTED_ACTIONS)
-      : item.querySelector(".sidebar-section-hover-button");
+          .closest(HEADER_ROW)
+          ?.querySelector(".sidebar-section-header-dropdown")
+      : item.querySelector(HOVER_BUTTON);
 
     if (button) {
       event.preventDefault();
+      this.#menuKeyDown = true;
       button.click();
     }
+  }
+
+  // A header's own buttons sit beside its tree item, so the engine does not
+  // see keys pressed on them.
+  #headerActionKey(button, event) {
+    const row = button.closest(HEADER_ROW);
+    const actions = [...row.querySelectorAll(HEADER_ACTIONS)];
+    const header = row.querySelector(`${HEADER}${ITEM}`);
+    const items = this.#api?.items() ?? [];
+    const at = items.indexOf(header);
+    const index = actions.indexOf(button);
+
+    let destination;
+    switch (event.key) {
+      case "ArrowLeft":
+        destination = index > 0 ? actions[index - 1] : header;
+        break;
+      case "ArrowRight":
+        destination = actions[index + 1];
+        break;
+      case "ArrowDown":
+        destination = items[at + 1];
+        break;
+      case "ArrowUp":
+        destination = items[at - 1];
+        break;
+      case "Home":
+        destination = items[0];
+        break;
+      case "End":
+        destination = items.at(-1);
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    destination?.focus();
+  }
+
+  #parentHeader(item) {
+    let section = item.closest(SECTION);
+    if (item.matches(HEADER)) {
+      section = section?.parentElement?.closest(SECTION);
+    }
+
+    while (section) {
+      const header = section.querySelector(
+        `:scope > ${HEADER_ROW} ${HEADER}${ITEM}`
+      );
+      if (header) {
+        return header;
+      }
+      section = section.parentElement?.closest(SECTION);
+    }
+
+    return null;
+  }
+
+  #currentPageKey() {
+    return (
+      this.#element?.querySelector("[aria-current]")?.getAttribute("href") ??
+      null
+    );
   }
 
   // A click drops focus from the header; Enter on the button keeps it.
@@ -148,9 +257,9 @@ export default class SidebarTree extends Component {
     );
   }
 
-  #removeNestedTabStops(element) {
-    element
-      .querySelectorAll(NESTED_ACTIONS)
+  #removeNestedTabStops() {
+    this.#element
+      ?.querySelectorAll(NESTED_ACTIONS)
       .forEach((button) => button.setAttribute("tabindex", "-1"));
   }
 
@@ -162,6 +271,8 @@ export default class SidebarTree extends Component {
       {{didInsert this.watch}}
       {{willDestroy this.unwatch}}
       {{on "keydown" this.handleKey}}
+      {{on "keyup" this.endKey}}
+      {{on "contextmenu" this.suppressNativeMenu}}
       {{dRovingFocus
         entryFocus="selected-or-first"
         itemSelector=ITEM
@@ -169,7 +280,7 @@ export default class SidebarTree extends Component {
         onCrossAxis=this.crossAxis
         onRegisterApi=this.registerApi
         orientation="vertical"
-        typeAhead=true
+        resetKey=this.currentPage
       }}
     >
       {{yield}}

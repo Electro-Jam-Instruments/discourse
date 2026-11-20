@@ -280,7 +280,7 @@ export default class SectionLink extends Component {
             draggable={{if @suppressNativeDrag false}}
             href={{@href}}
             rel="noopener noreferrer"
-            role="treeitem"
+            role={{or @role "treeitem"}}
             target={{this.target}}
             title={{@title}}
           >
@@ -348,7 +348,7 @@ export default class SectionLink extends Component {
             class={{this.linkClass}}
             data-link-name={{@linkName}}
             draggable={{if @suppressNativeDrag false}}
-            role="treeitem"
+            role={{or @role "treeitem"}}
             title={{@title}}
             @current-when={{this.resolvedCurrentWhen}}
             @models={{this.models}}
