@@ -123,6 +123,22 @@ export default class SectionLink extends Component {
     return [];
   }
 
+  get isCurrentPage() {
+    if (this.args.href) {
+      return (
+        this.args.href === this.args.exactUrlMatch?.value ||
+        this.args.currentWhen === true
+      );
+    }
+
+    const currentWhen = this.resolvedCurrentWhen;
+    if (typeof currentWhen === "boolean") {
+      return currentWhen;
+    }
+
+    return this.router.isActive(this.args.route, ...this.models);
+  }
+
   get resolvedCurrentWhen() {
     if (this.args.exactUrlMatch) {
       return false;
@@ -244,6 +260,7 @@ export default class SectionLink extends Component {
     {{#if this.shouldDisplay}}
       <li
         class={{this.wrapperClass}}
+        role="none"
         data-list-item-name={{@linkName}}
         ...attributes
         {{didInsert this.maybeScrollIntoView}}
@@ -257,7 +274,9 @@ export default class SectionLink extends Component {
       >
         {{#if @href}}
           <a
+            aria-current={{if this.isCurrentPage "page"}}
             class={{this.linkClass}}
+            role="treeitem"
             data-link-name={{@linkName}}
             draggable={{if @suppressNativeDrag false}}
             href={{@href}}
@@ -326,7 +345,9 @@ export default class SectionLink extends Component {
           </a>
         {{else}}
           <LinkTo
+            aria-current={{if this.isCurrentPage "page"}}
             class={{this.linkClass}}
+            role="treeitem"
             data-link-name={{@linkName}}
             draggable={{if @suppressNativeDrag false}}
             title={{@title}}

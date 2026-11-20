@@ -437,6 +437,7 @@ export default class SidebarSection extends Component {
         {{#if this.displaySectionContent}}
           <ul
             class="sidebar-section-content"
+            role="group"
             id={{this.sidebarSectionContentId}}
           >
             {{yield (hash linkDropIndex=this.linkDropIndex)}}
