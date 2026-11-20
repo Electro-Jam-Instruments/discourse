@@ -6577,6 +6577,7 @@ en:
 
     sidebar:
       title: "Sidebar"
+      aria_label: "Sidebar navigation"
       unread_count:
         one: "%{count} unread"
         other: "%{count} unread"

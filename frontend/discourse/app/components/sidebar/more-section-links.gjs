@@ -94,7 +94,7 @@ export default class SidebarMoreSectionLinks extends Component {
       />
     {{/if}}
 
-    <li class="sidebar-section-link-wrapper">
+    <li class="sidebar-section-link-wrapper" role="none">
       <DMenu
         @autofocus={{true}}
         @identifier={{if @identifier @identifier "sidebar-more-section"}}

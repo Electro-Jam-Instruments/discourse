@@ -4,7 +4,13 @@ import { i18n } from "discourse-i18n";
 import SectionLinkPrefix from "./section-link-prefix.gjs";
 
 const MoreSectionTrigger = <template>
-  <button ...attributes class="sidebar-section-link sidebar-row" type="button">
+  <button
+    ...attributes
+    aria-haspopup="menu"
+    class="sidebar-section-link sidebar-row"
+    role="treeitem"
+    type="button"
+  >
     <SectionLinkPrefix
       @prefixCSSClass={{@prefixCSSClass}}
       @prefixType={{or @prefixType "icon"}}

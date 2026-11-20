@@ -6,6 +6,7 @@ const SidebarSectionHeader = <template>
       aria-controls={{@sidebarSectionContentId}}
       aria-expanded={{if @isExpanded "true" "false"}}
       class="sidebar-section-header sidebar-section-header-collapsable btn-transparent"
+      role="treeitem"
       data-sidebar-keep-open
       @action={{@toggleSectionDisplay}}
       @forwardEvent={{true}}
@@ -14,7 +15,7 @@ const SidebarSectionHeader = <template>
       {{yield}}
     </DButton>
   {{else}}
-    <span class="sidebar-section-header">
+    <span class="sidebar-section-header" role="treeitem">
       {{yield}}
     </span>
   {{/if}}
