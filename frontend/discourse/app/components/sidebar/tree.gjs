@@ -63,11 +63,19 @@ export default class SidebarTree extends Component {
 
     if (direction === "forward") {
       if (isHeader && expanded === "false") {
-        item.click();
+        this.#toggle(item);
         return true;
       }
 
       if (isHeader) {
+        const headerAction = item
+          .closest(".sidebar-section-header-wrapper")
+          ?.querySelector(NESTED_ACTIONS);
+        if (headerAction) {
+          headerAction.focus();
+          return true;
+        }
+
         const first = item
           .closest(".sidebar-section")
           ?.querySelector(`.sidebar-section-content ${ITEM}`);
@@ -85,7 +93,7 @@ export default class SidebarTree extends Component {
 
     if (isHeader) {
       if (expanded === "true") {
-        item.click();
+        this.#toggle(item);
         return true;
       }
       return false;
@@ -98,7 +106,13 @@ export default class SidebarTree extends Component {
   }
 
   @action
-  openMenu(event) {
+  handleKey(event) {
+    if (event.key === " " && event.target.matches(`${HEADER}${ITEM}`)) {
+      event.preventDefault();
+      this.#toggle(event.target);
+      return;
+    }
+
     if (
       event.key !== "ContextMenu" &&
       !(event.shiftKey && event.key === "F10")
@@ -123,6 +137,17 @@ export default class SidebarTree extends Component {
     }
   }
 
+  // A click drops focus from the header; Enter on the button keeps it.
+  #toggle(header) {
+    header.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      })
+    );
+  }
+
   #removeNestedTabStops(element) {
     element
       .querySelectorAll(NESTED_ACTIONS)
@@ -136,7 +161,7 @@ export default class SidebarTree extends Component {
       ...attributes
       {{didInsert this.watch}}
       {{willDestroy this.unwatch}}
-      {{on "keydown" this.openMenu}}
+      {{on "keydown" this.handleKey}}
       {{dRovingFocus
         entryFocus="selected-or-first"
         itemSelector=ITEM
@@ -145,7 +170,6 @@ export default class SidebarTree extends Component {
         onRegisterApi=this.registerApi
         orientation="vertical"
         typeAhead=true
-        wrap=true
       }}
     >
       {{yield}}
