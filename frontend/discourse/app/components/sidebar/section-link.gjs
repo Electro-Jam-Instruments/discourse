@@ -260,8 +260,8 @@ export default class SectionLink extends Component {
     {{#if this.shouldDisplay}}
       <li
         class={{this.wrapperClass}}
-        role="none"
         data-list-item-name={{@linkName}}
+        role="none"
         ...attributes
         {{didInsert this.maybeScrollIntoView}}
         {{didUpdate
@@ -276,11 +276,11 @@ export default class SectionLink extends Component {
           <a
             aria-current={{if this.isCurrentPage "page"}}
             class={{this.linkClass}}
-            role="treeitem"
             data-link-name={{@linkName}}
             draggable={{if @suppressNativeDrag false}}
             href={{@href}}
             rel="noopener noreferrer"
+            role="treeitem"
             target={{this.target}}
             title={{@title}}
           >
@@ -326,7 +326,6 @@ export default class SectionLink extends Component {
               </span>
             {{/if}}
 
-            {{! eslint-disable ember/template-no-nested-interactive }}
             {{#if this.shouldRenderHoverAction}}
               <span class="sidebar-section-link-hover">
                 <button
@@ -347,9 +346,9 @@ export default class SectionLink extends Component {
           <LinkTo
             aria-current={{if this.isCurrentPage "page"}}
             class={{this.linkClass}}
-            role="treeitem"
             data-link-name={{@linkName}}
             draggable={{if @suppressNativeDrag false}}
+            role="treeitem"
             title={{@title}}
             @current-when={{this.resolvedCurrentWhen}}
             @models={{this.models}}

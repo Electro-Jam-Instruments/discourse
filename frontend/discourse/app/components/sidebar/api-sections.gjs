@@ -5,6 +5,19 @@ import { service } from "@ember/service";
 import { isActiveLink } from "discourse/lib/sidebar/active-link";
 import ApiSection from "./api-section.gjs";
 import PanelHeader from "./panel-header.gjs";
+import SidebarTree from "./tree.gjs";
+
+const ApiSectionList = <template>
+  {{#each @sections key="name" as |section|}}
+    <ApiSection
+      @collapsable={{@collapsable}}
+      @expandWhenActive={{@expandActiveSection}}
+      @scrollActiveLinkIntoView={{@scrollActiveLinkIntoView}}
+      @section={{section}}
+      @toggleNavigationMenu={{@toggleNavigationMenu}}
+    />
+  {{/each}}
+</template>;
 
 export default class SidebarApiSections extends Component {
   @service router;
@@ -51,15 +64,25 @@ export default class SidebarApiSections extends Component {
       @sections={{this.sections}}
     />
 
-    {{#each this.filteredSections key="name" as |section|}}
-      <ApiSection
+    {{#if @asTree}}
+      <SidebarTree>
+        <ApiSectionList
+          @collapsable={{@collapsable}}
+          @expandActiveSection={{@expandActiveSection}}
+          @scrollActiveLinkIntoView={{@scrollActiveLinkIntoView}}
+          @sections={{this.filteredSections}}
+          @toggleNavigationMenu={{@toggleNavigationMenu}}
+        />
+      </SidebarTree>
+    {{else}}
+      <ApiSectionList
         @collapsable={{@collapsable}}
-        @expandWhenActive={{@expandActiveSection}}
+        @expandActiveSection={{@expandActiveSection}}
         @scrollActiveLinkIntoView={{@scrollActiveLinkIntoView}}
-        @section={{section}}
+        @sections={{this.filteredSections}}
         @toggleNavigationMenu={{@toggleNavigationMenu}}
       />
-    {{/each}}
+    {{/if}}
   </template>
 }
 
