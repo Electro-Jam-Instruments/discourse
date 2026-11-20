@@ -29,10 +29,11 @@ export default class SidebarSectionLinkButton extends Component {
   }
 
   <template>
-    <div class="sidebar-section-link-wrapper">
+    <div class="sidebar-section-link-wrapper" role="none">
       <button
         class="sidebar-section-link sidebar-row --link-button"
         data-list-item-name={{@text}}
+        role={{if @role @role "treeitem"}}
         type="button"
         {{on "click" this.handleClick}}
       >

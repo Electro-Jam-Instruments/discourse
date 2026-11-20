@@ -71,7 +71,7 @@ export default class SidebarApiSection extends Component {
 
         {{#each @section.filteredItems key="key" as |item|}}
           {{#if (eq item.type "section")}}
-            <li class="sidebar-section-nested">
+            <li class="sidebar-section-nested" role="none">
               <SidebarApiSection
                 @collapsable={{@collapsable}}
                 @expandWhenActive={{@expandWhenActive}}

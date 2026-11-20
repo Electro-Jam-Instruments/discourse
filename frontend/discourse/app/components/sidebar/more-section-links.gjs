@@ -9,6 +9,7 @@ import curryComponent from "ember-curry-component";
 import DMenu from "discourse/float-kit/components/d-menu";
 import { findActiveLink } from "discourse/lib/sidebar/active-link";
 import DDropdownMenu from "discourse/ui-kit/d-dropdown-menu";
+import dRovingFocus from "discourse/ui-kit/modifiers/d-roving-focus";
 import MoreSectionLink from "./more-section-link.gjs";
 import MoreSectionTrigger from "./more-section-trigger.gjs";
 import SectionLinkButton from "./section-link-button.gjs";
@@ -105,10 +106,19 @@ export default class SidebarMoreSectionLinks extends Component {
       >
 
         <:content as |menu|>
-          <DDropdownMenu as |dropdown|>
+          <DDropdownMenu
+            role="menu"
+            {{dRovingFocus
+              entryFocus="first"
+              itemSelector='[role="menuitem"]'
+              orientation="vertical"
+            }}
+            as |dropdown|
+          >
             {{#each this.sectionLinks as |sectionLink|}}
               <MoreSectionLink
                 class="dropdown-menu__item"
+                @role="menuitem"
                 @sectionLink={{sectionLink}}
                 {{on "click" (fn this.closeMenu menu)}}
               />
@@ -117,11 +127,12 @@ export default class SidebarMoreSectionLinks extends Component {
             {{#if @moreButtonAction}}
               <dropdown.divider />
 
-              <dropdown.item>
+              <dropdown.item role="none">
                 <SectionLinkButton
                   @action={{@moreButtonAction}}
                   @icon={{@moreButtonIcon}}
                   @name="customize"
+                  @role="menuitem"
                   @text={{@moreButtonText}}
                   @toggleNavigationMenu={{@toggleNavigationMenu}}
                 />

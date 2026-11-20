@@ -14,6 +14,7 @@ const SidebarMoreSectionLink = <template>
     @prefixType="icon"
     @prefixValue={{@sectionLink.prefixValue}}
     @query={{@sectionLink.query}}
+    @role={{@role}}
     @route={{@sectionLink.route}}
     @scrollIntoView={{@scrollIntoView}}
     @shouldDisplay={{@sectionLink.shouldDisplay}}
