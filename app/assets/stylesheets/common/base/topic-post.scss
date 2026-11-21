@@ -560,6 +560,7 @@ nav.post-controls {
 
       &:focus-visible {
         @include focus-ring;
+        outline-offset: -2px;
       }
 
       &.hidden {
