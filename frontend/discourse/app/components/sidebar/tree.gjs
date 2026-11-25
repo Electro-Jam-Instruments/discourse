@@ -93,10 +93,7 @@ export default class SidebarTree extends Component {
           return true;
         }
 
-        const first = item
-          .closest(SECTION)
-          ?.querySelector(`.sidebar-section-content ${ITEM}`);
-        return first ? this.#api?.focusElement(first) : false;
+        return false;
       }
 
       const hoverButton = item.querySelector(HOVER_BUTTON);
