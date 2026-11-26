@@ -15,6 +15,9 @@ const HEADER_ACTIONS =
   ".sidebar-section-header-button, .sidebar-section-header-dropdown";
 const HOVER_BUTTON = ".sidebar-section-hover-button";
 const NESTED_ACTIONS = `${HOVER_BUTTON}, ${HEADER_ACTIONS}`;
+const MENU = ".fk-d-menu";
+const FOCUSABLE =
+  'button:not([disabled]), a[href], input:not([type="hidden"]), [tabindex]:not([tabindex="-1"])';
 
 /**
  * The sidebar as one tree: a single Tab stop, Up and Down between items, Right
@@ -34,6 +37,7 @@ export default class SidebarTree extends Component {
   #api = null;
   #element = null;
   #menuKeyDown = false;
+  #stopMenuWatch = null;
 
   @action
   watch(element) {
@@ -56,6 +60,7 @@ export default class SidebarTree extends Component {
 
   @action
   unwatch() {
+    this.#stopMenuWatch?.();
     this.#observer?.disconnect();
     this.#observer = null;
     this.#element = null;
@@ -131,6 +136,14 @@ export default class SidebarTree extends Component {
     }
 
     if (
+      (event.key === "Enter" || event.key === " ") &&
+      target.matches(HOVER_BUTTON)
+    ) {
+      this.#watchForMenu();
+      return;
+    }
+
+    if (
       event.key === "ContextMenu" ||
       (event.shiftKey && event.key === "F10")
     ) {
@@ -175,8 +188,73 @@ export default class SidebarTree extends Component {
     if (button) {
       event.preventDefault();
       this.#menuKeyDown = true;
+      this.#watchForMenu(item, button);
       button.click();
     }
+  }
+
+  // A menu opened from the keyboard takes focus into its first item, as a menu
+  // button should. When it was opened with the context menu key, focus goes
+  // back to the item the key was pressed on, not to the button that anchors it.
+  #watchForMenu(origin = null, trigger = null) {
+    this.#stopMenuWatch?.();
+
+    const known = new Set(document.querySelectorAll(MENU));
+    const stop = () => {
+      observer.disconnect();
+      document.removeEventListener("keydown", stop, true);
+      document.removeEventListener("pointerdown", stop, true);
+      this.#stopMenuWatch = null;
+    };
+    const observer = new MutationObserver(() => {
+      const menu = [...document.querySelectorAll(MENU)].find(
+        (candidate) => !known.has(candidate)
+      );
+      const first = menu?.querySelector(FOCUSABLE);
+      if (!first) {
+        return;
+      }
+
+      stop();
+      first.focus();
+      if (origin) {
+        this.#returnFocusWhenClosed(menu, origin, trigger);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    document.addEventListener("keydown", stop, true);
+    document.addEventListener("pointerdown", stop, true);
+    this.#stopMenuWatch = stop;
+  }
+
+  // The menu hands focus back to its trigger when it closes. Send it on to the
+  // item the menu was opened from.
+  #returnFocusWhenClosed(menu, origin, trigger) {
+    const closed = new MutationObserver(() => {
+      if (menu.isConnected) {
+        return;
+      }
+
+      closed.disconnect();
+      const done = () => {
+        document.removeEventListener("focusin", redirect, true);
+        document.removeEventListener("keydown", done, true);
+        document.removeEventListener("pointerdown", done, true);
+      };
+      const redirect = (event) => {
+        if (event.target === trigger && origin.isConnected) {
+          origin.focus();
+        }
+        done();
+      };
+
+      document.addEventListener("focusin", redirect, true);
+      document.addEventListener("keydown", done, true);
+      document.addEventListener("pointerdown", done, true);
+    });
+
+    closed.observe(document.body, { childList: true, subtree: true });
   }
 
   // A header's own buttons sit beside its tree item, so the engine does not
@@ -188,6 +266,11 @@ export default class SidebarTree extends Component {
     const items = this.#api?.items() ?? [];
     const at = items.indexOf(header);
     const index = actions.indexOf(button);
+
+    if (event.key === "Enter" || event.key === " ") {
+      this.#watchForMenu();
+      return;
+    }
 
     let destination;
     switch (event.key) {
